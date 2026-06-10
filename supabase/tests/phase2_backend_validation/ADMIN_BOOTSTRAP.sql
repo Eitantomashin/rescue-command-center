@@ -1,4 +1,4 @@
--- Phase 2.1 Admin Bootstrap
+﻿-- Phase 2.1 Admin Bootstrap
 --
 -- Purpose:
 -- Promote an existing Supabase Auth user to public.profiles.role = system_administrator.

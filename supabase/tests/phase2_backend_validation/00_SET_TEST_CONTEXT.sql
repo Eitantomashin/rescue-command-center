@@ -1,4 +1,4 @@
--- Phase 2 Backend Validation
+﻿-- Phase 2 Backend Validation
 -- Run this first in the same SQL session, then run the numbered scripts.
 --
 -- Replace the UUID below with an existing Supabase auth.users.id that also has
@@ -11,8 +11,8 @@ select set_config(
 );
 
 select set_config(
-  'request.jwt.claim.sub',
-  current_setting('rcc.test_user_id'),
+  'rcc.sql_editor_validation_mode',
+  'on',
   false
 );
 
@@ -30,12 +30,16 @@ begin
     raise exception 'No public.profiles row exists for user %', v_test_user_id;
   end if;
 
-  raise notice 'Test context ready for user %', v_test_user_id;
+  if not public.sql_editor_validation_mode_enabled() then
+    raise exception 'SQL Editor validation mode was not enabled';
+  end if;
+
+  raise notice 'SQL Editor validation context ready for user %', v_test_user_id;
 end;
 $$;
 
 select
-  auth.uid() as active_auth_uid,
+  public.current_actor_id() as active_validation_actor_id,
   p.role as profile_role
 from public.profiles p
-where p.id = auth.uid();
+where p.id = public.current_actor_id();

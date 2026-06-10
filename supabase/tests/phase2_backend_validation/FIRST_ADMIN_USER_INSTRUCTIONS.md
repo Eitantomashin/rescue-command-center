@@ -4,17 +4,23 @@ The database uses Supabase Auth user IDs as profile IDs. The first administrator
 
 ## Steps
 
-1. Open your Supabase project.
-2. Go to Authentication.
-3. Create a user manually, or sign up normally through Supabase Auth.
-4. Copy the user's UUID from the Users table.
-5. Open:
+1. Deploy the Phase 2.2 migration:
+
+```text
+supabase/migrations/20260610212200_phase2_2_sql_editor_validation_context.sql
+```
+
+2. Open your Supabase project.
+3. Go to Authentication.
+4. Create a user manually, or sign up normally through Supabase Auth.
+5. Copy the user's UUID from the Users table.
+6. Open:
 
 ```text
 supabase/tests/phase2_backend_validation/ADMIN_BOOTSTRAP.sql
 ```
 
-6. Replace:
+7. Replace:
 
 ```text
 00000000-0000-0000-0000-000000000000
@@ -22,8 +28,8 @@ supabase/tests/phase2_backend_validation/ADMIN_BOOTSTRAP.sql
 
 with the copied Auth user UUID.
 
-7. Run the script in Supabase SQL Editor.
-8. Confirm the output includes:
+8. Run the script in Supabase SQL Editor.
+9. Confirm the output includes:
 
 ```text
 role = system_administrator

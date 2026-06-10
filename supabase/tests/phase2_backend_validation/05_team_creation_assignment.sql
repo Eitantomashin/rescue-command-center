@@ -1,4 +1,4 @@
--- Validates team creation, team assignment, and assignment event log.
+﻿-- Validates team creation, team assignment, and assignment event log.
 
 do $$
 declare
@@ -15,7 +15,8 @@ begin
     raise exception 'Run 00_SET_TEST_CONTEXT.sql first';
   end if;
 
-  perform set_config('request.jwt.claim.sub', v_test_user_id::text, true);
+  perform set_config('rcc.sql_editor_validation_mode', 'on', true);
+  perform set_config('rcc.test_user_id', v_test_user_id::text, true);
 
   select id into v_incident_id
   from public.incidents
@@ -54,8 +55,8 @@ begin
       'Commander One',
       6,
       v_team_status_available,
-      auth.uid(),
-      auth.uid()
+      public.current_actor_id(),
+      public.current_actor_id()
     )
     returning id into v_team_id;
 
@@ -103,15 +104,15 @@ begin
       now(),
       'active',
       'Phase 2 validation assignment',
-      auth.uid(),
-      auth.uid()
+      public.current_actor_id(),
+      public.current_actor_id()
     )
     returning id into v_assignment_id;
 
     update public.teams
     set
       status_id = v_team_status_assigned,
-      updated_by = auth.uid()
+      updated_by = public.current_actor_id()
     where id = v_team_id;
 
     perform public.create_event_log(

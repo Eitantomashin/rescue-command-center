@@ -1,4 +1,4 @@
--- Validates incident creation.
+﻿-- Validates incident creation.
 
 do $$
 declare
@@ -11,7 +11,8 @@ begin
     raise exception 'Run 00_SET_TEST_CONTEXT.sql first';
   end if;
 
-  perform set_config('request.jwt.claim.sub', v_test_user_id::text, true);
+  perform set_config('rcc.sql_editor_validation_mode', 'on', true);
+  perform set_config('rcc.test_user_id', v_test_user_id::text, true);
 
   select public.get_status_id('incident', 'active', null)
   into v_status_id;
@@ -35,8 +36,8 @@ begin
     'Backend Validation Address',
     now(),
     v_status_id,
-    auth.uid(),
-    auth.uid()
+    public.current_actor_id(),
+    public.current_actor_id()
   )
   returning id into v_incident_id;
 
@@ -48,9 +49,9 @@ begin
   )
   values (
     v_incident_id,
-    auth.uid(),
+    public.current_actor_id(),
     'incident_commander',
-    auth.uid()
+    public.current_actor_id()
   )
   on conflict (incident_id, user_id) do nothing;
 

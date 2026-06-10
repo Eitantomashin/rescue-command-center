@@ -4,6 +4,12 @@ Use this checklist to execute backend validation against Supabase.
 
 ## First system administrator user
 
+0. Deploy the Phase 2.2 migration:
+
+```text
+supabase/migrations/20260610212200_phase2_2_sql_editor_validation_context.sql
+```
+
 1. Create a user in Supabase Auth.
 2. Open Supabase Dashboard.
 3. Go to Authentication > Users.
@@ -17,7 +23,7 @@ Use this checklist to execute backend validation against Supabase.
 
 1. Open `RUN_ALL_VALIDATIONS.sql`.
 2. Replace `00000000-0000-0000-0000-000000000000` with the same system administrator UUID.
-3. Run the full script in Supabase SQL Editor.
+3. Run the full script in Supabase SQL Editor. The script enables SQL Editor validation mode internally.
 4. Confirm the final notice says:
 
 ```text
@@ -48,7 +54,7 @@ PHASE 2.1 BACKEND VALIDATION PASSED
 
 ## Optional demo setup
 
-After validation passes, run `DEMO_INCIDENT_SETUP.sql` to create:
+After validation passes, run `00_SET_TEST_CONTEXT.sql`, then run `DEMO_INCIDENT_SETUP.sql` to create:
 
 - Demo Rescue Event
 - Site 1

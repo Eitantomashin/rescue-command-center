@@ -1,4 +1,4 @@
--- Validates create_site_with_structure(), floor generation, unit generation, and potential calculations.
+﻿-- Validates create_site_with_structure(), floor generation, unit generation, and potential calculations.
 
 do $$
 declare
@@ -15,7 +15,8 @@ begin
     raise exception 'Run 00_SET_TEST_CONTEXT.sql first';
   end if;
 
-  perform set_config('request.jwt.claim.sub', v_test_user_id::text, true);
+  perform set_config('rcc.sql_editor_validation_mode', 'on', true);
+  perform set_config('rcc.test_user_id', v_test_user_id::text, true);
 
   select id into v_incident_id
   from public.incidents

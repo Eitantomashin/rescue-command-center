@@ -128,6 +128,8 @@ Any raised exception means validation failed. Common causes:
 
 - placeholder UUID was not replaced
 - profile was not bootstrapped as `system_administrator`
+- Phase 2.2 SQL Editor validation migration was not deployed
+- SQL Editor validation mode was not enabled
 - status seed data is missing
 - Phase 1.5 migration was not deployed
 - direct write guards are blocking an action that should be routed through a function

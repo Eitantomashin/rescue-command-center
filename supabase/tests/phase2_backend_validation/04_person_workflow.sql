@@ -1,4 +1,4 @@
--- Validates person creation, reassignment, status update, history, and event logs.
+﻿-- Validates person creation, reassignment, status update, history, and event logs.
 
 do $$
 declare
@@ -17,7 +17,8 @@ begin
     raise exception 'Run 00_SET_TEST_CONTEXT.sql first';
   end if;
 
-  perform set_config('request.jwt.claim.sub', v_test_user_id::text, true);
+  perform set_config('rcc.sql_editor_validation_mode', 'on', true);
+  perform set_config('rcc.test_user_id', v_test_user_id::text, true);
 
   select id into v_incident_id
   from public.incidents
@@ -67,8 +68,8 @@ begin
       'Validation',
       'Person',
       'Phase 2 backend validation',
-      auth.uid(),
-      auth.uid()
+      public.current_actor_id(),
+      public.current_actor_id()
     )
     returning id into v_person_id;
 

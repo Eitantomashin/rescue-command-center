@@ -1,4 +1,4 @@
--- Phase 2.1 Run All Backend Validations
+﻿-- Phase 2.1 Run All Backend Validations
 --
 -- Replace the UUID below with a real auth.users.id that has public.profiles.role = system_administrator.
 -- Then run this entire file in Supabase SQL Editor.
@@ -42,7 +42,8 @@ begin
     raise exception 'Replace v_test_user_id with a real system_administrator auth.users.id';
   end if;
 
-  perform set_config('request.jwt.claim.sub', v_test_user_id::text, true);
+  perform set_config('rcc.sql_editor_validation_mode', 'on', true);
+  perform set_config('rcc.test_user_id', v_test_user_id::text, true);
 
   if not exists (
     select 1
@@ -87,8 +88,8 @@ begin
     'Validation Address 21',
     now(),
     v_incident_status_id,
-    auth.uid(),
-    auth.uid()
+    public.current_actor_id(),
+    public.current_actor_id()
   )
   returning id into v_incident_id;
 
@@ -100,9 +101,9 @@ begin
   )
   values (
     v_incident_id,
-    auth.uid(),
+    public.current_actor_id(),
     'incident_commander',
-    auth.uid()
+    public.current_actor_id()
   )
   on conflict (incident_id, user_id) do nothing;
 
@@ -206,8 +207,8 @@ begin
     'Validation',
     'Person',
     'Phase 2.1 validation',
-    auth.uid(),
-    auth.uid()
+    public.current_actor_id(),
+    public.current_actor_id()
   )
   returning id into v_person_101_id;
 
@@ -283,8 +284,8 @@ begin
     'Commander One',
     6,
     v_team_status_available,
-    auth.uid(),
-    auth.uid()
+    public.current_actor_id(),
+    public.current_actor_id()
   )
   returning id into v_team_id;
 
@@ -323,15 +324,15 @@ begin
     now(),
     'active',
     'Phase 2.1 validation assignment',
-    auth.uid(),
-    auth.uid()
+    public.current_actor_id(),
+    public.current_actor_id()
   )
   returning id into v_assignment_id;
 
   update public.teams
   set
     status_id = v_team_status_assigned,
-    updated_by = auth.uid()
+    updated_by = public.current_actor_id()
   where id = v_team_id;
 
   perform public.create_event_log(
@@ -371,8 +372,8 @@ begin
     'Duplicate',
     'Candidate',
     'Phase 2.1 validation',
-    auth.uid(),
-    auth.uid()
+    public.current_actor_id(),
+    public.current_actor_id()
   )
   returning id into v_person_901_id;
 

@@ -1,4 +1,4 @@
--- Demo incident setup for manual backend validation.
+﻿-- Demo incident setup for manual backend validation.
 --
 -- Run 00_SET_TEST_CONTEXT.sql first and set rcc.test_user_id to a real user.
 -- This script is non-destructive. If "Demo Rescue Event" already exists, it reuses the latest one.
@@ -22,7 +22,8 @@ begin
     raise exception 'Run 00_SET_TEST_CONTEXT.sql first';
   end if;
 
-  perform set_config('request.jwt.claim.sub', v_test_user_id::text, true);
+  perform set_config('rcc.sql_editor_validation_mode', 'on', true);
+  perform set_config('rcc.test_user_id', v_test_user_id::text, true);
 
   v_incident_status_id := public.get_status_id('incident', 'active', null);
   v_team_status_available := public.get_status_id('team', 'available', null);
@@ -50,8 +51,8 @@ begin
       'Demo Street 1',
       now(),
       v_incident_status_id,
-      auth.uid(),
-      auth.uid()
+      public.current_actor_id(),
+      public.current_actor_id()
     )
     returning id into v_incident_id;
 
@@ -63,9 +64,9 @@ begin
     )
     values (
       v_incident_id,
-      auth.uid(),
+      public.current_actor_id(),
       'incident_commander',
-      auth.uid()
+      public.current_actor_id()
     )
     on conflict (incident_id, user_id) do nothing;
 
@@ -87,9 +88,9 @@ begin
   )
   values (
     v_incident_id,
-    auth.uid(),
+    public.current_actor_id(),
     'incident_commander',
-    auth.uid()
+    public.current_actor_id()
   )
   on conflict (incident_id, user_id) do nothing;
 
@@ -138,8 +139,8 @@ begin
       'Commander 1',
       6,
       v_team_status_available,
-      auth.uid(),
-      auth.uid()
+      public.current_actor_id(),
+      public.current_actor_id()
     )
     returning id into v_team1_id;
 
@@ -185,8 +186,8 @@ begin
       'Commander 2',
       5,
       v_team_status_available,
-      auth.uid(),
-      auth.uid()
+      public.current_actor_id(),
+      public.current_actor_id()
     )
     returning id into v_team2_id;
 
@@ -247,10 +248,10 @@ begin
       updated_by
     )
     values
-      (v_incident_id, v_unit_1_1, 'Noa', 'Levi', 34, '050-0000001', v_resident_status_unknown, 'Demo resident', auth.uid(), auth.uid()),
-      (v_incident_id, v_unit_1_1, 'Amit', 'Levi', 8, null, v_resident_status_unknown, 'Demo resident', auth.uid(), auth.uid()),
-      (v_incident_id, v_unit_2_2, 'Daniel', 'Cohen', 42, '050-0000002', v_resident_status_unknown, 'Demo resident', auth.uid(), auth.uid()),
-      (v_incident_id, v_unit_4_3, 'Maya', 'Mizrahi', 29, '050-0000003', v_resident_status_unknown, 'Demo resident', auth.uid(), auth.uid());
+      (v_incident_id, v_unit_1_1, 'Noa', 'Levi', 34, '050-0000001', v_resident_status_unknown, 'Demo resident', public.current_actor_id(), public.current_actor_id()),
+      (v_incident_id, v_unit_1_1, 'Amit', 'Levi', 8, null, v_resident_status_unknown, 'Demo resident', public.current_actor_id(), public.current_actor_id()),
+      (v_incident_id, v_unit_2_2, 'Daniel', 'Cohen', 42, '050-0000002', v_resident_status_unknown, 'Demo resident', public.current_actor_id(), public.current_actor_id()),
+      (v_incident_id, v_unit_4_3, 'Maya', 'Mizrahi', 29, '050-0000003', v_resident_status_unknown, 'Demo resident', public.current_actor_id(), public.current_actor_id());
   end if;
 
   raise notice 'Demo Rescue Event ready. Incident %, Site %, Team1 %, Team2 %',

@@ -4,6 +4,7 @@ This test plan validates database behavior and business logic only. It does not 
 
 ## Prerequisites
 
+- Phase 2.2 SQL Editor validation migration is deployed.
 - Phase 1 and Phase 1.5 migrations are deployed.
 - Global status seed data exists in `status_types`.
 - At least one Supabase Auth user exists.
@@ -27,6 +28,8 @@ Replace:
 with an existing `auth.users.id`.
 
 Run the scripts in order in one SQL session when possible.
+
+`00_SET_TEST_CONTEXT.sql` explicitly enables SQL Editor validation mode, because SQL Editor does not provide `auth.uid()`.
 
 ## Script order
 
