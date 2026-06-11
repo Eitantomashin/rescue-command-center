@@ -1,0 +1,6 @@
+-- No-op migration.
+--
+-- The Operational Gap Engine originally lived at this timestamp, but that ran
+-- before the resident-potential migrations that add unit_residents.site_id.
+-- It has been moved to:
+-- 20260611135500_phase4_operational_gap_engine.sql

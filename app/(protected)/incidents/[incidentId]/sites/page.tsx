@@ -17,6 +17,7 @@ type SiteRow = {
   fully_cleared_units: number;
   open_units: number;
   open_persons: number;
+  gap_resolved_count: number;
   resolved_persons: number;
   operational_gap: number;
 };
@@ -74,7 +75,7 @@ export default async function SitesPage({
                 <th>פוטנציאל</th>
                 <th>יחידות פתוחות</th>
                 <th>זיכוי מלא</th>
-                <th>אנשים פתוחים</th>
+                <th>טופלו / ידועים</th>
                 <th>פער</th>
                 <th />
               </tr>
@@ -100,8 +101,8 @@ export default async function SitesPage({
                     {formatNumber(site.fully_cleared_units)} /{" "}
                     {formatNumber(site.total_active_units)}
                   </td>
-                  <td>{formatNumber(site.open_persons)}</td>
-                  <td>{formatNumber(site.operational_gap)}</td>
+                  <td>{formatNumber(site.gap_resolved_count)}</td>
+                  <td className="table-emphasis">{formatNumber(site.operational_gap)}</td>
                   <td>
                     <Link
                       className="button secondary"

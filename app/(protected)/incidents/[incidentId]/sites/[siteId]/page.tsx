@@ -2,6 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatNumber } from "@/lib/format";
+import {
+  clearUnit,
+  createGeneralAreaResident,
+  createUnitResident,
+  deleteEmptyPlaceholderResident,
+  linkExistingPersonToResident,
+  linkOperationalNumberToResident,
+  updatePersonStatus,
+  updateUnitResident,
+  updateUnitStatus
+} from "./actions";
 
 type SiteSummaryRow = {
   incident_id: string;
@@ -20,6 +31,7 @@ type SiteSummaryRow = {
   total_persons: number;
   open_persons: number;
   resolved_persons: number;
+  gap_resolved_count: number;
   operational_gap: number;
 };
 
@@ -46,7 +58,8 @@ type UnitRow = {
 
 type ResidentRow = {
   id: string;
-  unit_id: string;
+  site_id: string;
+  unit_id: string | null;
   first_name: string | null;
   last_name: string | null;
   age: number | null;
@@ -69,54 +82,104 @@ type PersonRow = {
 
 type StatusRow = {
   id: string;
+  category: string;
   status_key: string;
   hebrew_label: string;
   name: string;
+  counts_as_gap_resolved: boolean;
+  display_order: number | null;
 };
 
-type PersonStatusKind = "missing" | "trapped" | "rescued" | "evacuated" | "duplicate" | "other";
+type TreatmentState = "completed" | "in_progress" | "missing" | "unknown";
 
 function statusLabel(statuses: Map<string, StatusRow>, statusId: string | null) {
   if (!statusId) {
-    return "-";
+    return null;
   }
 
-  return statuses.get(statusId)?.hebrew_label ?? statusId;
+  return statuses.get(statusId)?.hebrew_label ?? null;
 }
 
-function statusKind(statuses: Map<string, StatusRow>, statusId: string | null, isMerged = false): PersonStatusKind {
-  const key = statusId ? statuses.get(statusId)?.status_key : null;
+function statusKey(statuses: Map<string, StatusRow>, statusId: string | null) {
+  return statusId ? statuses.get(statusId)?.status_key ?? null : null;
+}
 
-  if (isMerged || key === "duplicate_cancelled") {
-    return "duplicate";
+function displayName(person: Pick<PersonRow | ResidentRow, "first_name" | "last_name">) {
+  return [person.first_name, person.last_name].filter(Boolean).join(" ") || "שם לא ידוע";
+}
+
+function personLabel(person: PersonRow, linkedResident?: ResidentRow | null) {
+  return `#${person.operational_number} - ${linkedResident ? displayName(linkedResident) : displayName(person)}`;
+}
+
+function treatmentState(
+  statuses: Map<string, StatusRow>,
+  resident: ResidentRow,
+  linkedPerson?: PersonRow | null
+): TreatmentState {
+  const personKey = linkedPerson ? statusKey(statuses, linkedPerson.current_status_id) : null;
+  const residentKey = statusKey(statuses, resident.status_id);
+  const residentStatus = resident.status_id ? statuses.get(resident.status_id) : null;
+  const personStatus = linkedPerson ? statuses.get(linkedPerson.current_status_id) : null;
+
+  if (residentStatus?.counts_as_gap_resolved || personStatus?.counts_as_gap_resolved) {
+    return "completed";
   }
 
-  if (key === "missing") {
+  if (residentKey === "in_progress" || personKey === "trapped_located_not_yet_rescued" || linkedPerson) {
+    return "in_progress";
+  }
+
+  if (residentKey === "missing") {
     return "missing";
   }
 
-  if (key === "trapped_located_not_yet_rescued") {
-    return "trapped";
-  }
-
-  if (key === "located_outside_site") {
-    return "rescued";
-  }
-
-  if (
-    key === "injured_evacuated_to_ccp" ||
-    key === "injured_evacuated_from_site" ||
-    key === "fatality_evacuated"
-  ) {
-    return "evacuated";
-  }
-
-  return "other";
+  return "unknown";
 }
 
-function personDisplayName(person: Pick<PersonRow | ResidentRow, "first_name" | "last_name">) {
-  const name = [person.first_name, person.last_name].filter(Boolean).join(" ");
-  return name || "ללא שם";
+function treatmentLabel(state: TreatmentState) {
+  if (state === "completed") {
+    return "ידוע / טופל";
+  }
+
+  if (state === "in_progress") {
+    return "בטיפול";
+  }
+
+  if (state === "missing") {
+    return "נעדר";
+  }
+
+  return "לא ידוע";
+}
+
+function residentLine(
+  statuses: Map<string, StatusRow>,
+  resident: ResidentRow,
+  linkedPerson?: PersonRow | null
+) {
+  const number = linkedPerson ? `#${linkedPerson.operational_number}` : "ללא מספר מבצעי";
+  const knownStatus =
+    statusLabel(statuses, resident.status_id) ??
+    (linkedPerson ? statusLabel(statuses, linkedPerson.current_status_id) : null);
+
+  return `${displayName(resident)} · ${number} · ${knownStatus ?? "מצב לא ידוע"}`;
+}
+
+function isEmptyPlaceholderResident(statuses: Map<string, StatusRow>, resident: ResidentRow) {
+  const residentStatusKey = statusKey(statuses, resident.status_id);
+  const notes = resident.notes?.trim() ?? "";
+
+  return (
+    resident.unit_id !== null &&
+    resident.linked_person_id === null &&
+    /^דייר [0-9]+$/.test(resident.first_name ?? "") &&
+    !resident.last_name &&
+    resident.age === null &&
+    !resident.phone &&
+    (notes === "" || notes === "placeholder") &&
+    residentStatusKey === "missing"
+  );
 }
 
 function sortUnits(units: UnitRow[]) {
@@ -141,6 +204,26 @@ function groupByUnit<T extends { unit_id: string | null }>(rows: T[]) {
   }, new Map());
 }
 
+function statusOptions(statuses: StatusRow[], category: string) {
+  return statuses
+    .filter((status) => status.category === category)
+    .sort(
+      (a, b) =>
+        (a.display_order ?? 9999) - (b.display_order ?? 9999) ||
+        a.hebrew_label.localeCompare(b.hebrew_label, "he")
+    );
+}
+
+function hiddenContext(incidentId: string, siteId: string, unitId?: string) {
+  return (
+    <>
+      <input type="hidden" name="incidentId" value={incidentId} />
+      <input type="hidden" name="siteId" value={siteId} />
+      {unitId ? <input type="hidden" name="unitId" value={unitId} /> : null}
+    </>
+  );
+}
+
 export default async function SiteDetailsPage({
   params
 }: {
@@ -161,82 +244,86 @@ export default async function SiteDetailsPage({
 
   const site = summary as SiteSummaryRow;
 
-  const [{ data: floorRows, error: floorsError }, { data: unitRows, error: unitsError }] =
-    await Promise.all([
-      supabase
-        .from("floors")
-        .select("id,floor_number,units_count,status_id,is_active")
-        .eq("incident_id", params.incidentId)
-        .eq("site_id", params.siteId)
-        .order("floor_number", { ascending: false }),
-      supabase
-        .from("units")
-        .select(
-          "id,floor_id,unit_number,family_name,known_people_count,status_id,is_fully_cleared,is_active,inactive_reason,notes"
-        )
-        .eq("incident_id", params.incidentId)
-        .eq("site_id", params.siteId)
-        .order("unit_number", { ascending: true })
-    ]);
+  const [
+    { data: floorRows, error: floorsError },
+    { data: unitRows, error: unitsError },
+    { data: allStatusRows, error: statusesError }
+  ] = await Promise.all([
+    supabase
+      .from("floors")
+      .select("id,floor_number,units_count,status_id,is_active")
+      .eq("incident_id", params.incidentId)
+      .eq("site_id", params.siteId)
+      .order("floor_number", { ascending: false }),
+    supabase
+      .from("units")
+      .select(
+        "id,floor_id,unit_number,family_name,known_people_count,status_id,is_fully_cleared,is_active,inactive_reason,notes"
+      )
+      .eq("incident_id", params.incidentId)
+      .eq("site_id", params.siteId)
+      .order("unit_number", { ascending: true }),
+    supabase
+      .from("status_types")
+      .select("id,category,status_key,hebrew_label,name,counts_as_gap_resolved,display_order:sort_order")
+      .in("category", ["unit", "resident", "person"])
+      .eq("is_active", true)
+      .or(`incident_id.is.null,incident_id.eq.${params.incidentId}`)
+      .order("sort_order", { ascending: true })
+  ]);
 
   const floors = (floorRows ?? []) as FloorRow[];
   const units = (unitRows ?? []) as UnitRow[];
   const unitIds = units.map((unit) => unit.id);
 
-  const [{ data: residentRows }, { data: personRows }] =
-    unitIds.length > 0
-      ? await Promise.all([
-          supabase
+  const [
+    { data: residentRows },
+    { data: generalResidentRows },
+    { data: personRows },
+    { data: linkedResidentRows }
+  ] =
+    await Promise.all([
+      unitIds.length > 0
+        ? supabase
             .from("unit_residents")
-            .select("id,unit_id,first_name,last_name,age,phone,status_id,linked_person_id,is_active,notes")
+            .select("id,site_id,unit_id,first_name,last_name,age,phone,status_id,linked_person_id,is_active,notes")
             .eq("incident_id", params.incidentId)
             .in("unit_id", unitIds)
-            .order("last_name", { ascending: true }),
-          supabase
-            .from("persons")
-            .select("id,unit_id,operational_number,first_name,last_name,current_status_id,is_merged")
-            .eq("incident_id", params.incidentId)
-            .eq("site_id", params.siteId)
-            .order("operational_number", { ascending: true })
-        ])
-      : [{ data: [] }, { data: [] }];
+            .order("last_name", { ascending: true })
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from("unit_residents")
+        .select("id,site_id,unit_id,first_name,last_name,age,phone,status_id,linked_person_id,is_active,notes")
+        .eq("incident_id", params.incidentId)
+        .eq("site_id", params.siteId)
+        .is("unit_id", null)
+        .order("last_name", { ascending: true }),
+      supabase
+        .from("persons")
+        .select("id,unit_id,operational_number,first_name,last_name,current_status_id,is_merged")
+        .eq("incident_id", params.incidentId)
+        .eq("is_merged", false)
+        .order("operational_number", { ascending: true }),
+      supabase
+        .from("unit_residents")
+        .select("id,site_id,unit_id,first_name,last_name,age,phone,status_id,linked_person_id,is_active,notes")
+        .eq("incident_id", params.incidentId)
+        .not("linked_person_id", "is", null)
+        .order("last_name", { ascending: true })
+    ]);
 
   const residents = (residentRows ?? []) as ResidentRow[];
+  const generalResidents = (generalResidentRows ?? []) as ResidentRow[];
   const persons = (personRows ?? []) as PersonRow[];
-  const statusIds = Array.from(
-    new Set(
-      [
-        ...floors.map((floor) => floor.status_id),
-        ...units.map((unit) => unit.status_id),
-        ...residents.map((resident) => resident.status_id),
-        ...persons.map((person) => person.current_status_id)
-      ].filter(Boolean) as string[]
-    )
-  );
-
-  const { data: statusRows } =
-    statusIds.length > 0
-      ? await supabase
-          .from("status_types")
-          .select("id,status_key,hebrew_label,name")
-          .in("id", statusIds)
-      : { data: [] };
-
-  const statuses = new Map(
-    ((statusRows ?? []) as StatusRow[]).map((status) => [status.id, status])
-  );
-
-  const activePersons = persons.filter((person) => !person.is_merged);
-  const personStatusCounts = activePersons.reduce(
-    (counts, person) => {
-      const kind = statusKind(statuses, person.current_status_id, person.is_merged);
-      if (kind === "missing" || kind === "trapped" || kind === "rescued" || kind === "evacuated") {
-        counts[kind] += 1;
-      }
-      return counts;
-    },
-    { missing: 0, trapped: 0, rescued: 0, evacuated: 0 }
-  );
+  const linkedResidents = (linkedResidentRows ?? []) as ResidentRow[];
+  const allStatuses = (allStatusRows ?? []) as StatusRow[];
+  const statuses = new Map(allStatuses.map((status) => [status.id, status]));
+  const unitStatuses = statusOptions(allStatuses, "unit");
+  const editableUnitStatuses = unitStatuses.filter((status) => status.status_key !== "fully_cleared");
+  const residentStatuses = statusOptions(allStatuses, "resident");
+  const personStatuses = statusOptions(allStatuses, "person");
+  const defaultResidentStatusId =
+    residentStatuses.find((status) => status.status_key === "missing")?.id ?? "";
 
   const unitsByFloor = units.reduce<Map<string, UnitRow[]>>((grouped, unit) => {
     const floorUnits = grouped.get(unit.floor_id) ?? [];
@@ -246,7 +333,16 @@ export default async function SiteDetailsPage({
   }, new Map());
 
   const residentsByUnit = groupByUnit(residents);
-  const personsByUnit = groupByUnit(persons);
+  const personsById = new Map(persons.map((person) => [person.id, person]));
+  const linkedResidentsByPerson = new Map(
+    linkedResidents
+      .filter((resident) => resident.linked_person_id)
+      .map((resident) => [resident.linked_person_id as string, resident])
+  );
+  const unlinkedPersons = persons.filter(
+    (person) => !person.unit_id && !linkedResidentsByPerson.has(person.id)
+  );
+  const activeGeneralResidents = generalResidents.filter((resident) => resident.is_active);
 
   return (
     <main className="page">
@@ -281,6 +377,10 @@ export default async function SiteDetailsPage({
           <strong>{formatNumber(site.updated_potential)}</strong>
         </div>
         <div className="metric">
+          טופלו / ידועים
+          <strong>{formatNumber(site.gap_resolved_count)}</strong>
+        </div>
+        <div className="metric metric-emphasis">
           פער מבצעי
           <strong>{formatNumber(site.operational_gap)}</strong>
         </div>
@@ -289,37 +389,8 @@ export default async function SiteDetailsPage({
           <strong>{formatNumber(site.total_active_units)}</strong>
         </div>
         <div className="metric">
-          זיכוי מלא
-          <strong>
-            {formatNumber(site.fully_cleared_units)} / {formatNumber(site.total_active_units)}
-          </strong>
-        </div>
-        <div className="metric">
-          אנשים פתוחים
-          <strong>{formatNumber(site.open_persons)}</strong>
-        </div>
-      </section>
-
-      <section className="grid section-spaced" aria-label="סיכום אנשים באתר">
-        <div className="metric">
-          סך אנשים
-          <strong>{formatNumber(site.total_persons ?? activePersons.length)}</strong>
-        </div>
-        <div className="metric">
-          נעדרים
-          <strong>{formatNumber(personStatusCounts.missing)}</strong>
-        </div>
-        <div className="metric">
-          לכודים
-          <strong>{formatNumber(personStatusCounts.trapped)}</strong>
-        </div>
-        <div className="metric">
-          חולצו
-          <strong>{formatNumber(personStatusCounts.rescued)}</strong>
-        </div>
-        <div className="metric">
-          פונו
-          <strong>{formatNumber(personStatusCounts.evacuated)}</strong>
+          דירות פתוחות
+          <strong>{formatNumber(site.open_units)}</strong>
         </div>
       </section>
 
@@ -327,20 +398,24 @@ export default async function SiteDetailsPage({
         <div className="building-heading">
           <div>
             <h2>תמונת מבנה</h2>
-            <p className="muted">קומות, דירות ורשימת דיירים/אנשים מבצעיים לפי הנתונים הקיימים במערכת</p>
+            <p className="muted">תצוגת פיקוד ידידותית: הדירות מציגות דיירים רשומים בלבד.</p>
           </div>
           <div className="building-legend" aria-label="מקרא">
             <span className="legend-item">
-              <span className="legend-swatch open" />
-              פתוחה
-            </span>
-            <span className="legend-item">
               <span className="legend-swatch cleared" />
-              זוכתה
+              ידוע / טופל
             </span>
             <span className="legend-item">
-              <span className="legend-swatch inactive" />
-              לא פעילה
+              <span className="legend-swatch in-progress" />
+              בטיפול
+            </span>
+            <span className="legend-item">
+              <span className="legend-swatch missing" />
+              נעדר
+            </span>
+            <span className="legend-item">
+              <span className="legend-swatch unknown" />
+              לא ידוע
             </span>
           </div>
         </div>
@@ -351,14 +426,18 @@ export default async function SiteDetailsPage({
           </p>
         ) : null}
 
+        {statusesError || residentStatuses.length === 0 ? (
+          <p className="error">
+            לא ניתן לטעון סטטוסי דיירים. יש לוודא שהמיגרציות האחרונות הופעלו ושקיימים סטטוסים פעילים מסוג resident.
+          </p>
+        ) : null}
+
         {floors.length === 0 ? (
           <p className="muted">לא נמצאו קומות לאתר זה.</p>
         ) : (
           <div className="building-stack">
             {floors.map((floor) => {
               const floorUnits = sortUnits(unitsByFloor.get(floor.id) ?? []);
-              const activeUnits = floorUnits.filter((unit) => unit.is_active).length;
-              const clearedUnits = floorUnits.filter((unit) => unit.is_fully_cleared).length;
 
               return (
                 <section
@@ -371,13 +450,10 @@ export default async function SiteDetailsPage({
                   <div className="floor-card-header">
                     <div>
                       <h3>קומה {floor.floor_number}</h3>
-                      <p className="muted">
-                        {formatNumber(activeUnits)} פעילות מתוך {formatNumber(floorUnits.length)}{" "}
-                        דירות · {formatNumber(clearedUnits)} זוכו
-                      </p>
+                      <p className="muted">{formatNumber(floorUnits.length)} דירות</p>
                     </div>
                     <div className="floor-status">
-                      <span className="badge">{statusLabel(statuses, floor.status_id)}</span>
+                      <span className="badge">{statusLabel(statuses, floor.status_id) ?? "-"}</span>
                       {!floor.is_active ? <span className="badge inactive">לא פעילה</span> : null}
                     </div>
                   </div>
@@ -387,16 +463,20 @@ export default async function SiteDetailsPage({
                   ) : (
                     <div className="apartment-grid">
                       {floorUnits.map((unit) => {
-                        const unitResidents = residentsByUnit.get(unit.id) ?? [];
-                        const unitPersons = personsByUnit.get(unit.id) ?? [];
-                        const activeResidents = unitResidents.filter((resident) => resident.is_active);
-                        const expectedCount = unit.known_people_count;
+                        const activeResidents = (residentsByUnit.get(unit.id) ?? []).filter(
+                          (resident) => resident.is_active
+                        );
+                        const residentStates = activeResidents.map((resident) =>
+                          treatmentState(statuses, resident, resident.linked_person_id ? personsById.get(resident.linked_person_id) : null)
+                        );
+                        const knownHandledResidents = residentStates.filter((state) => state === "completed").length;
+                        const unknownResidents = activeResidents.length - knownHandledResidents;
 
                         return (
                           <article
                             className={[
                               "apartment-card",
-                              unit.is_fully_cleared ? "cleared" : "open",
+                              knownHandledResidents > 0 && unknownResidents === 0 ? "cleared" : "open",
                               !unit.is_active ? "inactive" : ""
                             ]
                               .filter(Boolean)
@@ -406,9 +486,6 @@ export default async function SiteDetailsPage({
                             <div className="apartment-card-header">
                               <h4>דירה {unit.unit_number}</h4>
                               <div className="apartment-badges">
-                                <span className={unit.is_fully_cleared ? "badge cleared" : "badge open"}>
-                                  {unit.is_fully_cleared ? "זוכתה" : "פתוחה"}
-                                </span>
                                 <span className={unit.is_active ? "badge active" : "badge inactive"}>
                                   {unit.is_active ? "פעילה" : "לא פעילה"}
                                 </span>
@@ -417,62 +494,136 @@ export default async function SiteDetailsPage({
 
                             <dl className="apartment-details">
                               <div>
-                                <dt>סטטוס</dt>
-                                <dd>{statusLabel(statuses, unit.status_id)}</dd>
-                              </div>
-                              <div>
                                 <dt>שם משפחה</dt>
                                 <dd>{unit.family_name ?? "-"}</dd>
                               </div>
                               <div>
-                                <dt>רשומים / צפוי</dt>
-                                <dd>
-                                  {formatNumber(activeResidents.length)} /{" "}
-                                  {expectedCount === null ? "-" : formatNumber(expectedCount)}
-                                </dd>
+                                <dt>סה"כ דיירים</dt>
+                                <dd>{formatNumber(activeResidents.length)}</dd>
                               </div>
                               <div>
-                                <dt>כרטיסי אנשים</dt>
-                                <dd>{formatNumber(unitPersons.length)}</dd>
+                                <dt>טופלו / ידועים</dt>
+                                <dd>{formatNumber(knownHandledResidents)}</dd>
+                              </div>
+                              <div>
+                                <dt>פער</dt>
+                                <dd>{formatNumber(unknownResidents)}</dd>
                               </div>
                             </dl>
 
                             <div className="resident-section">
-                              <h5>דיירים</h5>
+                              <h5>דיירים רשומים</h5>
                               {activeResidents.length === 0 ? (
                                 <p className="muted">אין דיירים רשומים לדירה זו.</p>
                               ) : (
                                 <ul className="resident-list">
-                                  {activeResidents.map((resident) => (
-                                    <li className="resident-item" key={resident.id}>
-                                      <span>{personDisplayName(resident)}</span>
-                                      <small>
-                                        {resident.age === null ? null : `גיל ${resident.age}`}
-                                        {resident.status_id ? ` · ${statusLabel(statuses, resident.status_id)}` : ""}
-                                      </small>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-
-                            <div className="resident-section">
-                              <h5>אנשים מבצעיים</h5>
-                              {unitPersons.length === 0 ? (
-                                <p className="muted">אין כרטיסי אדם משויכים לדירה זו.</p>
-                              ) : (
-                                <ul className="resident-list">
-                                  {unitPersons.map((person) => {
-                                    const kind = statusKind(statuses, person.current_status_id, person.is_merged);
+                                  {activeResidents.map((resident) => {
+                                    const linkedPerson = resident.linked_person_id
+                                      ? personsById.get(resident.linked_person_id)
+                                      : null;
+                                    const state = treatmentState(statuses, resident, linkedPerson);
+                                    const canDeletePlaceholder = isEmptyPlaceholderResident(statuses, resident);
+                                    const availablePeople = persons.filter(
+                                      (person) =>
+                                        !person.is_merged &&
+                                        (person.id === resident.linked_person_id ||
+                                          !linkedResidentsByPerson.has(person.id))
+                                    );
 
                                     return (
-                                      <li className="resident-item person-row" key={person.id}>
-                                        <span>
-                                          #{formatNumber(person.operational_number)} · {personDisplayName(person)}
-                                        </span>
-                                        <span className={`person-status ${kind}`}>
-                                          {statusLabel(statuses, person.current_status_id)}
-                                        </span>
+                                      <li className={`resident-item treatment-${state}`} key={resident.id}>
+                                        <div className="resident-display-row">
+                                          <div>
+                                            <strong>{residentLine(statuses, resident, linkedPerson)}</strong>
+                                            <small>
+                                              {resident.age === null ? "" : `גיל ${resident.age} · `}
+                                              טיפול: {treatmentLabel(state)}
+                                            </small>
+                                          </div>
+                                          <div className="resident-row-actions">
+                                            <span className={`resident-treatment ${state}`}>
+                                              {treatmentLabel(state)}
+                                            </span>
+                                            {canDeletePlaceholder ? (
+                                              <form action={deleteEmptyPlaceholderResident} className="placeholder-delete-form inline">
+                                                {hiddenContext(params.incidentId, params.siteId)}
+                                                <input type="hidden" name="residentId" value={resident.id} />
+                                                <button className="button compact secondary danger" type="submit">
+                                                  מחק דייר ריק
+                                                </button>
+                                              </form>
+                                            ) : null}
+                                          </div>
+                                        </div>
+
+                                        <details className="resident-edit">
+                                          <summary>עדכון דייר</summary>
+                                          <form action={updateUnitResident} className="form-grid resident-update-form">
+                                            {hiddenContext(params.incidentId, params.siteId)}
+                                            <input type="hidden" name="residentId" value={resident.id} />
+                                            <input className="input" name="firstName" defaultValue={resident.first_name ?? ""} placeholder="שם פרטי" />
+                                            <input className="input" name="lastName" defaultValue={resident.last_name ?? ""} placeholder="שם משפחה" />
+                                            <input className="input" name="age" type="number" min="0" defaultValue={resident.age ?? ""} placeholder="גיל" />
+                                            <input className="input" name="phone" defaultValue={resident.phone ?? ""} placeholder="טלפון" />
+                                            <select className="input wide" name="statusId" defaultValue={resident.status_id ?? ""}>
+                                              <option value="">מצב דייר לא ידוע</option>
+                                              {residentStatuses.map((status) => (
+                                                <option key={status.id} value={status.id}>
+                                                  {status.hebrew_label}
+                                                </option>
+                                              ))}
+                                            </select>
+                                            <input className="input wide" name="notes" defaultValue={resident.notes ?? ""} placeholder="הערות" />
+                                            <button className="button secondary" type="submit">
+                                              שמור דייר
+                                            </button>
+                                          </form>
+
+                                          <form action={linkExistingPersonToResident} className="resident-link-form wide-link-form">
+                                            {hiddenContext(params.incidentId, params.siteId)}
+                                            <input type="hidden" name="residentId" value={resident.id} />
+                                            <select
+                                              className="input"
+                                              name="personId"
+                                              required
+                                              defaultValue={resident.linked_person_id ?? ""}
+                                              disabled={availablePeople.length === 0}
+                                            >
+                                              <option value="">קישור למספר מבצעי</option>
+                                              {availablePeople.map((person) => (
+                                                <option key={person.id} value={person.id}>
+                                                  {personLabel(person, linkedResidentsByPerson.get(person.id))}
+                                                </option>
+                                              ))}
+                                            </select>
+                                            <button
+                                              className="button secondary"
+                                              type="submit"
+                                              disabled={availablePeople.length === 0}
+                                            >
+                                              עדכן מספר
+                                            </button>
+                                          </form>
+
+                                          <form action={linkOperationalNumberToResident} className="resident-link-form wide-link-form">
+                                            {hiddenContext(params.incidentId, params.siteId)}
+                                            <input type="hidden" name="residentId" value={resident.id} />
+                                            <input
+                                              className="input"
+                                              name="operationalNumber"
+                                              type="number"
+                                              min="1"
+                                              defaultValue={linkedPerson?.operational_number ?? ""}
+                                              placeholder="מספר מבצעי, למשל 101"
+                                              required
+                                            />
+                                            <input className="input" name="reason" placeholder="סיבת קישור / עדכון" />
+                                            <button className="button secondary" type="submit">
+                                              שמור מספר מבצעי
+                                            </button>
+                                          </form>
+
+                                        </details>
                                       </li>
                                     );
                                   })}
@@ -480,11 +631,64 @@ export default async function SiteDetailsPage({
                               )}
                             </div>
 
+                            <details className="unit-actions">
+                              <summary>פעולות דירה</summary>
+
+                              <form action={createUnitResident} className="action-form">
+                                {hiddenContext(params.incidentId, params.siteId, unit.id)}
+                                <strong>הוסף דייר</strong>
+                                <div className="form-grid">
+                                  <input className="input" name="firstName" placeholder="שם פרטי" />
+                                  <input className="input" name="lastName" placeholder="שם משפחה" />
+                                  <input className="input" name="age" type="number" min="0" placeholder="גיל" />
+                                  <input className="input" name="phone" placeholder="טלפון" />
+                                  <select className="input" name="statusId" defaultValue={defaultResidentStatusId}>
+                                    <option value="">מצב דייר</option>
+                                    {residentStatuses.map((status) => (
+                                      <option key={status.id} value={status.id}>
+                                        {status.hebrew_label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input className="input" name="notes" placeholder="הערה" />
+                                </div>
+                                <button className="button" type="submit">
+                                  הוסף דייר
+                                </button>
+                              </form>
+
+                              <form action={updateUnitStatus} className="action-form">
+                                {hiddenContext(params.incidentId, params.siteId, unit.id)}
+                                <strong>עדכן סטטוס דירה</strong>
+                                <div className="form-grid">
+                                  <select className="input wide" name="statusId" defaultValue={unit.status_id ?? ""} required>
+                                    <option value="">בחר סטטוס דירה</option>
+                                    {editableUnitStatuses.map((status) => (
+                                      <option key={status.id} value={status.id}>
+                                        {status.hebrew_label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input className="input wide" name="notes" placeholder="הערה" />
+                                </div>
+                                <button className="button secondary" type="submit">
+                                  עדכן סטטוס דירה
+                                </button>
+                              </form>
+
+                              <form action={clearUnit} className="action-form">
+                                {hiddenContext(params.incidentId, params.siteId, unit.id)}
+                                <strong>סימון זיכוי</strong>
+                                <input className="input" name="overrideReason" placeholder="נימוק חובה אם יש אנשים פתוחים בדירה" />
+                                <button className="button" type="submit" disabled={unit.is_fully_cleared || !unit.is_active}>
+                                  סמן דירה כזוכתה
+                                </button>
+                              </form>
+                            </details>
+
                             {!unit.is_active && unit.inactive_reason ? (
                               <p className="apartment-note">סיבת השבתה: {unit.inactive_reason}</p>
                             ) : null}
-
-                            {unit.notes ? <p className="apartment-note">הערות: {unit.notes}</p> : null}
                           </article>
                         );
                       })}
@@ -494,6 +698,184 @@ export default async function SiteDetailsPage({
               );
             })}
           </div>
+        )}
+      </section>
+
+      <section className="panel section-spaced general-area-panel">
+        <div className="building-heading">
+          <div>
+            <h2>אזור כללי / שטחים משותפים</h2>
+            <p className="muted">לובי, מדרגות, חניה, אורחים או כל אדם שאינו משויך לדירה מסוימת.</p>
+          </div>
+          <span className="badge">{formatNumber(activeGeneralResidents.length)} רשומות פעילות</span>
+        </div>
+
+        {activeGeneralResidents.length === 0 ? (
+          <p className="muted">אין עדיין דיירים או אנשים באזור הכללי.</p>
+        ) : (
+          <ul className="resident-list general-resident-list">
+            {activeGeneralResidents.map((resident) => {
+              const linkedPerson = resident.linked_person_id
+                ? personsById.get(resident.linked_person_id)
+                : null;
+              const state = treatmentState(statuses, resident, linkedPerson);
+              const availablePeople = persons.filter(
+                (person) =>
+                  !person.is_merged &&
+                  (person.id === resident.linked_person_id || !linkedResidentsByPerson.has(person.id))
+              );
+
+              return (
+                <li className={`resident-item treatment-${state}`} key={resident.id}>
+                  <div className="resident-display-row">
+                    <div>
+                      <strong>{residentLine(statuses, resident, linkedPerson)}</strong>
+                      <small>
+                        {resident.age === null ? "" : `גיל ${resident.age} · `}
+                        טיפול: {treatmentLabel(state)}
+                      </small>
+                    </div>
+                    <span className={`resident-treatment ${state}`}>{treatmentLabel(state)}</span>
+                  </div>
+
+                  <details className="resident-edit">
+                    <summary>עדכון דייר</summary>
+                    <form action={updateUnitResident} className="form-grid resident-update-form">
+                      {hiddenContext(params.incidentId, params.siteId)}
+                      <input type="hidden" name="residentId" value={resident.id} />
+                      <input className="input" name="firstName" defaultValue={resident.first_name ?? ""} placeholder="שם פרטי" />
+                      <input className="input" name="lastName" defaultValue={resident.last_name ?? ""} placeholder="שם משפחה" />
+                      <input className="input" name="age" type="number" min="0" defaultValue={resident.age ?? ""} placeholder="גיל" />
+                      <input className="input" name="phone" defaultValue={resident.phone ?? ""} placeholder="טלפון" />
+                      <select className="input wide" name="statusId" defaultValue={resident.status_id ?? ""}>
+                        <option value="">מצב דייר לא ידוע</option>
+                        {residentStatuses.map((status) => (
+                          <option key={status.id} value={status.id}>
+                            {status.hebrew_label}
+                          </option>
+                        ))}
+                      </select>
+                      <input className="input wide" name="notes" defaultValue={resident.notes ?? ""} placeholder="הערות" />
+                      <button className="button secondary" type="submit">
+                        שמור דייר
+                      </button>
+                    </form>
+
+                    <form action={linkExistingPersonToResident} className="resident-link-form wide-link-form">
+                      {hiddenContext(params.incidentId, params.siteId)}
+                      <input type="hidden" name="residentId" value={resident.id} />
+                      <select
+                        className="input"
+                        name="personId"
+                        required
+                        defaultValue={resident.linked_person_id ?? ""}
+                        disabled={availablePeople.length === 0}
+                      >
+                        <option value="">קישור למספר מבצעי</option>
+                        {availablePeople.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {personLabel(person, linkedResidentsByPerson.get(person.id))}
+                          </option>
+                        ))}
+                      </select>
+                      <button className="button secondary" type="submit" disabled={availablePeople.length === 0}>
+                        עדכן מספר
+                      </button>
+                    </form>
+
+                    <form action={linkOperationalNumberToResident} className="resident-link-form wide-link-form">
+                      {hiddenContext(params.incidentId, params.siteId)}
+                      <input type="hidden" name="residentId" value={resident.id} />
+                      <input
+                        className="input"
+                        name="operationalNumber"
+                        type="number"
+                        min="1"
+                        defaultValue={linkedPerson?.operational_number ?? ""}
+                        placeholder="מספר מבצעי, למשל 101"
+                        required
+                      />
+                      <input className="input" name="reason" placeholder="סיבת קישור / עדכון" />
+                      <button className="button secondary" type="submit">
+                        שמור מספר מבצעי
+                      </button>
+                    </form>
+                  </details>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <details className="unit-actions">
+          <summary>הוסף אדם לאזור הכללי</summary>
+          <form action={createGeneralAreaResident} className="action-form">
+            {hiddenContext(params.incidentId, params.siteId)}
+            <strong>הוסף דייר / אדם באזור כללי</strong>
+            <div className="form-grid">
+              <input className="input" name="firstName" placeholder="שם פרטי" />
+              <input className="input" name="lastName" placeholder="שם משפחה" />
+              <input className="input" name="age" type="number" min="0" placeholder="גיל" />
+              <input className="input" name="phone" placeholder="טלפון" />
+              <select className="input" name="statusId" defaultValue={defaultResidentStatusId}>
+                <option value="">מצב דייר</option>
+                {residentStatuses.map((status) => (
+                  <option key={status.id} value={status.id}>
+                    {status.hebrew_label}
+                  </option>
+                ))}
+              </select>
+              <input className="input" name="notes" placeholder="הערה" />
+            </div>
+            <button className="button" type="submit">
+              הוסף לאזור הכללי
+            </button>
+          </form>
+        </details>
+      </section>
+
+      <section className="panel section-spaced">
+        <h2>אנשים מבצעיים ללא שיוך ברור</h2>
+        {unlinkedPersons.length === 0 ? (
+          <p className="muted">אין כרטיסי אדם ללא שיוך לדייר או לדירה.</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>מספר</th>
+                <th>שם</th>
+                <th>סטטוס</th>
+                <th>עדכון סטטוס</th>
+              </tr>
+            </thead>
+            <tbody>
+              {unlinkedPersons.map((person) => (
+                <tr key={person.id}>
+                  <td>#{formatNumber(person.operational_number)}</td>
+                  <td>{displayName(person)}</td>
+                  <td>{statusLabel(statuses, person.current_status_id) ?? "מצב לא ידוע"}</td>
+                  <td>
+                    <form action={updatePersonStatus} className="inline-action-form">
+                      {hiddenContext(params.incidentId, params.siteId)}
+                      <input type="hidden" name="personId" value={person.id} />
+                      <select className="input compact" name="statusId" defaultValue={person.current_status_id} required>
+                        <option value="">בחר סטטוס אדם</option>
+                        {personStatuses.map((status) => (
+                          <option key={status.id} value={status.id}>
+                            {status.hebrew_label}
+                          </option>
+                        ))}
+                      </select>
+                      <input className="input compact" name="notes" placeholder="הערה" />
+                      <button className="button compact secondary" type="submit">
+                        עדכן
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </section>
     </main>

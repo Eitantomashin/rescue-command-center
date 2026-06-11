@@ -13,8 +13,11 @@ type DashboardRow = {
   is_closed: boolean;
   incident_status_label: string | null;
   total_sites: number;
+  initial_potential: number;
+  updated_potential: number;
   total_initial_potential: number;
   total_updated_potential: number;
+  gap_resolved_count: number;
   resolved_persons: number;
   operational_gap: number;
   total_teams: number;
@@ -30,9 +33,23 @@ type EventLogRow = {
   description: string | null;
   importance: string;
   log_type: string;
+  person_id: string | null;
   site_number: number | null;
   operational_number: number | null;
   team_number: number | null;
+};
+
+type PersonRow = {
+  id: string;
+  operational_number: number;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+type ResidentRow = {
+  linked_person_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
 };
 
 type SiteSummaryRow = {
@@ -48,9 +65,22 @@ type SiteSummaryRow = {
   fully_cleared_units: number;
   open_units: number;
   open_persons: number;
+  gap_resolved_count: number;
   resolved_persons: number;
   operational_gap: number;
 };
+
+function personDisplayName(person: Pick<PersonRow | ResidentRow, "first_name" | "last_name">) {
+  return [person.first_name, person.last_name].filter(Boolean).join(" ");
+}
+
+function operationalPersonLabel(person: PersonRow, linkedResident?: ResidentRow | null) {
+  const residentName = linkedResident ? personDisplayName(linkedResident) : "";
+  const personName = personDisplayName(person);
+  const displayName = residentName || personName;
+
+  return displayName ? `#${person.operational_number} - ${displayName}` : `#${person.operational_number}`;
+}
 
 export default async function IncidentDashboardPage({
   params
@@ -74,7 +104,7 @@ export default async function IncidentDashboardPage({
     supabase
       .from("recent_event_logs")
       .select(
-        "id,reported_at,title,description,importance,log_type,site_number,operational_number,team_number"
+        "id,reported_at,title,description,importance,log_type,person_id,site_number,operational_number,team_number"
       )
       .eq("incident_id", params.incidentId)
       .order("reported_at", { ascending: false })
@@ -89,6 +119,28 @@ export default async function IncidentDashboardPage({
 
   const logs = (recentLogs ?? []) as EventLogRow[];
   const sites = (siteRows ?? []) as SiteSummaryRow[];
+  const logPersonIds = Array.from(
+    new Set(logs.map((log) => log.person_id).filter(Boolean) as string[])
+  );
+  const [{ data: logPersonRows }, { data: linkedResidentRows }] =
+    logPersonIds.length > 0
+      ? await Promise.all([
+          supabase
+            .from("persons")
+            .select("id,operational_number,first_name,last_name")
+            .in("id", logPersonIds),
+          supabase
+            .from("unit_residents")
+            .select("linked_person_id,first_name,last_name")
+            .in("linked_person_id", logPersonIds)
+        ])
+      : [{ data: [] }, { data: [] }];
+  const personsById = new Map(((logPersonRows ?? []) as PersonRow[]).map((person) => [person.id, person]));
+  const residentsByPerson = new Map(
+    ((linkedResidentRows ?? []) as ResidentRow[])
+      .filter((resident) => resident.linked_person_id)
+      .map((resident) => [resident.linked_person_id as string, resident])
+  );
 
   return (
     <main className="page">
@@ -122,19 +174,19 @@ export default async function IncidentDashboardPage({
         </div>
         <div className="metric">
           פוטנציאל ראשוני
-          <strong>{formatNumber(summary.total_initial_potential)}</strong>
+          <strong>{formatNumber(summary.initial_potential)}</strong>
         </div>
         <div className="metric">
           פוטנציאל מעודכן
-          <strong>{formatNumber(summary.total_updated_potential)}</strong>
+          <strong>{formatNumber(summary.updated_potential)}</strong>
         </div>
         <div className="metric">
+          טופלו / ידועים
+          <strong>{formatNumber(summary.gap_resolved_count)}</strong>
+        </div>
+        <div className="metric metric-emphasis">
           פער מבצעי
           <strong>{formatNumber(summary.operational_gap)}</strong>
-        </div>
-        <div className="metric">
-          פתורים
-          <strong>{formatNumber(summary.resolved_persons)}</strong>
         </div>
         <div className="metric">
           צוותים פעילים
@@ -172,7 +224,7 @@ export default async function IncidentDashboardPage({
                 <th>סטטוס</th>
                 <th>פוטנציאל</th>
                 <th>יחידות פתוחות</th>
-                <th>אנשים פתוחים</th>
+                <th>טופלו / ידועים</th>
                 <th>פער</th>
                 <th />
               </tr>
@@ -196,8 +248,8 @@ export default async function IncidentDashboardPage({
                     {formatNumber(site.open_units)} מתוך{" "}
                     {formatNumber(site.total_active_units)}
                   </td>
-                  <td>{formatNumber(site.open_persons)}</td>
-                  <td>{formatNumber(site.operational_gap)}</td>
+                  <td>{formatNumber(site.gap_resolved_count)}</td>
+                  <td className="table-emphasis">{formatNumber(site.operational_gap)}</td>
                   <td>
                     <Link
                       className="button secondary"
@@ -228,25 +280,33 @@ export default async function IncidentDashboardPage({
               </tr>
             </thead>
             <tbody>
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td>{formatDateTime(log.reported_at)}</td>
-                  <td>
-                    <strong>{log.title}</strong>
-                    <div className="muted">{log.log_type}</div>
-                    {log.description ? <div className="muted">{log.description}</div> : null}
-                  </td>
-                  <td>
-                    {log.site_number ? <div>אתר {log.site_number}</div> : null}
-                    {log.operational_number ? (
-                      <div>מספר {log.operational_number}</div>
-                    ) : null}
-                    {log.team_number ? <div>צוות {log.team_number}</div> : null}
-                    {!log.site_number && !log.operational_number && !log.team_number ? "-" : null}
-                  </td>
-                  <td>{log.importance}</td>
-                </tr>
-              ))}
+              {logs.map((log) => {
+                const person = log.person_id ? personsById.get(log.person_id) : null;
+                const linkedResident = log.person_id ? residentsByPerson.get(log.person_id) : null;
+                const personLabel = person
+                  ? operationalPersonLabel(person, linkedResident)
+                  : log.operational_number
+                    ? `#${log.operational_number}`
+                    : null;
+
+                return (
+                  <tr key={log.id}>
+                    <td>{formatDateTime(log.reported_at)}</td>
+                    <td>
+                      <strong>{log.title}</strong>
+                      <div className="muted">{log.log_type}</div>
+                      {log.description ? <div className="muted">{log.description}</div> : null}
+                    </td>
+                    <td>
+                      {log.site_number ? <div>אתר {log.site_number}</div> : null}
+                      {personLabel ? <div>{personLabel}</div> : null}
+                      {log.team_number ? <div>צוות {log.team_number}</div> : null}
+                      {!log.site_number && !personLabel && !log.team_number ? "-" : null}
+                    </td>
+                    <td>{log.importance}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
