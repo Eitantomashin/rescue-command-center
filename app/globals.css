@@ -51,6 +51,17 @@ textarea {
   margin-bottom: 24px;
 }
 
+.header.compact {
+  margin-bottom: 16px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .nav {
   display: flex;
   align-items: center;
@@ -71,6 +82,10 @@ textarea {
   border-radius: 6px;
   background: var(--surface);
   padding: 20px;
+}
+
+.section-spaced {
+  margin-top: 16px;
 }
 
 .grid {

@@ -64,7 +64,9 @@ export default async function IncidentsPage() {
                   </td>
                   <td>{formatDateTime(incident.opened_at)}</td>
                   <td>
-                    <Link href={`/incidents/${incident.id}`}>פתיחה</Link>
+                    <Link className="button secondary" href={`/incidents/${incident.id}`}>
+                      פתיחה
+                    </Link>
                   </td>
                 </tr>
               ))}
