@@ -8,20 +8,16 @@ type IncidentRow = {
   city: string | null;
   address: string;
   opened_at: string;
+  ended_at: string | null;
+  status_id: string;
   is_closed: boolean;
-  status_types: {
-    hebrew_label: string;
-    status_key: string;
-  } | null;
 };
 
 export default async function IncidentsPage() {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("incidents")
-    .select(
-      "id,name,city,address,opened_at,is_closed,status_types(status_key,hebrew_label)"
-    )
+    .select("id,name,city,address,opened_at,ended_at,status_id,is_closed")
     .order("opened_at", { ascending: false });
 
   const incidents = (data ?? []) as IncidentRow[];
@@ -62,7 +58,10 @@ export default async function IncidentsPage() {
                   <td>{incident.name}</td>
                   <td>{incident.city ?? "-"}</td>
                   <td>{incident.address}</td>
-                  <td>{incident.status_types?.hebrew_label ?? "-"}</td>
+                  <td>
+                    {incident.is_closed ? "סגור" : "פעיל"}
+                    <div className="muted">{incident.status_id}</div>
+                  </td>
                   <td>{formatDateTime(incident.opened_at)}</td>
                   <td>
                     <Link href={`/incidents/${incident.id}`}>פתיחה</Link>
