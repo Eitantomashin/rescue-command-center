@@ -544,6 +544,23 @@ export default async function SiteDetailsPage({
                                             <span className={`resident-treatment ${state}`}>
                                               {treatmentLabel(state)}
                                             </span>
+                                            <form action={linkOperationalNumberToResident} className="resident-number-form">
+                                              {hiddenContext(params.incidentId, params.siteId)}
+                                              <input type="hidden" name="residentId" value={resident.id} />
+                                              <input
+                                                className="input compact"
+                                                name="operationalNumber"
+                                                type="number"
+                                                min="1"
+                                                defaultValue={linkedPerson?.operational_number ?? ""}
+                                                placeholder="מס׳ מבצעי"
+                                                aria-label="מספר מבצעי"
+                                                required
+                                              />
+                                              <button className="button compact secondary" type="submit">
+                                                שמור
+                                              </button>
+                                            </form>
                                             {canDeletePlaceholder ? (
                                               <form action={deleteEmptyPlaceholderResident} className="placeholder-delete-form inline">
                                                 {hiddenContext(params.incidentId, params.siteId)}
@@ -602,24 +619,6 @@ export default async function SiteDetailsPage({
                                               disabled={availablePeople.length === 0}
                                             >
                                               עדכן מספר
-                                            </button>
-                                          </form>
-
-                                          <form action={linkOperationalNumberToResident} className="resident-link-form wide-link-form">
-                                            {hiddenContext(params.incidentId, params.siteId)}
-                                            <input type="hidden" name="residentId" value={resident.id} />
-                                            <input
-                                              className="input"
-                                              name="operationalNumber"
-                                              type="number"
-                                              min="1"
-                                              defaultValue={linkedPerson?.operational_number ?? ""}
-                                              placeholder="מספר מבצעי, למשל 101"
-                                              required
-                                            />
-                                            <input className="input" name="reason" placeholder="סיבת קישור / עדכון" />
-                                            <button className="button secondary" type="submit">
-                                              שמור מספר מבצעי
                                             </button>
                                           </form>
 
@@ -735,7 +734,26 @@ export default async function SiteDetailsPage({
                         טיפול: {treatmentLabel(state)}
                       </small>
                     </div>
-                    <span className={`resident-treatment ${state}`}>{treatmentLabel(state)}</span>
+                    <div className="resident-row-actions">
+                      <span className={`resident-treatment ${state}`}>{treatmentLabel(state)}</span>
+                      <form action={linkOperationalNumberToResident} className="resident-number-form">
+                        {hiddenContext(params.incidentId, params.siteId)}
+                        <input type="hidden" name="residentId" value={resident.id} />
+                        <input
+                          className="input compact"
+                          name="operationalNumber"
+                          type="number"
+                          min="1"
+                          defaultValue={linkedPerson?.operational_number ?? ""}
+                          placeholder="מס׳ מבצעי"
+                          aria-label="מספר מבצעי"
+                          required
+                        />
+                        <button className="button compact secondary" type="submit">
+                          שמור
+                        </button>
+                      </form>
+                    </div>
                   </div>
 
                   <details className="resident-edit">
@@ -783,23 +801,6 @@ export default async function SiteDetailsPage({
                       </button>
                     </form>
 
-                    <form action={linkOperationalNumberToResident} className="resident-link-form wide-link-form">
-                      {hiddenContext(params.incidentId, params.siteId)}
-                      <input type="hidden" name="residentId" value={resident.id} />
-                      <input
-                        className="input"
-                        name="operationalNumber"
-                        type="number"
-                        min="1"
-                        defaultValue={linkedPerson?.operational_number ?? ""}
-                        placeholder="מספר מבצעי, למשל 101"
-                        required
-                      />
-                      <input className="input" name="reason" placeholder="סיבת קישור / עדכון" />
-                      <button className="button secondary" type="submit">
-                        שמור מספר מבצעי
-                      </button>
-                    </form>
                   </details>
                 </li>
               );
