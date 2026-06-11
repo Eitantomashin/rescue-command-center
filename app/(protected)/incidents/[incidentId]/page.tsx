@@ -29,6 +29,27 @@ type EventLogRow = {
   title: string;
   description: string | null;
   importance: string;
+  log_type: string;
+  site_number: number | null;
+  operational_number: number | null;
+  team_number: number | null;
+};
+
+type SiteSummaryRow = {
+  site_id: string;
+  site_number: number;
+  name: string | null;
+  street: string;
+  house_number: string;
+  site_status_label: string | null;
+  initial_potential: number;
+  updated_potential: number;
+  total_active_units: number;
+  fully_cleared_units: number;
+  open_units: number;
+  open_persons: number;
+  resolved_persons: number;
+  operational_gap: number;
 };
 
 export default async function IncidentDashboardPage({
@@ -49,13 +70,25 @@ export default async function IncidentDashboardPage({
 
   const summary = dashboard as DashboardRow;
 
-  const { data: recentLogs } = await supabase
-    .from("recent_event_logs")
-    .select("id,reported_at,title,description,importance")
-    .eq("incident_id", params.incidentId)
-    .limit(8);
+  const [{ data: recentLogs }, { data: siteRows }] = await Promise.all([
+    supabase
+      .from("recent_event_logs")
+      .select(
+        "id,reported_at,title,description,importance,log_type,site_number,operational_number,team_number"
+      )
+      .eq("incident_id", params.incidentId)
+      .order("reported_at", { ascending: false })
+      .limit(8),
+    supabase
+      .from("site_dashboard_summary")
+      .select("*")
+      .eq("incident_id", params.incidentId)
+      .order("site_number", { ascending: true })
+      .limit(6)
+  ]);
 
   const logs = (recentLogs ?? []) as EventLogRow[];
+  const sites = (siteRows ?? []) as SiteSummaryRow[];
 
   return (
     <main className="page">
@@ -66,11 +99,20 @@ export default async function IncidentDashboardPage({
             {summary.city ?? "-"} · {summary.address} · נפתח{" "}
             {formatDateTime(summary.opened_at)}
           </p>
+          <p className="muted">
+            סטטוס: {summary.incident_status_label ?? (summary.is_closed ? "סגור" : "פעיל")}
+            {summary.ended_at ? ` · נסגר ${formatDateTime(summary.ended_at)}` : ""}
+          </p>
         </div>
 
-        <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites`}>
-          אתרים
-        </Link>
+        <div className="actions">
+          <Link className="button secondary" href="/incidents">
+            חזרה לאירועים
+          </Link>
+          <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites`}>
+            אתרים
+          </Link>
+        </div>
       </div>
 
       <section className="grid" aria-label="מדדי אירוע">
@@ -91,16 +133,87 @@ export default async function IncidentDashboardPage({
           <strong>{formatNumber(summary.operational_gap)}</strong>
         </div>
         <div className="metric">
-          מחולצים / פתורים
+          פתורים
           <strong>{formatNumber(summary.resolved_persons)}</strong>
         </div>
         <div className="metric">
           צוותים פעילים
           <strong>{formatNumber(summary.active_teams)}</strong>
         </div>
+        <div className="metric">
+          צוותים זמינים
+          <strong>{formatNumber(summary.available_teams)}</strong>
+        </div>
+        <div className="metric">
+          שיוכי צוותים פעילים
+          <strong>{formatNumber(summary.active_team_site_assignments)}</strong>
+        </div>
       </section>
 
-      <section className="panel" style={{ marginTop: 16 }}>
+      <section className="panel section-spaced">
+        <div className="header compact">
+          <div>
+            <h2>אתרים מקושרים</h2>
+            <p className="muted">תמונת מצב מחושבת לכל אתר באירוע</p>
+          </div>
+          <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites`}>
+            כל האתרים
+          </Link>
+        </div>
+
+        {sites.length === 0 ? (
+          <p className="muted">לא נמצאו אתרים לאירוע זה.</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>אתר</th>
+                <th>כתובת</th>
+                <th>סטטוס</th>
+                <th>פוטנציאל</th>
+                <th>יחידות פתוחות</th>
+                <th>אנשים פתוחים</th>
+                <th>פער</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {sites.map((site) => (
+                <tr key={site.site_id}>
+                  <td>
+                    אתר {site.site_number}
+                    {site.name ? <div className="muted">{site.name}</div> : null}
+                  </td>
+                  <td>
+                    {site.street} {site.house_number}
+                  </td>
+                  <td>{site.site_status_label ?? "-"}</td>
+                  <td>
+                    {formatNumber(site.initial_potential)} /{" "}
+                    {formatNumber(site.updated_potential)}
+                  </td>
+                  <td>
+                    {formatNumber(site.open_units)} מתוך{" "}
+                    {formatNumber(site.total_active_units)}
+                  </td>
+                  <td>{formatNumber(site.open_persons)}</td>
+                  <td>{formatNumber(site.operational_gap)}</td>
+                  <td>
+                    <Link
+                      className="button secondary"
+                      href={`/incidents/${summary.incident_id}/sites/${site.site_id}`}
+                    >
+                      פתיחת תמונת מבנה
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="panel section-spaced">
         <h2>פעילות אחרונה</h2>
         {logs.length === 0 ? (
           <p className="muted">אין עדיין אירועים ביומן.</p>
@@ -109,7 +222,8 @@ export default async function IncidentDashboardPage({
             <thead>
               <tr>
                 <th>זמן</th>
-                <th>כותרת</th>
+                <th>אירוע</th>
+                <th>קישורים</th>
                 <th>חשיבות</th>
               </tr>
             </thead>
@@ -119,7 +233,16 @@ export default async function IncidentDashboardPage({
                   <td>{formatDateTime(log.reported_at)}</td>
                   <td>
                     <strong>{log.title}</strong>
+                    <div className="muted">{log.log_type}</div>
                     {log.description ? <div className="muted">{log.description}</div> : null}
+                  </td>
+                  <td>
+                    {log.site_number ? <div>אתר {log.site_number}</div> : null}
+                    {log.operational_number ? (
+                      <div>מספר {log.operational_number}</div>
+                    ) : null}
+                    {log.team_number ? <div>צוות {log.team_number}</div> : null}
+                    {!log.site_number && !log.operational_number && !log.team_number ? "-" : null}
                   </td>
                   <td>{log.importance}</td>
                 </tr>

@@ -74,7 +74,9 @@ export default async function SitesPage({
                 <th>פוטנציאל</th>
                 <th>יחידות פתוחות</th>
                 <th>זיכוי מלא</th>
+                <th>אנשים פתוחים</th>
                 <th>פער</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -98,7 +100,16 @@ export default async function SitesPage({
                     {formatNumber(site.fully_cleared_units)} /{" "}
                     {formatNumber(site.total_active_units)}
                   </td>
+                  <td>{formatNumber(site.open_persons)}</td>
                   <td>{formatNumber(site.operational_gap)}</td>
+                  <td>
+                    <Link
+                      className="button secondary"
+                      href={`/incidents/${params.incidentId}/sites/${site.site_id}`}
+                    >
+                      פתיחת תמונת מבנה
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
