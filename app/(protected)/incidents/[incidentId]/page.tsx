@@ -82,6 +82,22 @@ function operationalPersonLabel(person: PersonRow, linkedResident?: ResidentRow 
   return displayName ? `#${person.operational_number} - ${displayName}` : `#${person.operational_number}`;
 }
 
+const unhelpfulActivityDescriptions = new Set([
+  "placeholder",
+  "unit_resident_updated",
+  "person_linked_to_resident"
+]);
+
+function activityDescription(log: EventLogRow) {
+  const description = log.description?.trim();
+
+  if (description && !unhelpfulActivityDescriptions.has(description)) {
+    return description;
+  }
+
+  return unhelpfulActivityDescriptions.has(log.log_type) ? null : log.log_type;
+}
+
 export default async function IncidentDashboardPage({
   params
 }: {
@@ -283,6 +299,7 @@ export default async function IncidentDashboardPage({
               {logs.map((log) => {
                 const person = log.person_id ? personsById.get(log.person_id) : null;
                 const linkedResident = log.person_id ? residentsByPerson.get(log.person_id) : null;
+                const description = activityDescription(log);
                 const personLabel = person
                   ? operationalPersonLabel(person, linkedResident)
                   : log.operational_number
@@ -294,8 +311,7 @@ export default async function IncidentDashboardPage({
                     <td>{formatDateTime(log.reported_at)}</td>
                     <td>
                       <strong>{log.title}</strong>
-                      <div className="muted">{log.log_type}</div>
-                      {log.description ? <div className="muted">{log.description}</div> : null}
+                      {description ? <div className="muted">{description}</div> : null}
                     </td>
                     <td>
                       {log.site_number ? <div>אתר {log.site_number}</div> : null}
