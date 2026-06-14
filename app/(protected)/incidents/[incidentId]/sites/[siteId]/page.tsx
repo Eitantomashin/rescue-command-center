@@ -8,8 +8,6 @@ import {
   createUnitResident,
   deleteEmptyPlaceholderResident,
   linkExistingPersonToResident,
-  linkOperationalNumberToResident,
-  updatePersonStatus,
   updateUnitResident,
   updateUnitStatus
 } from "./actions";
@@ -164,6 +162,10 @@ function residentLine(
     (linkedPerson ? statusLabel(statuses, linkedPerson.current_status_id) : null);
 
   return `${displayName(resident)} · ${number} · ${knownStatus ?? "מצב לא ידוע"}`;
+}
+
+function editableResidentNotes(notes: string | null) {
+  return notes?.trim() === "placeholder" ? "" : notes ?? "";
 }
 
 function isEmptyPlaceholderResident(statuses: Map<string, StatusRow>, resident: ResidentRow) {
@@ -321,9 +323,6 @@ export default async function SiteDetailsPage({
   const unitStatuses = statusOptions(allStatuses, "unit");
   const editableUnitStatuses = unitStatuses.filter((status) => status.status_key !== "fully_cleared");
   const residentStatuses = statusOptions(allStatuses, "resident");
-  const personStatuses = statusOptions(allStatuses, "person");
-  const defaultResidentStatusId =
-    residentStatuses.find((status) => status.status_key === "missing")?.id ?? "";
 
   const unitsByFloor = units.reduce<Map<string, UnitRow[]>>((grouped, unit) => {
     const floorUnits = grouped.get(unit.floor_id) ?? [];
@@ -358,6 +357,9 @@ export default async function SiteDetailsPage({
         </div>
 
         <div className="actions">
+          <Link className="button" href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers`}>
+            מספרים מבצעיים
+          </Link>
           <Link className="button secondary" href={`/incidents/${params.incidentId}`}>
             דשבורד אירוע
           </Link>
@@ -544,23 +546,6 @@ export default async function SiteDetailsPage({
                                             <span className={`resident-treatment ${state}`}>
                                               {treatmentLabel(state)}
                                             </span>
-                                            <form action={linkOperationalNumberToResident} className="resident-number-form">
-                                              {hiddenContext(params.incidentId, params.siteId)}
-                                              <input type="hidden" name="residentId" value={resident.id} />
-                                              <input
-                                                className="input compact"
-                                                name="operationalNumber"
-                                                type="number"
-                                                min="1"
-                                                defaultValue={linkedPerson?.operational_number ?? ""}
-                                                placeholder="מס׳ מבצעי"
-                                                aria-label="מספר מבצעי"
-                                                required
-                                              />
-                                              <button className="button compact secondary" type="submit">
-                                                שמור
-                                              </button>
-                                            </form>
                                             {canDeletePlaceholder ? (
                                               <form action={deleteEmptyPlaceholderResident} className="placeholder-delete-form inline">
                                                 {hiddenContext(params.incidentId, params.siteId)}
@@ -582,15 +567,8 @@ export default async function SiteDetailsPage({
                                             <input className="input" name="lastName" defaultValue={resident.last_name ?? ""} placeholder="שם משפחה" />
                                             <input className="input" name="age" type="number" min="0" defaultValue={resident.age ?? ""} placeholder="גיל" />
                                             <input className="input" name="phone" defaultValue={resident.phone ?? ""} placeholder="טלפון" />
-                                            <select className="input wide" name="statusId" defaultValue={resident.status_id ?? ""}>
-                                              <option value="">מצב דייר לא ידוע</option>
-                                              {residentStatuses.map((status) => (
-                                                <option key={status.id} value={status.id}>
-                                                  {status.hebrew_label}
-                                                </option>
-                                              ))}
-                                            </select>
-                                            <input className="input wide" name="notes" defaultValue={resident.notes ?? ""} placeholder="הערות" />
+                                            <input type="hidden" name="statusId" value={resident.status_id ?? ""} />
+                                            <input className="input wide" name="notes" defaultValue={editableResidentNotes(resident.notes)} placeholder="הערות" />
                                             <button className="button secondary" type="submit">
                                               שמור דייר
                                             </button>
@@ -618,7 +596,7 @@ export default async function SiteDetailsPage({
                                               type="submit"
                                               disabled={availablePeople.length === 0}
                                             >
-                                              עדכן מספר
+                                              עדכן מספר מבצעי
                                             </button>
                                           </form>
 
@@ -641,14 +619,6 @@ export default async function SiteDetailsPage({
                                   <input className="input" name="lastName" placeholder="שם משפחה" />
                                   <input className="input" name="age" type="number" min="0" placeholder="גיל" />
                                   <input className="input" name="phone" placeholder="טלפון" />
-                                  <select className="input" name="statusId" defaultValue={defaultResidentStatusId}>
-                                    <option value="">מצב דייר</option>
-                                    {residentStatuses.map((status) => (
-                                      <option key={status.id} value={status.id}>
-                                        {status.hebrew_label}
-                                      </option>
-                                    ))}
-                                  </select>
                                   <input className="input" name="notes" placeholder="הערה" />
                                 </div>
                                 <button className="button" type="submit">
@@ -736,23 +706,6 @@ export default async function SiteDetailsPage({
                     </div>
                     <div className="resident-row-actions">
                       <span className={`resident-treatment ${state}`}>{treatmentLabel(state)}</span>
-                      <form action={linkOperationalNumberToResident} className="resident-number-form">
-                        {hiddenContext(params.incidentId, params.siteId)}
-                        <input type="hidden" name="residentId" value={resident.id} />
-                        <input
-                          className="input compact"
-                          name="operationalNumber"
-                          type="number"
-                          min="1"
-                          defaultValue={linkedPerson?.operational_number ?? ""}
-                          placeholder="מס׳ מבצעי"
-                          aria-label="מספר מבצעי"
-                          required
-                        />
-                        <button className="button compact secondary" type="submit">
-                          שמור
-                        </button>
-                      </form>
                     </div>
                   </div>
 
@@ -765,15 +718,8 @@ export default async function SiteDetailsPage({
                       <input className="input" name="lastName" defaultValue={resident.last_name ?? ""} placeholder="שם משפחה" />
                       <input className="input" name="age" type="number" min="0" defaultValue={resident.age ?? ""} placeholder="גיל" />
                       <input className="input" name="phone" defaultValue={resident.phone ?? ""} placeholder="טלפון" />
-                      <select className="input wide" name="statusId" defaultValue={resident.status_id ?? ""}>
-                        <option value="">מצב דייר לא ידוע</option>
-                        {residentStatuses.map((status) => (
-                          <option key={status.id} value={status.id}>
-                            {status.hebrew_label}
-                          </option>
-                        ))}
-                      </select>
-                      <input className="input wide" name="notes" defaultValue={resident.notes ?? ""} placeholder="הערות" />
+                      <input type="hidden" name="statusId" value={resident.status_id ?? ""} />
+                      <input className="input wide" name="notes" defaultValue={editableResidentNotes(resident.notes)} placeholder="הערות" />
                       <button className="button secondary" type="submit">
                         שמור דייר
                       </button>
@@ -797,7 +743,7 @@ export default async function SiteDetailsPage({
                         ))}
                       </select>
                       <button className="button secondary" type="submit" disabled={availablePeople.length === 0}>
-                        עדכן מספר
+                        עדכן מספר מבצעי
                       </button>
                     </form>
 
@@ -818,14 +764,6 @@ export default async function SiteDetailsPage({
               <input className="input" name="lastName" placeholder="שם משפחה" />
               <input className="input" name="age" type="number" min="0" placeholder="גיל" />
               <input className="input" name="phone" placeholder="טלפון" />
-              <select className="input" name="statusId" defaultValue={defaultResidentStatusId}>
-                <option value="">מצב דייר</option>
-                {residentStatuses.map((status) => (
-                  <option key={status.id} value={status.id}>
-                    {status.hebrew_label}
-                  </option>
-                ))}
-              </select>
               <input className="input" name="notes" placeholder="הערה" />
             </div>
             <button className="button" type="submit">
@@ -843,10 +781,10 @@ export default async function SiteDetailsPage({
           <table className="table">
             <thead>
               <tr>
-                <th>מספר</th>
+                <th>מספר מבצעי</th>
                 <th>שם</th>
                 <th>סטטוס</th>
-                <th>עדכון סטטוס</th>
+                <th>פעולה</th>
               </tr>
             </thead>
             <tbody>
@@ -856,22 +794,12 @@ export default async function SiteDetailsPage({
                   <td>{displayName(person)}</td>
                   <td>{statusLabel(statuses, person.current_status_id) ?? "מצב לא ידוע"}</td>
                   <td>
-                    <form action={updatePersonStatus} className="inline-action-form">
-                      {hiddenContext(params.incidentId, params.siteId)}
-                      <input type="hidden" name="personId" value={person.id} />
-                      <select className="input compact" name="statusId" defaultValue={person.current_status_id} required>
-                        <option value="">בחר סטטוס אדם</option>
-                        {personStatuses.map((status) => (
-                          <option key={status.id} value={status.id}>
-                            {status.hebrew_label}
-                          </option>
-                        ))}
-                      </select>
-                      <input className="input compact" name="notes" placeholder="הערה" />
-                      <button className="button compact secondary" type="submit">
-                        עדכן
-                      </button>
-                    </form>
+                    <Link
+                      className="button compact secondary"
+                      href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers?personId=${person.id}`}
+                    >
+                      פתח במספרים מבצעיים
+                    </Link>
                   </td>
                 </tr>
               ))}
