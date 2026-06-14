@@ -98,6 +98,14 @@ function activityDescription(log: EventLogRow) {
   return unhelpfulActivityDescriptions.has(log.log_type) ? null : log.log_type;
 }
 
+function activityTitle(log: EventLogRow) {
+  if (log.log_type === "person_linked_to_resident") {
+    return "קישור מספר מבצעי לדייר";
+  }
+
+  return log.title;
+}
+
 export default async function IncidentDashboardPage({
   params
 }: {
@@ -116,47 +124,14 @@ export default async function IncidentDashboardPage({
 
   const summary = dashboard as DashboardRow;
 
-  const [{ data: recentLogs }, { data: siteRows }] = await Promise.all([
-    supabase
-      .from("recent_event_logs")
-      .select(
-        "id,reported_at,title,description,importance,log_type,person_id,site_number,operational_number,team_number"
-      )
-      .eq("incident_id", params.incidentId)
-      .order("reported_at", { ascending: false })
-      .limit(8),
-    supabase
-      .from("site_dashboard_summary")
-      .select("*")
-      .eq("incident_id", params.incidentId)
-      .order("site_number", { ascending: true })
-      .limit(6)
-  ]);
+  const { data: siteRows } = await supabase
+    .from("site_dashboard_summary")
+    .select("*")
+    .eq("incident_id", params.incidentId)
+    .order("site_number", { ascending: true })
+    .limit(6);
 
-  const logs = (recentLogs ?? []) as EventLogRow[];
   const sites = (siteRows ?? []) as SiteSummaryRow[];
-  const logPersonIds = Array.from(
-    new Set(logs.map((log) => log.person_id).filter(Boolean) as string[])
-  );
-  const [{ data: logPersonRows }, { data: linkedResidentRows }] =
-    logPersonIds.length > 0
-      ? await Promise.all([
-          supabase
-            .from("persons")
-            .select("id,operational_number,first_name,last_name")
-            .in("id", logPersonIds),
-          supabase
-            .from("unit_residents")
-            .select("linked_person_id,first_name,last_name")
-            .in("linked_person_id", logPersonIds)
-        ])
-      : [{ data: [] }, { data: [] }];
-  const personsById = new Map(((logPersonRows ?? []) as PersonRow[]).map((person) => [person.id, person]));
-  const residentsByPerson = new Map(
-    ((linkedResidentRows ?? []) as ResidentRow[])
-      .filter((resident) => resident.linked_person_id)
-      .map((resident) => [resident.linked_person_id as string, resident])
-  );
 
   return (
     <main className="page">
@@ -179,6 +154,9 @@ export default async function IncidentDashboardPage({
           </Link>
           <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites`}>
             אתרים
+          </Link>
+          <Link className="button" href={`/incidents/${summary.incident_id}/operational-log`}>
+            יומן מבצעי
           </Link>
         </div>
       </div>
@@ -281,52 +259,6 @@ export default async function IncidentDashboardPage({
         )}
       </section>
 
-      <section className="panel section-spaced">
-        <h2>פעילות אחרונה</h2>
-        {logs.length === 0 ? (
-          <p className="muted">אין עדיין אירועים ביומן.</p>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>זמן</th>
-                <th>אירוע</th>
-                <th>קישורים</th>
-                <th>חשיבות</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => {
-                const person = log.person_id ? personsById.get(log.person_id) : null;
-                const linkedResident = log.person_id ? residentsByPerson.get(log.person_id) : null;
-                const description = activityDescription(log);
-                const personLabel = person
-                  ? operationalPersonLabel(person, linkedResident)
-                  : log.operational_number
-                    ? `#${log.operational_number}`
-                    : null;
-
-                return (
-                  <tr key={log.id}>
-                    <td>{formatDateTime(log.reported_at)}</td>
-                    <td>
-                      <strong>{log.title}</strong>
-                      {description ? <div className="muted">{description}</div> : null}
-                    </td>
-                    <td>
-                      {log.site_number ? <div>אתר {log.site_number}</div> : null}
-                      {personLabel ? <div>{personLabel}</div> : null}
-                      {log.team_number ? <div>צוות {log.team_number}</div> : null}
-                      {!log.site_number && !personLabel && !log.team_number ? "-" : null}
-                    </td>
-                    <td>{log.importance}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </section>
     </main>
   );
 }

@@ -394,6 +394,9 @@ export default async function SiteDetailsPage({
           <Link className="button" href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers`}>
             מספרים מבצעיים
           </Link>
+          <Link className="button secondary" href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-log`}>
+            יומן מבצעי אתר
+          </Link>
           <Link className="button secondary" href={`/incidents/${params.incidentId}`}>
             דשבורד אירוע
           </Link>
