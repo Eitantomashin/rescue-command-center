@@ -163,9 +163,11 @@ export async function createOperationalReport(formData: FormData) {
   const teamNumber = positiveInteger(formData, "teamNumber", "צוות");
   const supabase = createClient();
 
-  const { error } = await supabase.rpc("create_operational_report", {
+  const { error } = await supabase.rpc("save_operational_report_with_person_name", {
     p_person_id: personId,
     p_status_id: statusId,
+    p_first_name: nullableValue(formData, "firstName"),
+    p_last_name: nullableValue(formData, "lastName"),
     p_information_source_type: requiredValue(formData, "sourceType", "מקור מידע"),
     p_information_source_name: nullableValue(formData, "sourceName"),
     p_source_phone: nullableValue(formData, "sourcePhone"),

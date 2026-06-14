@@ -119,16 +119,19 @@ function treatmentState(
   resident: ResidentRow,
   linkedPerson?: PersonRow | null
 ): TreatmentState {
-  const personKey = linkedPerson ? statusKey(statuses, linkedPerson.current_status_id) : null;
   const residentKey = statusKey(statuses, resident.status_id);
   const residentStatus = resident.status_id ? statuses.get(resident.status_id) : null;
   const personStatus = linkedPerson ? statuses.get(linkedPerson.current_status_id) : null;
 
-  if (residentStatus?.counts_as_gap_resolved || personStatus?.counts_as_gap_resolved) {
+  if (linkedPerson) {
+    return personStatus?.counts_as_gap_resolved ? "completed" : "in_progress";
+  }
+
+  if (residentStatus?.counts_as_gap_resolved) {
     return "completed";
   }
 
-  if (residentKey === "in_progress" || personKey === "trapped_located_not_yet_rescued" || linkedPerson) {
+  if (residentKey === "in_progress") {
     return "in_progress";
   }
 
@@ -162,14 +165,27 @@ function residentLine(
 ) {
   const number = linkedPerson ? `#${linkedPerson.operational_number}` : "ללא מספר מבצעי";
   const knownStatus =
-    statusLabel(statuses, resident.status_id) ??
-    (linkedPerson ? statusLabel(statuses, linkedPerson.current_status_id) : null);
+    (linkedPerson ? statusLabel(statuses, linkedPerson.current_status_id) : null) ??
+    statusLabel(statuses, resident.status_id);
 
   return `${displayName(resident)} · ${number} · ${knownStatus ?? "מצב לא ידוע"}`;
 }
 
 function editableResidentNotes(notes: string | null) {
   return notes?.trim() === "placeholder" ? "" : notes ?? "";
+}
+
+function residentEditVersion(resident: ResidentRow) {
+  return [
+    resident.id,
+    resident.first_name ?? "",
+    resident.last_name ?? "",
+    resident.linked_person_id ?? "",
+    resident.status_id ?? "",
+    resident.age ?? "",
+    resident.phone ?? "",
+    resident.notes ?? ""
+  ].join("|");
 }
 
 function zoneTypeLabel(zoneType: string | null) {
@@ -572,6 +588,7 @@ export default async function SiteDetailsPage({
                                         (person.id === resident.linked_person_id ||
                                           !linkedResidentsByPerson.has(person.id))
                                     );
+                                    const residentEditKey = residentEditVersion(resident);
 
                                     return (
                                       <li className={`resident-item treatment-${state}`} key={resident.id}>
@@ -599,9 +616,13 @@ export default async function SiteDetailsPage({
                                           </div>
                                         </div>
 
-                                        <details className="resident-edit">
+                                        <details className="resident-edit" key={residentEditKey}>
                                           <summary>עדכון דייר</summary>
-                                          <form action={updateUnitResident} className="form-grid resident-update-form">
+                                          <form
+                                            action={updateUnitResident}
+                                            className="form-grid resident-update-form"
+                                            key={`edit-form-${residentEditKey}`}
+                                          >
                                             {hiddenContext(params.incidentId, params.siteId)}
                                             <input type="hidden" name="residentId" value={resident.id} />
                                             <input className="input" name="firstName" defaultValue={resident.first_name ?? ""} placeholder="שם פרטי" />
@@ -734,6 +755,7 @@ export default async function SiteDetailsPage({
                   !person.is_merged &&
                   (person.id === resident.linked_person_id || !linkedResidentsByPerson.has(person.id))
               );
+              const residentEditKey = residentEditVersion(resident);
 
               return (
                 <li className={`resident-item treatment-${state}`} key={resident.id}>
@@ -750,9 +772,13 @@ export default async function SiteDetailsPage({
                     </div>
                   </div>
 
-                  <details className="resident-edit">
+                  <details className="resident-edit" key={residentEditKey}>
                     <summary>עדכון דייר</summary>
-                    <form action={updateUnitResident} className="form-grid resident-update-form">
+                    <form
+                      action={updateUnitResident}
+                      className="form-grid resident-update-form"
+                      key={`edit-form-${residentEditKey}`}
+                    >
                       {hiddenContext(params.incidentId, params.siteId)}
                       <input type="hidden" name="residentId" value={resident.id} />
                       <input className="input" name="firstName" defaultValue={resident.first_name ?? ""} placeholder="שם פרטי" />

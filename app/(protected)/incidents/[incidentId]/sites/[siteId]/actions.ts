@@ -101,7 +101,7 @@ export async function createUnitResident(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(path);
+  revalidatePath(path, "page");
   redirect(path);
 }
 
@@ -130,7 +130,7 @@ export async function createGeneralAreaResident(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(path);
+  revalidatePath(path, "page");
   redirect(path);
 }
 
@@ -165,7 +165,7 @@ export async function createOperationalPerson(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(path);
+  revalidatePath(path, "page");
   redirect(path);
 }
 
@@ -173,7 +173,7 @@ export async function linkPersonToUnit(formData: FormData) {
   const path = sitePath(formData);
   const unitId = requiredValue(formData, "unitId", "דירה");
   const personId = requiredValue(formData, "personId", "אדם מבצעי");
-  const reason = nullableValue(formData, "reason") ?? "קישור אדם לדירה מתוך מסך אתר";
+  const reason = nullableValue(formData, "reason") ?? "קישור מספר מבצעי לדירה מתוך מסך אתר";
   const unit = await getUnitContext(unitId);
   const supabase = createClient();
 
@@ -189,7 +189,7 @@ export async function linkPersonToUnit(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(path);
+  revalidatePath(path, "page");
   redirect(path);
 }
 
@@ -233,7 +233,7 @@ export async function linkExistingPersonToResident(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(path);
+  revalidatePath(path, "page");
   redirect(path);
 }
 
@@ -258,7 +258,7 @@ export async function linkOperationalNumberToResident(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(path);
+  revalidatePath(path, "page");
   redirect(path);
 }
 

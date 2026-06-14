@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
@@ -6,8 +6,7 @@ import {
   createOperationalNumber,
   createOperationalReport,
   mergeOperationalNumbers,
-  openOperationalTeam,
-  updateOperationalPersonName
+  openOperationalTeam
 } from "./actions";
 
 const defaultTeams = [
@@ -450,19 +449,6 @@ export default async function OperationalNumbersPage({
                 </div>
               ) : (
                 <>
-                  <form action={updateOperationalPersonName} className="action-form report-form">
-                    {hiddenContext(params.incidentId, params.siteId)}
-                    <input type="hidden" name="personId" value={selectedPerson.person_id} />
-                    <input type="hidden" name="teamNumber" value={selectedPersonTeam ?? 1} />
-                    <strong>פרטי האדם המבצעי</strong>
-                    <div className="form-grid">
-                      <input className="input" name="firstName" defaultValue={selectedPerson.first_name ?? ""} placeholder="שם פרטי" />
-                      <input className="input" name="lastName" defaultValue={selectedPerson.last_name ?? ""} placeholder="שם משפחה" />
-                    </div>
-                    <button className="button secondary" type="submit">
-                      שמור שם
-                    </button>
-                  </form>
 
                   <form action={createOperationalReport} className="action-form report-form">
                     {hiddenContext(params.incidentId, params.siteId)}
@@ -473,6 +459,8 @@ export default async function OperationalNumbersPage({
                       <p className="error">לא ניתן לטעון סטטוסים לאדם מבצעי.</p>
                     ) : null}
                     <div className="form-grid">
+                      <input className="input" name="firstName" defaultValue={selectedPerson.first_name ?? ""} placeholder="שם פרטי" />
+                      <input className="input" name="lastName" defaultValue={selectedPerson.last_name ?? ""} placeholder="שם משפחה" />
                       <select className="input" name="statusId" defaultValue={selectedPerson.current_status_id} required>
                         <option value="">בחר סטטוס</option>
                         {personStatuses.map((status) => (
@@ -542,6 +530,9 @@ export default async function OperationalNumbersPage({
                 <ul className="report-history">
                   {reports.map((report) => (
                     <li key={report.report_id}>
+                      <strong>
+                        {personName(selectedPerson) ?? residentName(selectedPerson) ?? "שם לא ידוע"} · {report.information_source_type} · {report.status_label}
+                      </strong>
                       <strong>
                         {formatDateTime(report.reported_at)} · {report.information_source_type}
                       </strong>
