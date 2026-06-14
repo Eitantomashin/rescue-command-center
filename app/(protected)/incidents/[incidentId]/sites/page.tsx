@@ -51,9 +51,14 @@ export default async function SitesPage({
           <p className="muted">{incident?.name ?? "אירוע"}</p>
         </div>
 
-        <Link className="button secondary" href={`/incidents/${params.incidentId}`}>
-          חזרה לדשבורד
-        </Link>
+        <div className="actions">
+          <Link className="button" href={`/incidents/${params.incidentId}/sites/new`}>
+            הקמת אתר חדש
+          </Link>
+          <Link className="button secondary" href={`/incidents/${params.incidentId}`}>
+            חזרה לדשבורד
+          </Link>
+        </div>
       </div>
 
       {error ? (

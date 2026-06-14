@@ -938,6 +938,163 @@ textarea {
   margin: 8px 0 0;
 }
 
+.wizard-page {
+  width: min(1180px, calc(100% - 32px));
+}
+
+.wizard-form {
+  display: grid;
+  gap: 16px;
+}
+
+.wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wizard-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.wizard-step.active {
+  border-color: var(--primary);
+  background: #e8f0fe;
+  color: var(--primary);
+}
+
+.wizard-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.wizard-panel h2,
+.wizard-level h3 {
+  margin: 0;
+}
+
+.level-preview,
+.wizard-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wizard-nav {
+  justify-content: space-between;
+}
+
+.wizard-levels,
+.zone-list,
+.team-edit-list {
+  display: grid;
+  gap: 12px;
+}
+
+.wizard-level {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fafafa;
+  padding: 14px;
+}
+
+.wizard-level-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.zone-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.1fr) minmax(150px, 1fr) minmax(120px, 0.75fr) minmax(140px, 0.85fr) minmax(110px, 0.65fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.zone-total {
+  display: grid;
+  gap: 6px;
+  min-height: 62px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px 10px;
+}
+
+.zone-total span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.zone-total strong {
+  font-size: 18px;
+}
+
+.team-edit-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(90px, 0.5fr) minmax(150px, 1fr) minmax(140px, 1fr) minmax(130px, 0.7fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.team-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px 10px;
+  font-weight: 600;
+}
+
+.potential-breakdown {
+  display: grid;
+  gap: 12px;
+}
+
+.potential-level {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fafafa;
+  padding: 14px;
+}
+
+.potential-level h3 {
+  margin: 0 0 8px;
+}
+
+.potential-level ul {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0 18px 0 0;
+}
+
+.file-field {
+  display: grid;
+  gap: 6px;
+}
+
+.file-field small {
+  color: var(--muted);
+}
+
 @media (max-width: 640px) {
   .resident-row,
   .person-row {
@@ -994,5 +1151,16 @@ textarea {
 
   .form-grid .wide {
     grid-column: auto;
+  }
+
+  .zone-row,
+  .team-edit-row {
+    grid-template-columns: 1fr;
+  }
+
+  .wizard-level-header,
+  .wizard-nav {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

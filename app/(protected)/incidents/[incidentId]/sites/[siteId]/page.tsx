@@ -45,6 +45,10 @@ type UnitRow = {
   id: string;
   floor_id: string;
   unit_number: string;
+  zone_name: string | null;
+  zone_type: string | null;
+  zone_sequence: number | null;
+  expected_occupants: number | null;
   family_name: string | null;
   known_people_count: number | null;
   status_id: string | null;
@@ -168,6 +172,36 @@ function editableResidentNotes(notes: string | null) {
   return notes?.trim() === "placeholder" ? "" : notes ?? "";
 }
 
+function zoneTypeLabel(zoneType: string | null) {
+  const labels = new Map([
+    ["apartment", "דירה"],
+    ["store", "חנות"],
+    ["office", "משרד"],
+    ["parking_area", "חניה"],
+    ["lobby", "לובי"],
+    ["shelter", "מקלט"],
+    ["warehouse", "מחסן"],
+    ["machine_room", "חדר מכונות"],
+    ["commercial_area", "שטח מסחרי"],
+    ["other", "אזור"]
+  ]);
+
+  return labels.get(zoneType ?? "") ?? "אזור";
+}
+
+function unitDisplayLabel(unit: UnitRow) {
+  if (unit.zone_type === "apartment" || !unit.zone_type) {
+    return `דירה ${unit.zone_sequence ?? unit.unit_number}`;
+  }
+
+  if (unit.zone_type === "other" && unit.zone_name) {
+    const sequence = unit.zone_sequence ?? unit.unit_number;
+    return `${unit.zone_name} ${sequence}`;
+  }
+
+  return `${zoneTypeLabel(unit.zone_type)} ${unit.zone_sequence ?? unit.unit_number}`;
+}
+
 function isEmptyPlaceholderResident(statuses: Map<string, StatusRow>, resident: ResidentRow) {
   const residentStatusKey = statusKey(statuses, resident.status_id);
   const notes = resident.notes?.trim() ?? "";
@@ -260,7 +294,7 @@ export default async function SiteDetailsPage({
     supabase
       .from("units")
       .select(
-        "id,floor_id,unit_number,family_name,known_people_count,status_id,is_fully_cleared,is_active,inactive_reason,notes"
+        "id,floor_id,unit_number,zone_name,zone_type,zone_sequence,expected_occupants,family_name,known_people_count,status_id,is_fully_cleared,is_active,inactive_reason,notes"
       )
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId)
@@ -486,7 +520,7 @@ export default async function SiteDetailsPage({
                             key={unit.id}
                           >
                             <div className="apartment-card-header">
-                              <h4>דירה {unit.unit_number}</h4>
+                              <h4>{unitDisplayLabel(unit)}</h4>
                               <div className="apartment-badges">
                                 <span className={unit.is_active ? "badge active" : "badge inactive"}>
                                   {unit.is_active ? "פעילה" : "לא פעילה"}
@@ -504,6 +538,10 @@ export default async function SiteDetailsPage({
                                 <dd>{formatNumber(activeResidents.length)}</dd>
                               </div>
                               <div>
+                                <dt>פוטנציאל צפוי</dt>
+                                <dd>{formatNumber(unit.expected_occupants ?? unit.known_people_count ?? activeResidents.length)}</dd>
+                              </div>
+                              <div>
                                 <dt>טופלו / ידועים</dt>
                                 <dd>{formatNumber(knownHandledResidents)}</dd>
                               </div>
@@ -516,7 +554,7 @@ export default async function SiteDetailsPage({
                             <div className="resident-section">
                               <h5>דיירים רשומים</h5>
                               {activeResidents.length === 0 ? (
-                                <p className="muted">אין דיירים רשומים לדירה זו.</p>
+                                <p className="muted">אין דיירים רשומים ליחידה זו.</p>
                               ) : (
                                 <ul className="resident-list">
                                   {activeResidents.map((resident) => {
@@ -609,7 +647,7 @@ export default async function SiteDetailsPage({
                             </div>
 
                             <details className="unit-actions">
-                              <summary>פעולות דירה</summary>
+                              <summary>פעולות יחידה / אזור</summary>
 
                               <form action={createUnitResident} className="action-form">
                                 {hiddenContext(params.incidentId, params.siteId, unit.id)}
@@ -628,10 +666,10 @@ export default async function SiteDetailsPage({
 
                               <form action={updateUnitStatus} className="action-form">
                                 {hiddenContext(params.incidentId, params.siteId, unit.id)}
-                                <strong>עדכן סטטוס דירה</strong>
+                                <strong>עדכן סטטוס יחידה</strong>
                                 <div className="form-grid">
                                   <select className="input wide" name="statusId" defaultValue={unit.status_id ?? ""} required>
-                                    <option value="">בחר סטטוס דירה</option>
+                                    <option value="">בחר סטטוס יחידה</option>
                                     {editableUnitStatuses.map((status) => (
                                       <option key={status.id} value={status.id}>
                                         {status.hebrew_label}
@@ -641,16 +679,16 @@ export default async function SiteDetailsPage({
                                   <input className="input wide" name="notes" placeholder="הערה" />
                                 </div>
                                 <button className="button secondary" type="submit">
-                                  עדכן סטטוס דירה
+                                  עדכן סטטוס יחידה
                                 </button>
                               </form>
 
                               <form action={clearUnit} className="action-form">
                                 {hiddenContext(params.incidentId, params.siteId, unit.id)}
                                 <strong>סימון זיכוי</strong>
-                                <input className="input" name="overrideReason" placeholder="נימוק חובה אם יש אנשים פתוחים בדירה" />
+                                <input className="input" name="overrideReason" placeholder="נימוק חובה אם יש אנשים פתוחים ביחידה" />
                                 <button className="button" type="submit" disabled={unit.is_fully_cleared || !unit.is_active}>
-                                  סמן דירה כזוכתה
+                                  סמן יחידה כזוכתה
                                 </button>
                               </form>
                             </details>
@@ -776,7 +814,7 @@ export default async function SiteDetailsPage({
       <section className="panel section-spaced">
         <h2>אנשים מבצעיים ללא שיוך ברור</h2>
         {unlinkedPersons.length === 0 ? (
-          <p className="muted">אין כרטיסי אדם ללא שיוך לדייר או לדירה.</p>
+          <p className="muted">אין כרטיסי אדם ללא שיוך לדייר או ליחידה.</p>
         ) : (
           <table className="table">
             <thead>
