@@ -15,41 +15,11 @@ type DashboardRow = {
   total_sites: number;
   initial_potential: number;
   updated_potential: number;
-  total_initial_potential: number;
-  total_updated_potential: number;
   gap_resolved_count: number;
-  resolved_persons: number;
   operational_gap: number;
-  total_teams: number;
   active_teams: number;
   available_teams: number;
   active_team_site_assignments: number;
-};
-
-type EventLogRow = {
-  id: string;
-  reported_at: string;
-  title: string;
-  description: string | null;
-  importance: string;
-  log_type: string;
-  person_id: string | null;
-  site_number: number | null;
-  operational_number: number | null;
-  team_number: number | null;
-};
-
-type PersonRow = {
-  id: string;
-  operational_number: number;
-  first_name: string | null;
-  last_name: string | null;
-};
-
-type ResidentRow = {
-  linked_person_id: string | null;
-  first_name: string | null;
-  last_name: string | null;
 };
 
 type SiteSummaryRow = {
@@ -62,54 +32,17 @@ type SiteSummaryRow = {
   initial_potential: number;
   updated_potential: number;
   total_active_units: number;
-  fully_cleared_units: number;
   open_units: number;
-  open_persons: number;
   gap_resolved_count: number;
-  resolved_persons: number;
   operational_gap: number;
 };
 
-function personDisplayName(person: Pick<PersonRow | ResidentRow, "first_name" | "last_name">) {
-  return [person.first_name, person.last_name].filter(Boolean).join(" ");
-}
-
-function operationalPersonLabel(person: PersonRow, linkedResident?: ResidentRow | null) {
-  const residentName = linkedResident ? personDisplayName(linkedResident) : "";
-  const personName = personDisplayName(person);
-  const displayName = residentName || personName;
-
-  return displayName ? `#${person.operational_number} - ${displayName}` : `#${person.operational_number}`;
-}
-
-const unhelpfulActivityDescriptions = new Set([
-  "placeholder",
-  "unit_resident_updated",
-  "person_linked_to_resident"
-]);
-
-function activityDescription(log: EventLogRow) {
-  const description = log.description?.trim();
-
-  if (description && !unhelpfulActivityDescriptions.has(description)) {
-    return description;
-  }
-
-  return unhelpfulActivityDescriptions.has(log.log_type) ? null : log.log_type;
-}
-
-function activityTitle(log: EventLogRow) {
-  if (log.log_type === "person_linked_to_resident") {
-    return "קישור מספר מבצעי לדייר";
-  }
-
-  return log.title;
-}
-
 export default async function IncidentDashboardPage({
-  params
+  params,
+  searchParams
 }: {
   params: { incidentId: string };
+  searchParams?: { created?: string };
 }) {
   const supabase = createClient();
   const { data: dashboard, error } = await supabase
@@ -132,6 +65,7 @@ export default async function IncidentDashboardPage({
     .limit(6);
 
   const sites = (siteRows ?? []) as SiteSummaryRow[];
+  const siteWizardHref = `/incidents/${summary.incident_id}/sites/new`;
 
   return (
     <main className="page">
@@ -139,8 +73,7 @@ export default async function IncidentDashboardPage({
         <div>
           <h1>{summary.name}</h1>
           <p className="muted">
-            {summary.city ?? "-"} · {summary.address} · נפתח{" "}
-            {formatDateTime(summary.opened_at)}
+            {summary.city ?? "-"} · {summary.address} · נפתח {formatDateTime(summary.opened_at)}
           </p>
           <p className="muted">
             סטטוס: {summary.incident_status_label ?? (summary.is_closed ? "סגור" : "פעיל")}
@@ -152,6 +85,9 @@ export default async function IncidentDashboardPage({
           <Link className="button secondary" href="/incidents">
             חזרה לאירועים
           </Link>
+          <Link className="button secondary" href="/incidents/new">
+            פתיחת אירוע חדש
+          </Link>
           <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites`}>
             אתרים
           </Link>
@@ -160,6 +96,18 @@ export default async function IncidentDashboardPage({
           </Link>
         </div>
       </div>
+
+      {searchParams?.created === "1" ? (
+        <section className="panel success-panel">
+          <div>
+            <h2>האירוע נפתח בהצלחה</h2>
+            <p className="muted">השלב המבצעי הבא הוא הקמת האתר הראשון באירוע.</p>
+          </div>
+          <Link className="button" href={siteWizardHref}>
+            הקם אתר ראשון
+          </Link>
+        </section>
+      ) : null}
 
       <section className="grid" aria-label="מדדי אירוע">
         <div className="metric">
@@ -195,6 +143,18 @@ export default async function IncidentDashboardPage({
           <strong>{formatNumber(summary.active_team_site_assignments)}</strong>
         </div>
       </section>
+
+      {summary.total_sites === 0 ? (
+        <section className="panel section-spaced next-action-panel">
+          <div>
+            <h2>צור אתר ראשון</h2>
+            <p className="muted">האתר הוא המקום שבו מגדירים מבנה, דירות, אזורים וצוותים.</p>
+          </div>
+          <Link className="button" href={siteWizardHref}>
+            צור אתר ראשון
+          </Link>
+        </section>
+      ) : null}
 
       <section className="panel section-spaced">
         <div className="header compact">
@@ -235,12 +195,10 @@ export default async function IncidentDashboardPage({
                   </td>
                   <td>{site.site_status_label ?? "-"}</td>
                   <td>
-                    {formatNumber(site.initial_potential)} /{" "}
-                    {formatNumber(site.updated_potential)}
+                    {formatNumber(site.initial_potential)} / {formatNumber(site.updated_potential)}
                   </td>
                   <td>
-                    {formatNumber(site.open_units)} מתוך{" "}
-                    {formatNumber(site.total_active_units)}
+                    {formatNumber(site.open_units)} מתוך {formatNumber(site.total_active_units)}
                   </td>
                   <td>{formatNumber(site.gap_resolved_count)}</td>
                   <td className="table-emphasis">{formatNumber(site.operational_gap)}</td>
@@ -258,7 +216,6 @@ export default async function IncidentDashboardPage({
           </table>
         )}
       </section>
-
     </main>
   );
 }

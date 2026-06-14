@@ -1086,6 +1086,40 @@ textarea {
   padding: 0 18px 0 0;
 }
 
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary-grid div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fafafa;
+  padding: 12px;
+}
+
+.success-panel,
+.next-action-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.success-panel {
+  margin-bottom: 16px;
+  border-color: #188038;
+  background: #f1f8f4;
+}
+
+.success-panel h2,
+.next-action-panel h2 {
+  margin: 0 0 6px;
+}
+
 .operational-log-page {
   width: min(1320px, calc(100% - 32px));
 }
@@ -1350,12 +1384,15 @@ textarea {
   }
 
   .zone-row,
-  .team-edit-row {
+  .team-edit-row,
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 
   .wizard-level-header,
-  .wizard-nav {
+  .wizard-nav,
+  .success-panel,
+  .next-action-panel {
     align-items: stretch;
     flex-direction: column;
   }

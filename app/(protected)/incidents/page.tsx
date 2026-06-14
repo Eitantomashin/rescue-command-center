@@ -29,6 +29,9 @@ export default async function IncidentsPage() {
           <h1>אירועים</h1>
           <p className="muted">רשימת אירועי חילוץ שהמשתמש מורשה לראות</p>
         </div>
+        <Link className="button" href="/incidents/new">
+          פתיחת אירוע חדש
+        </Link>
       </div>
 
       {error ? (
