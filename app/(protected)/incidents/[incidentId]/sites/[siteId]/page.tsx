@@ -94,6 +94,16 @@ type StatusRow = {
 
 type TreatmentState = "completed" | "in_progress" | "missing" | "unknown";
 
+const LINKED_PERSON_COMPLETED_STATUS_KEYS = new Set([
+  "rescued",
+  "evacuated",
+  "evacuated_from_site",
+  "evacuated_to_napal",
+  "located_outside_site",
+  "deceased_evacuated",
+  "resolved"
+]);
+
 function statusLabel(statuses: Map<string, StatusRow>, statusId: string | null) {
   if (!statusId) {
     return null;
@@ -121,10 +131,12 @@ function treatmentState(
 ): TreatmentState {
   const residentKey = statusKey(statuses, resident.status_id);
   const residentStatus = resident.status_id ? statuses.get(resident.status_id) : null;
-  const personStatus = linkedPerson ? statuses.get(linkedPerson.current_status_id) : null;
+  const personStatusKey = linkedPerson ? statusKey(statuses, linkedPerson.current_status_id) : null;
 
   if (linkedPerson) {
-    return personStatus?.counts_as_gap_resolved ? "completed" : "in_progress";
+    return personStatusKey && LINKED_PERSON_COMPLETED_STATUS_KEYS.has(personStatusKey)
+      ? "completed"
+      : "in_progress";
   }
 
   if (residentStatus?.counts_as_gap_resolved) {
