@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { createGeneralOperationalNote, updateGeneralOperationalNoteStatus } from "./actions";
 
 export type SearchParams = {
   q?: string;
@@ -107,7 +108,33 @@ const importanceOptions = [
   ["critical", "קריטי"]
 ] as const;
 
+const phase6gEventTypeOptions = [
+  ["all", "הכל"],
+  ["general_notes", "הערות כלליות"],
+  ["residents", "עדכוני דיירים"],
+  ["operational_numbers", "עדכונים מבצעיים"]
+] as const;
+
+const phase6gImportanceOptions = [
+  ["all", "הכל"],
+  ["normal", "רגיל"],
+  ["important", "חשוב"],
+  ["critical", "קריטי"]
+] as const;
+
+const noteSourceOptions = ["חברת חשמל", "משטרה", 'מד"א', "כבאות", "פיקוד העורף", "עירייה", "מפקד אירוע", "מנהל אתר", "צוות חילוץ", "אזרח", "אחר"];
+
+const noteTreatmentStatusOptions = [
+  ["open", "פתוח"],
+  ["in_progress", "בטיפול"],
+  ["closed", "נסגר"]
+] as const;
+
 function eventGroup(logType: string) {
+  if (logType === "general_operational_note" || logType === "general_operational_note_status_changed") {
+    return "general_notes";
+  }
+
   if (residentLogTypes.has(logType)) {
     return "residents";
   }
@@ -284,6 +311,13 @@ function detailFields(
   teams: Map<string, TeamRow>
 ) {
   const fields: Array<[string, string]> = [];
+  const noteTitle = metadataText(log.metadata, "note_title");
+  const noteContent = metadataText(log.metadata, "note_content");
+  const sourcePhone = metadataText(log.metadata, "source_phone");
+  const receivedAt = metadataText(log.metadata, "received_at");
+  const treatmentStatus = metadataText(log.metadata, "treatment_status");
+  const oldTreatmentStatus = metadataText(log.metadata, "old_treatment_status_label") ?? metadataText(log.metadata, "old_treatment_status");
+  const newTreatmentStatus = metadataText(log.metadata, "new_treatment_status_label") ?? metadataText(log.metadata, "new_treatment_status");
   const operationalNumber = operationalNumberLabel(log, persons);
   const resident = residentName(log, linkedResidents, persons);
   const location = locationLabel(log, floors, units);
@@ -308,6 +342,19 @@ function detailFields(
   if (gridCell) fields.push(["תא שטח", gridCell]);
   if (siteDisplay) fields.push(["אתר", siteDisplay]);
   if (team) fields.push(["צוות", team.name ?? `צוות ${team.team_number}`]);
+
+  if (log.log_type === "general_operational_note" || log.log_type === "general_operational_note_status_changed") {
+    if (noteTitle) fields.unshift(["כותרת", noteTitle]);
+    if (noteContent) fields.push(["תוכן", noteContent]);
+    if (oldTreatmentStatus && newTreatmentStatus) fields.push(["שינוי מצב טיפול", `${oldTreatmentStatus} → ${newTreatmentStatus}`]);
+    if (sourcePhone) fields.push(["טלפון", sourcePhone]);
+    if (receivedAt) fields.push(["זמן קבלת ההודעה", formatDateTime(receivedAt)]);
+    if (treatmentStatus) {
+      const treatmentLabel =
+        noteTreatmentStatusOptions.find(([optionValue]) => optionValue === treatmentStatus)?.[1] ?? treatmentStatus;
+      fields.push(["מצב טיפול", treatmentLabel]);
+    }
+  }
 
   return fields;
 }
@@ -354,6 +401,35 @@ function queryWith(params: SearchParams, patch: Record<string, string | null | u
 
   const query = next.toString();
   return query ? `?${query}` : "";
+}
+
+function datetimeLocalValue(date = new Date()) {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
+}
+
+function noteGroupId(log: EventLogRow) {
+  return metadataText(log.metadata, "note_group_id") ?? metadataText(log.metadata, "original_note_event_log_id") ?? log.id;
+}
+
+function noteTreatmentStatus(log: EventLogRow, logs: EventLogRow[]) {
+  const groupId = noteGroupId(log);
+  const latestStatusUpdate = logs.find((candidate) => {
+    if (candidate.log_type !== "general_operational_note_status_changed") {
+      return false;
+    }
+
+    return (
+      metadataText(candidate.metadata, "note_group_id") === groupId ||
+      metadataText(candidate.metadata, "original_note_event_log_id") === log.id
+    );
+  });
+
+  return (
+    metadataText(latestStatusUpdate?.metadata ?? {}, "new_treatment_status") ??
+    metadataText(log.metadata, "treatment_status") ??
+    "open"
+  );
 }
 
 export default async function OperationalLogPage({
@@ -430,11 +506,29 @@ export async function OperationalLogView({
 
   const { data: rawLogs, count: totalMatchingCount } = await logQuery;
   const logs = (rawLogs ?? []) as EventLogRow[];
+  const displayLogs = fixedSiteId
+    ? logs
+    : logs.filter((log, index, allLogs) => {
+        if (log.log_type === "general_operational_note_status_changed") {
+          const statusUpdateGroupId = metadataText(log.metadata, "status_update_group_id");
+          return (
+            !statusUpdateGroupId ||
+            allLogs.findIndex((candidate) => metadataText(candidate.metadata, "status_update_group_id") === statusUpdateGroupId) === index
+          );
+        }
+
+        if (log.log_type !== "general_operational_note") {
+          return true;
+        }
+
+        const noteGroupId = metadataText(log.metadata, "note_group_id");
+        return !noteGroupId || allLogs.findIndex((candidate) => metadataText(candidate.metadata, "note_group_id") === noteGroupId) === index;
+      });
   const siteMap = new Map(((siteRows ?? []) as SiteRow[]).map((site) => [site.id, site]));
-  const floorIds = Array.from(new Set(logs.map((log) => log.floor_id).filter(Boolean) as string[]));
-  const unitIds = Array.from(new Set(logs.map((log) => log.unit_id).filter(Boolean) as string[]));
-  const personIds = Array.from(new Set(logs.map((log) => log.person_id).filter(Boolean) as string[]));
-  const teamIds = Array.from(new Set(logs.map((log) => log.team_id).filter(Boolean) as string[]));
+  const floorIds = Array.from(new Set(displayLogs.map((log) => log.floor_id).filter(Boolean) as string[]));
+  const unitIds = Array.from(new Set(displayLogs.map((log) => log.unit_id).filter(Boolean) as string[]));
+  const personIds = Array.from(new Set(displayLogs.map((log) => log.person_id).filter(Boolean) as string[]));
+  const teamIds = Array.from(new Set(displayLogs.map((log) => log.team_id).filter(Boolean) as string[]));
   const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
   let totalEventsQuery = supabase.from("event_logs").select("id", { count: "exact", head: true }).eq("incident_id", incidentId);
   let todayEventsQuery = supabase
@@ -505,7 +599,7 @@ export async function OperationalLogView({
       .map((resident) => [resident.linked_person_id as string, resident])
   );
 
-  const filteredLogs = logs.filter((log) => {
+  const filteredLogs = displayLogs.filter((log) => {
     if (eventType !== "all" && eventGroup(log.log_type) !== eventType) {
       return false;
     }
@@ -518,6 +612,7 @@ export async function OperationalLogView({
   });
   const selectedLog = filteredLogs.find((log) => log.id === searchParams.eventId) ?? filteredLogs[0] ?? null;
   const canLoadMore = (totalMatchingCount ?? 0) > limit;
+  const defaultReceivedAt = datetimeLocalValue();
 
   return (
     <main className="page operational-log-page">
@@ -555,6 +650,96 @@ export async function OperationalLogView({
         </div>
       </section>
 
+      <details className="panel general-note-panel section-spaced">
+        <summary className="button">➕ הערה כללית</summary>
+        <form action={createGeneralOperationalNote} className="general-note-form">
+          <input type="hidden" name="incidentId" value={incidentId} />
+          {fixedSiteId ? <input type="hidden" name="fixedSiteId" value={fixedSiteId} /> : null}
+
+          <label className="field">
+            <span>כותרת *</span>
+            <input className="input" name="noteTitle" required />
+          </label>
+
+          <label className="field wide">
+            <span>תוכן *</span>
+            <textarea className="input wide" name="noteContent" rows={4} required />
+          </label>
+
+          <label className="field">
+            <span>מקור ההודעה *</span>
+            <select className="input" name="sourceType" required defaultValue="מפקד אירוע">
+              {noteSourceOptions.map((source) => (
+                <option key={source} value={source}>
+                  {source}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>מוסר ההודעה</span>
+            <input className="input" name="sourceName" />
+          </label>
+
+          <label className="field">
+            <span>טלפון</span>
+            <input className="input" name="sourcePhone" />
+          </label>
+
+          <label className="field">
+            <span>זמן קבלת ההודעה</span>
+            <input className="input" type="datetime-local" name="receivedAt" defaultValue={defaultReceivedAt} />
+          </label>
+
+          <label className="field">
+            <span>חשיבות</span>
+            <select className="input" name="importance" defaultValue="normal">
+              <option value="normal">רגיל</option>
+              <option value="important">חשוב</option>
+              <option value="critical">קריטי</option>
+            </select>
+          </label>
+
+          <label className="field">
+            <span>מצב טיפול</span>
+            <select className="input" name="treatmentStatus" defaultValue="open">
+              {noteTreatmentStatusOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {fixedSiteId ? (
+            <div className="general-note-site-box">ההערה תשויך לאתר הנוכחי בלבד.</div>
+          ) : (
+            <fieldset className="general-note-site-box">
+              <legend>שיוך לאתרים</legend>
+              <label className="checkbox-row">
+                <input type="checkbox" name="allSites" defaultChecked />
+                <span>כל האתרים</span>
+              </label>
+              <div className="site-checkbox-grid">
+                {((siteRows ?? []) as SiteRow[]).map((site) => (
+                  <label className="checkbox-row" key={site.id}>
+                    <input type="checkbox" name="siteIds" value={site.id} />
+                    <span>
+                      אתר {site.site_number} - {site.name ?? `${site.street} ${site.house_number}`}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          <button className="button" type="submit">
+            שמור הערה
+          </button>
+        </form>
+      </details>
+
       <form className="panel operational-log-filters section-spaced">
         <label className="field">
           <span>חיפוש</span>
@@ -563,7 +748,7 @@ export async function OperationalLogView({
         <label className="field">
           <span>סוג עדכון</span>
           <select className="input" name="eventType" defaultValue={eventType}>
-            {eventTypeOptions.map(([value, label]) => (
+            {phase6gEventTypeOptions.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -595,7 +780,7 @@ export async function OperationalLogView({
         <label className="field">
           <span>חשיבות</span>
           <select className="input" name="importance" defaultValue={importance}>
-            {importanceOptions.map(([value, label]) => (
+            {phase6gImportanceOptions.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -626,6 +811,12 @@ export async function OperationalLogView({
                 const operationalNumber = operationalNumberLabel(log, personMap);
                 const location = locationLabel(log, floorMap, unitMap);
                 const site = log.site_id ? siteMap.get(log.site_id) : null;
+                const noteSource = metadataText(log.metadata, "information_source_type") ?? log.source_type;
+                const noteSourceName = metadataText(log.metadata, "source_name") ?? log.source_name;
+                const noteTreatmentStatus = metadataText(log.metadata, "treatment_status");
+                const noteTreatmentLabel = noteTreatmentStatus
+                  ? noteTreatmentStatusOptions.find(([value]) => value === noteTreatmentStatus)?.[1] ?? noteTreatmentStatus
+                  : null;
                 const operationalContext =
                   operationalNumber && site && !fixedSiteId
                     ? `${operationalNumber} · אתר ${site.site_number}`
@@ -642,6 +833,9 @@ export async function OperationalLogView({
                         {site ? <span>אתר {site.site_number}</span> : null}
                         {location ? <span>{location}</span> : null}
                         {operationalContext ? <span>{operationalContext}</span> : null}
+                        {log.log_type === "general_operational_note" && noteSource ? <span>{noteSource}</span> : null}
+                        {log.log_type === "general_operational_note" && noteSourceName ? <span>{noteSourceName}</span> : null}
+                        {log.log_type === "general_operational_note" && noteTreatmentLabel ? <span>{noteTreatmentLabel}</span> : null}
                       </div>
                     </Link>
                   </li>
@@ -677,6 +871,27 @@ export async function OperationalLogView({
                   </div>
                 ))}
               </dl>
+
+              {selectedLog.log_type === "general_operational_note" ? (
+                <form action={updateGeneralOperationalNoteStatus} className="note-status-form">
+                  <input type="hidden" name="incidentId" value={incidentId} />
+                  <input type="hidden" name="originalNoteEventLogId" value={selectedLog.id} />
+                  {fixedSiteId ? <input type="hidden" name="fixedSiteId" value={fixedSiteId} /> : null}
+                  <label className="field">
+                    <span>מצב טיפול</span>
+                    <select className="input" name="newTreatmentStatus" defaultValue={noteTreatmentStatus(selectedLog, logs)}>
+                      {noteTreatmentStatusOptions.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button className="button" type="submit">
+                    עדכן מצב טיפול
+                  </button>
+                </form>
+              ) : null}
 
               <details className="technical-metadata">
                 <summary>מידע טכני</summary>

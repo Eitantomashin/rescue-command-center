@@ -86,8 +86,14 @@ type EventLogRow = {
   description: string | null;
   importance: "normal" | "important" | "critical" | string;
   reported_at: string;
+  source_type?: string | null;
   metadata: Record<string, unknown>;
 };
+
+function metadataText(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
 
 const RESOLVED_STATUS_GROUPS = new Set(["rescued", "evacuated", "located_outside_site", "deceased"]);
 
@@ -241,7 +247,8 @@ export default async function IncidentDashboardPage({
     { data: operationalRows },
     { data: teamRows },
     { data: assignmentRows },
-    { data: importantLogRows }
+    { data: importantLogRows },
+    { data: openNoteRows }
   ] = await Promise.all([
     supabase
       .from("site_dashboard_summary")
@@ -265,11 +272,18 @@ export default async function IncidentDashboardPage({
       .eq("assignment_status", "active"),
     supabase
       .from("event_logs")
-      .select("id,site_id,person_id,log_type,title,description,importance,reported_at,metadata")
+      .select("id,site_id,person_id,log_type,title,description,importance,reported_at,source_type,metadata")
       .eq("incident_id", params.incidentId)
       .in("importance", ["important", "critical"])
       .order("reported_at", { ascending: false })
-      .limit(10)
+      .limit(10),
+    supabase
+      .from("event_logs")
+      .select("id,site_id,person_id,log_type,title,description,importance,reported_at,source_type,metadata")
+      .eq("incident_id", params.incidentId)
+      .in("log_type", ["general_operational_note", "general_operational_note_status_changed"])
+      .order("reported_at", { ascending: false })
+      .limit(200)
   ]);
 
   const sites = (siteRows ?? []) as SiteSummaryRow[];
@@ -277,6 +291,31 @@ export default async function IncidentDashboardPage({
   const teams = (teamRows ?? []) as TeamRow[];
   const assignments = (assignmentRows ?? []) as TeamAssignmentRow[];
   const importantLogs = (importantLogRows ?? []) as EventLogRow[];
+  const noteRows = (openNoteRows ?? []) as EventLogRow[];
+  const latestNoteStatusByGroup = noteRows.reduce((map, note) => {
+    if (note.log_type !== "general_operational_note_status_changed") {
+      return map;
+    }
+
+    const groupId = metadataText(note.metadata, "note_group_id") ?? metadataText(note.metadata, "original_note_event_log_id");
+    const status = metadataText(note.metadata, "new_treatment_status");
+    if (groupId && status && !map.has(groupId)) {
+      map.set(groupId, status);
+    }
+    return map;
+  }, new Map<string, string>());
+  const openNotes = noteRows
+    .filter((note) => note.log_type === "general_operational_note")
+    .filter((note) => {
+      const groupId = metadataText(note.metadata, "note_group_id") ?? note.id;
+      const latestStatus = latestNoteStatusByGroup.get(groupId) ?? metadataText(note.metadata, "treatment_status") ?? "open";
+      return ["open", "in_progress"].includes(latestStatus);
+    })
+    .filter((note, index, allNotes) => {
+      const noteGroupId = metadataText(note.metadata, "note_group_id");
+      return !noteGroupId || allNotes.findIndex((candidate) => metadataText(candidate.metadata, "note_group_id") === noteGroupId) === index;
+    })
+    .slice(0, 10);
   const siteWizardHref = `/incidents/${summary.incident_id}/sites/new`;
   const activeOperationalNumbers =
     summary.active_operational_numbers_count ?? summary.gap_resolved_count ?? operationalNumbers.length;
@@ -591,6 +630,34 @@ export default async function IncidentDashboardPage({
               </li>
             ))}
           </ol>
+        )}
+      </section>
+      <section className="panel section-spaced open-notes-panel">
+        <div className="command-section-heading">
+          <div>
+            <h2>📌 הערות פתוחות</h2>
+            <p className="muted">הערות כלליות שעדיין פתוחות או בטיפול</p>
+          </div>
+          <Link className="button secondary" href={`/incidents/${summary.incident_id}/operational-log?eventType=general_notes`}>
+            כל ההערות
+          </Link>
+        </div>
+
+        {openNotes.length === 0 ? (
+          <p className="muted">אין הערות פתוחות להצגה כרגע.</p>
+        ) : (
+          <div className="open-notes-list">
+            {openNotes.map((note) => (
+              <article className={`open-note-card importance-${note.importance}`} key={note.id}>
+                <strong>{metadataText(note.metadata, "note_title") ?? note.description ?? "הערה כללית"}</strong>
+                <div className="timeline-meta">
+                  <span>{metadataText(note.metadata, "information_source_type") ?? note.source_type ?? "מקור לא ידוע"}</span>
+                  <span>{formatDateTime(metadataText(note.metadata, "received_at") ?? note.reported_at)}</span>
+                  <span>{note.importance === "critical" ? "קריטי" : note.importance === "important" ? "חשוב" : "רגיל"}</span>
+                </div>
+              </article>
+            ))}
+          </div>
         )}
       </section>
     </main>
