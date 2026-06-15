@@ -105,8 +105,11 @@ const LINKED_PERSON_COMPLETED_STATUS_KEYS = new Set([
   "evacuated",
   "evacuated_from_site",
   "evacuated_to_napal",
+  "injured_evacuated_from_site",
+  "injured_evacuated_to_ccp",
   "located_outside_site",
   "deceased_evacuated",
+  "fatality_evacuated",
   "resolved"
 ]);
 
@@ -174,6 +177,19 @@ function treatmentState(
   }
 
   return "unknown";
+}
+
+function countsAsKnownHandledForUnitGap(
+  statuses: Map<string, StatusRow>,
+  resident: ResidentRow,
+  linkedPerson?: PersonRow | null
+) {
+  if (linkedPerson) {
+    return true;
+  }
+
+  const residentStatus = resident.status_id ? statuses.get(resident.status_id) : null;
+  return Boolean(residentStatus?.counts_as_gap_resolved);
 }
 
 function treatmentLabel(state: TreatmentState) {
@@ -469,15 +485,6 @@ export default async function SiteDetailsPage({
         </div>
       </div>
 
-      <div className="debug-status-source">
-        {"\u05d3\u05d9\u05d1\u05d0\u05d2 \u05d6\u05de\u05e0\u05d9: \u05e1\u05d8\u05d8\u05d5\u05e1 \u05d3\u05d9\u05d9\u05e8\u05d9\u05dd \u05de\u05e7\u05d5\u05e9\u05e8\u05d9\u05dd \u05de\u05d7\u05d5\u05e9\u05d1 \u05de\u05ea\u05d5\u05da operational_numbers_dashboard. "}
-        {"\u05e0\u05d8\u05e2\u05e0\u05d5 "}
-        {formatNumber(persons.length)}
-        {" \u05de\u05e1\u05e4\u05e8\u05d9\u05dd \u05dc\u05d0\u05ea\u05e8, \u05d4\u05d5\u05ea\u05d0\u05de\u05d5 "}
-        {formatNumber(matchedLinkedResidentsCount)}
-        {" \u05d3\u05d9\u05d9\u05e8\u05d9\u05dd \u05de\u05e7\u05d5\u05e9\u05e8\u05d9\u05dd."}
-      </div>
-
       <section className="grid" aria-label="מדדי אתר">
         <div className="metric">
           פוטנציאל ראשוני
@@ -577,10 +584,13 @@ export default async function SiteDetailsPage({
                         const activeResidents = (residentsByUnit.get(unit.id) ?? []).filter(
                           (resident) => resident.is_active
                         );
-                        const residentStates = activeResidents.map((resident) =>
-                          treatmentState(statuses, resident, resident.linked_person_id ? personsById.get(resident.linked_person_id) : null)
-                        );
-                        const knownHandledResidents = residentStates.filter((state) => state === "completed").length;
+                        const knownHandledResidents = activeResidents.filter((resident) =>
+                          countsAsKnownHandledForUnitGap(
+                            statuses,
+                            resident,
+                            resident.linked_person_id ? personsById.get(resident.linked_person_id) : null
+                          )
+                        ).length;
                         const unknownResidents = activeResidents.length - knownHandledResidents;
 
                         return (
