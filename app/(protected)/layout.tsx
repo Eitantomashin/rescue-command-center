@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CommandActionPanel } from "./command-action-panel";
 import { signOut } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -36,6 +37,7 @@ export default async function ProtectedLayout({
         </form>
       </header>
 
+      <CommandActionPanel />
       {children}
     </>
   );

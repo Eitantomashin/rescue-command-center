@@ -71,6 +71,7 @@ export function IncidentCreationWizard() {
 
   const selectedTeams = useMemo(() => teams.filter((team) => team.selected), [teams]);
   const selectedTeamLabels = selectedTeams.map((team) => teamLabel(team.teamNumber)).join(", ");
+  const canCreateIncident = Boolean(incidentName.trim() && incidentType.trim() && city.trim());
   const selectedIncidentTypeLabel =
     incidentTypes.find(([value]) => value === incidentType)?.[1] ?? "אחר";
 
@@ -84,6 +85,8 @@ export function IncidentCreationWizard() {
     <form action={createIncidentFromWizard} className="wizard-form">
       <input type="hidden" name="incidentName" value={incidentName} />
       <input type="hidden" name="incidentType" value={incidentType} />
+      <input type="hidden" name="primaryCity" value={city} />
+      <input type="hidden" name="primaryAddress" value={address} />
       <input type="hidden" name="city" value={city} />
       <input type="hidden" name="address" value={address} />
       <input type="hidden" name="initialDescription" value={initialDescription} />
@@ -143,7 +146,7 @@ export function IncidentCreationWizard() {
               <span>עיר ראשית</span>
               <input
                 className="input"
-                name="city"
+                name="primaryCity"
                 value={city}
                 onChange={(event) => setCity(event.target.value)}
                 placeholder="רעננה"
@@ -154,7 +157,7 @@ export function IncidentCreationWizard() {
               <span>כתובת / מיקום ראשי</span>
               <input
                 className="input"
-                name="address"
+                name="primaryAddress"
                 value={address}
                 onChange={(event) => setAddress(event.target.value)}
                 placeholder="הרצל 5 / צומת רעננה"
@@ -355,7 +358,7 @@ export function IncidentCreationWizard() {
             <button className="button secondary" type="button" onClick={() => setStep(3)}>
               חזרה
             </button>
-            <button className="button" type="submit">
+            <button className="button" type="submit" disabled={!canCreateIncident}>
               צור אירוע
             </button>
           </div>
