@@ -74,11 +74,17 @@ type ResidentRow = {
 
 type PersonRow = {
   id: string;
+  site_id: string | null;
   unit_id: string | null;
+  resident_id: string | null;
   operational_number: number;
   first_name: string | null;
   last_name: string | null;
   current_status_id: string;
+  current_status_key: string | null;
+  current_status_label: string | null;
+  latest_report_status_key: string | null;
+  latest_report_status_label: string | null;
   is_merged: boolean;
 };
 
@@ -116,6 +122,22 @@ function statusKey(statuses: Map<string, StatusRow>, statusId: string | null) {
   return statusId ? statuses.get(statusId)?.status_key ?? null : null;
 }
 
+function linkedPersonStatusKey(statuses: Map<string, StatusRow>, linkedPerson: PersonRow | null | undefined) {
+  if (!linkedPerson) {
+    return null;
+  }
+
+  return linkedPerson.latest_report_status_key ?? linkedPerson.current_status_key ?? statusKey(statuses, linkedPerson.current_status_id);
+}
+
+function linkedPersonStatusLabel(statuses: Map<string, StatusRow>, linkedPerson: PersonRow | null | undefined) {
+  if (!linkedPerson) {
+    return null;
+  }
+
+  return linkedPerson.latest_report_status_label ?? linkedPerson.current_status_label ?? statusLabel(statuses, linkedPerson.current_status_id);
+}
+
 function displayName(person: Pick<PersonRow | ResidentRow, "first_name" | "last_name">) {
   return [person.first_name, person.last_name].filter(Boolean).join(" ") || "שם לא ידוע";
 }
@@ -131,7 +153,7 @@ function treatmentState(
 ): TreatmentState {
   const residentKey = statusKey(statuses, resident.status_id);
   const residentStatus = resident.status_id ? statuses.get(resident.status_id) : null;
-  const personStatusKey = linkedPerson ? statusKey(statuses, linkedPerson.current_status_id) : null;
+  const personStatusKey = linkedPersonStatusKey(statuses, linkedPerson);
 
   if (linkedPerson) {
     return personStatusKey && LINKED_PERSON_COMPLETED_STATUS_KEYS.has(personStatusKey)
@@ -177,7 +199,7 @@ function residentLine(
 ) {
   const number = linkedPerson ? `#${linkedPerson.operational_number}` : "ללא מספר מבצעי";
   const knownStatus =
-    (linkedPerson ? statusLabel(statuses, linkedPerson.current_status_id) : null) ??
+    linkedPersonStatusLabel(statuses, linkedPerson) ??
     statusLabel(statuses, resident.status_id);
 
   return `${displayName(resident)} · ${number} · ${knownStatus ?? "מצב לא ידוע"}`;
@@ -363,9 +385,10 @@ export default async function SiteDetailsPage({
         .is("unit_id", null)
         .order("last_name", { ascending: true }),
       supabase
-        .from("persons")
-        .select("id,unit_id,operational_number,first_name,last_name,current_status_id,is_merged")
+        .from("operational_numbers_dashboard")
+        .select("id:person_id,site_id,unit_id,resident_id,operational_number,first_name,last_name,current_status_id,current_status_key,current_status_label,latest_report_status_key,latest_report_status_label,is_merged")
         .eq("incident_id", params.incidentId)
+        .or(`site_id.eq.${params.siteId},site_id.is.null`)
         .eq("is_merged", false)
         .order("operational_number", { ascending: true }),
       supabase
@@ -378,7 +401,7 @@ export default async function SiteDetailsPage({
 
   const residents = (residentRows ?? []) as ResidentRow[];
   const generalResidents = (generalResidentRows ?? []) as ResidentRow[];
-  const persons = (personRows ?? []) as PersonRow[];
+  const dashboardPersons = (personRows ?? []) as PersonRow[];
   const linkedResidents = (linkedResidentRows ?? []) as ResidentRow[];
   const allStatuses = (allStatusRows ?? []) as StatusRow[];
   const statuses = new Map(allStatuses.map((status) => [status.id, status]));
@@ -394,7 +417,19 @@ export default async function SiteDetailsPage({
   }, new Map());
 
   const residentsByUnit = groupByUnit(residents);
+  const linkedResidentIds = new Set(
+    [...residents, ...generalResidents]
+      .filter((resident) => resident.linked_person_id)
+      .map((resident) => resident.linked_person_id as string)
+  );
+  const persons = dashboardPersons.filter(
+    (person) =>
+      person.site_id === params.siteId ||
+      (person.resident_id !== null && linkedResidentIds.has(person.id)) ||
+      linkedResidentIds.has(person.id)
+  );
   const personsById = new Map(persons.map((person) => [person.id, person]));
+  const matchedLinkedResidentsCount = [...linkedResidentIds].filter((personId) => personsById.has(personId)).length;
   const linkedResidentsByPerson = new Map(
     linkedResidents
       .filter((resident) => resident.linked_person_id)
@@ -432,6 +467,15 @@ export default async function SiteDetailsPage({
             כל האתרים
           </Link>
         </div>
+      </div>
+
+      <div className="debug-status-source">
+        {"\u05d3\u05d9\u05d1\u05d0\u05d2 \u05d6\u05de\u05e0\u05d9: \u05e1\u05d8\u05d8\u05d5\u05e1 \u05d3\u05d9\u05d9\u05e8\u05d9\u05dd \u05de\u05e7\u05d5\u05e9\u05e8\u05d9\u05dd \u05de\u05d7\u05d5\u05e9\u05d1 \u05de\u05ea\u05d5\u05da operational_numbers_dashboard. "}
+        {"\u05e0\u05d8\u05e2\u05e0\u05d5 "}
+        {formatNumber(persons.length)}
+        {" \u05de\u05e1\u05e4\u05e8\u05d9\u05dd \u05dc\u05d0\u05ea\u05e8, \u05d4\u05d5\u05ea\u05d0\u05de\u05d5 "}
+        {formatNumber(matchedLinkedResidentsCount)}
+        {" \u05d3\u05d9\u05d9\u05e8\u05d9\u05dd \u05de\u05e7\u05d5\u05e9\u05e8\u05d9\u05dd."}
       </div>
 
       <section className="grid" aria-label="מדדי אתר">

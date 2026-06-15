@@ -864,6 +864,17 @@ textarea {
   color: var(--muted);
 }
 
+.debug-status-source {
+  border: 1px dashed #f9ab00;
+  border-radius: 8px;
+  background: #fff8e1;
+  color: #8a5a00;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .error {
   color: var(--danger);
 }
