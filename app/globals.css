@@ -514,6 +514,26 @@ textarea {
   padding: 16px;
 }
 
+.status-tile.open {
+  box-shadow: 0 8px 24px rgba(32, 33, 36, 0.08);
+}
+
+.status-tile-button {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: right;
+  cursor: pointer;
+}
+
+.status-tile-button:hover span {
+  color: var(--primary);
+}
+
 .status-tile span {
   color: var(--muted);
   font-size: 14px;
@@ -541,6 +561,54 @@ textarea {
 .status-tile.tone-red {
   border-color: var(--danger);
   background: #fce8e6;
+}
+
+.status-breakdown-panel {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid rgba(32, 33, 36, 0.12);
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
+.status-breakdown-panel h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.status-breakdown-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.status-breakdown-panel dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.status-breakdown-panel dl div,
+.status-breakdown-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-breakdown-panel dt {
+  color: var(--foreground);
+}
+
+.status-breakdown-panel dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.status-breakdown-total {
+  border-top: 1px solid rgba(32, 33, 36, 0.12);
+  padding-top: 8px;
+  font-weight: 700;
 }
 
 .site-command-grid {

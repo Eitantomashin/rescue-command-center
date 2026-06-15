@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { OperationalStatusOverview, type OperationalStatusTile } from "./operational-status-overview";
 
 type DashboardRow = {
   incident_id: string;
@@ -55,6 +56,8 @@ type OperationalNumberRow = {
   site_id: string | null;
   operational_number: number;
   team_number: number;
+  current_status_key: string | null;
+  current_status_label: string | null;
   dashboard_status_group: string | null;
   is_merged: boolean;
 };
@@ -154,6 +157,40 @@ function importanceLabel(importance: string) {
   return "רגיל";
 }
 
+function statusBreakdown(operationalNumbers: OperationalNumberRow[], group: string) {
+  const counts = operationalNumbers
+    .filter((person) => person.dashboard_status_group === group)
+    .reduce((map, person) => {
+      const label =
+        person.current_status_label?.trim() ||
+        person.current_status_key?.trim() ||
+        "\u05dc\u05d0 \u05d9\u05d3\u05d5\u05e2";
+      map.set(label, (map.get(label) ?? 0) + 1);
+      return map;
+    }, new Map<string, number>());
+
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "he"));
+}
+
+function statusTile(
+  operationalNumbers: OperationalNumberRow[],
+  group: string,
+  label: string,
+  tone: string
+): OperationalStatusTile {
+  const details = statusBreakdown(operationalNumbers, group);
+
+  return {
+    group,
+    label,
+    tone,
+    details,
+    value: details.reduce((sum, row) => sum + row.count, 0)
+  };
+}
+
 export default async function IncidentDashboardPage({
   params,
   searchParams
@@ -188,7 +225,7 @@ export default async function IncidentDashboardPage({
       .order("site_number", { ascending: true }),
     supabase
       .from("operational_numbers_dashboard")
-      .select("person_id,site_id,operational_number,team_number,dashboard_status_group,is_merged")
+      .select("person_id,site_id,operational_number,team_number,current_status_key,current_status_label,dashboard_status_group,is_merged")
       .eq("incident_id", params.incidentId),
     supabase
       .from("teams")
@@ -273,6 +310,27 @@ export default async function IncidentDashboardPage({
       tone: "red"
     }
   ];
+
+  const interactiveStatusTiles = [
+    statusTile(operationalNumbers, "missing_unknown", "\u05e0\u05e2\u05d3\u05e8 / \u05dc\u05d0 \u05d9\u05d3\u05d5\u05e2", "blue"),
+    statusTile(
+      operationalNumbers,
+      "trapped_located_not_yet_rescued",
+      "\u05dc\u05db\u05d5\u05d3 \u05d0\u05d5\u05ea\u05e8 \u05d5\u05d8\u05e8\u05dd \u05d7\u05d5\u05dc\u05e5",
+      "orange"
+    ),
+    statusTile(operationalNumbers, "rescued", "\u05de\u05d7\u05d5\u05dc\u05e6\u05d9\u05dd", "green"),
+    statusTile(operationalNumbers, "evacuated", "\u05e4\u05d5\u05e0\u05d5", "green"),
+    statusTile(
+      operationalNumbers,
+      "located_outside_site",
+      "\u05d0\u05d5\u05ea\u05e8\u05d5 \u05de\u05d7\u05d5\u05e5 \u05dc\u05d0\u05ea\u05e8",
+      "green"
+    ),
+    statusTile(operationalNumbers, "deceased", "\u05e0\u05e4\u05d8\u05e8\u05d9\u05dd", "red")
+  ];
+
+  void statusTiles;
 
   return (
     <main className="page commander-dashboard-page">
@@ -372,14 +430,7 @@ export default async function IncidentDashboardPage({
             <p className="muted">פירוק לפי הסטטוס המבצעי העדכני</p>
           </div>
         </div>
-        <div className="status-overview-grid">
-          {statusTiles.map((tile) => (
-            <article className={`status-tile tone-${tile.tone}`} key={tile.label}>
-              <span>{tile.label}</span>
-              <strong>{formatNumber(tile.value)}</strong>
-            </article>
-          ))}
-        </div>
+        <OperationalStatusOverview tiles={interactiveStatusTiles} />
       </section>
 
       <section className="panel section-spaced">
