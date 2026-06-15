@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Rescue Command Center",
-  description: "Operational command center for rescue incidents"
+  title: "ינשו\"פ",
+  description: "יצירת ניתוח שוטף ותמיכה פיקודית"
 };
 
 export default function RootLayout({

@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CurrentTime } from "@/app/current-time";
 import { formatNumber } from "@/lib/format";
 
 export type IncidentShellIncident = {
   id: string;
   name: string;
+  is_closed: boolean;
 };
 
 export type IncidentShellSite = {
@@ -16,6 +18,10 @@ export type IncidentShellSite = {
   city: string | null;
   street: string | null;
   house_number: string | null;
+  updated_potential: number;
+  active_operational_numbers_count?: number | null;
+  gap_resolved_count?: number | null;
+  operational_gap: number;
 };
 
 export type IncidentShellSummary = {
@@ -23,6 +29,8 @@ export type IncidentShellSummary = {
   active_operational_numbers_count?: number | null;
   gap_resolved_count?: number | null;
   operational_gap: number;
+  total_sites?: number | null;
+  active_teams?: number | null;
 };
 
 function siteLabel(site: IncidentShellSite) {
@@ -45,6 +53,33 @@ function activeClass(pathname: string, href: string, exact = true) {
 
 function currentSiteFromPath(pathname: string, sites: IncidentShellSite[]) {
   return sites.find((site) => pathname.includes(`/sites/${site.site_id}`)) ?? null;
+}
+
+function gapLevel(updatedPotential: number, activeOperationalNumbers: number) {
+  if (updatedPotential <= 0) {
+    return "low";
+  }
+
+  const coverage = Math.round((activeOperationalNumbers / updatedPotential) * 100);
+  const gapPercent = 100 - Math.max(0, Math.min(100, coverage));
+
+  if (gapPercent >= 35) {
+    return "high";
+  }
+
+  if (gapPercent >= 10) {
+    return "medium";
+  }
+
+  return "low";
+}
+
+function siteGapLevel(site: IncidentShellSite) {
+  if (site.operational_gap <= 0) {
+    return "low";
+  }
+
+  return gapLevel(site.updated_potential, site.active_operational_numbers_count ?? site.gap_resolved_count ?? 0);
 }
 
 function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSite[], pathname: string) {
@@ -106,21 +141,21 @@ export function IncidentCommandShell({
     <div className="incident-command-layout">
       <aside className="incident-nav-tree" aria-label="ניווט אירוע">
         <div className="incident-nav-header">
-          <span aria-hidden="true">🚨</span>
+          <span className="nav-icon nav-icon-incident" aria-hidden="true">!</span>
           <strong>{incident.name}</strong>
         </div>
 
         <nav>
           <Link className={`incident-nav-item${activeClass(pathname, base)}`} href={base}>
-            <span aria-hidden="true">📊</span>
+            <span className="nav-icon" aria-hidden="true">ד</span>
             דשבורד מפקד
           </Link>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/operational-log`)}`} href={`${base}/operational-log`}>
-            <span aria-hidden="true">📖</span>
+            <span className="nav-icon" aria-hidden="true">י</span>
             יומן מבצעי כללי
           </Link>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/sites`)}`} href={`${base}/sites`}>
-            <span aria-hidden="true">🏢</span>
+            <span className="nav-icon" aria-hidden="true">א</span>
             כל האתרים
           </Link>
 
@@ -128,30 +163,31 @@ export function IncidentCommandShell({
             {sites.map((site) => {
               const rootHref = siteHref(incident.id, site.site_id);
               const isCurrentSite = pathname.startsWith(rootHref);
+              const level = siteGapLevel(site);
 
               return (
                 <details className="incident-site-node" key={site.site_id} open={isCurrentSite}>
                   <summary className={isCurrentSite ? "active" : ""}>
-                    <span aria-hidden="true">🏢</span>
+                    <span className={`site-status-dot coverage-${level}`} aria-label={`פער ${level}`} />
                     {siteLabel(site)}
                   </summary>
                   <div className="incident-site-links">
                     <Link className={`incident-nav-item${activeClass(pathname, rootHref)}`} href={rootHref}>
-                      <span aria-hidden="true">📊</span>
+                      <span className="nav-icon" aria-hidden="true">מ</span>
                       תמונת מבנה
                     </Link>
                     <Link
                       className={`incident-nav-item${activeClass(pathname, `${rootHref}/operational-numbers`)}`}
                       href={`${rootHref}/operational-numbers`}
                     >
-                      <span aria-hidden="true">👤</span>
+                      <span className="nav-icon" aria-hidden="true">#</span>
                       מספרים מבצעיים
                     </Link>
                     <Link
                       className={`incident-nav-item${activeClass(pathname, `${rootHref}/operational-log`)}`}
                       href={`${rootHref}/operational-log`}
                     >
-                      <span aria-hidden="true">📖</span>
+                      <span className="nav-icon" aria-hidden="true">י</span>
                       יומן מבצעי אתר
                     </Link>
                   </div>
@@ -185,10 +221,35 @@ export function IncidentCommandShell({
       </aside>
 
       <div className="incident-command-content">
+        <section className="incident-ops-strip" aria-label="סיכום אירוע">
+          <div>
+            <span>אירוע</span>
+            <strong>{incident.name}</strong>
+          </div>
+          <div>
+            <span>סטטוס</span>
+            <strong>{incident.is_closed ? "סגור" : "פעיל"}</strong>
+          </div>
+          <div>
+            <span>אתרים</span>
+            <strong>{formatNumber(summary.total_sites ?? sites.length)}</strong>
+          </div>
+          <div>
+            <span>צוותים</span>
+            <strong>{formatNumber(summary.active_teams ?? 0)}</strong>
+          </div>
+          <div>
+            <span>שעה</span>
+            <strong>
+              <CurrentTime />
+            </strong>
+          </div>
+        </section>
+
         <nav className="breadcrumb-bar" aria-label="מיקום נוכחי">
           {breadcrumbs.map((item, index) => (
             <span key={`${item.href}-${item.label}`}>
-              {index > 0 ? <span className="breadcrumb-separator">›</span> : null}
+              {index > 0 ? <span className="breadcrumb-separator">/</span> : null}
               {index === breadcrumbs.length - 1 ? (
                 <strong>{item.label}</strong>
               ) : (

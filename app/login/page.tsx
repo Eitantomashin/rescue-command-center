@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { BrandImage } from "@/app/brand-image";
 import { signIn } from "./actions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,34 +20,33 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   return (
-    <main className="page">
-      <section className="panel">
-        <div className="stack">
+    <main className="login-page">
+      <section className="panel login-panel">
+        <div className="login-brand">
+          <BrandImage className="brand-logo primary-logo" src="/brand/yanshof-owl-logo.png" alt="לוגו ינשו&quot;פ" />
           <div>
-            <h1>כניסה למערכת</h1>
-            <p className="muted">Rescue Command Center</p>
+            <h1>ינשו&quot;פ</h1>
+            <p>יצירת ניתוח שוטף ותמיכה פיקודית</p>
           </div>
-
-          <form action={signIn} className="form">
-            <label className="field">
-              <span>אימייל</span>
-              <input className="input" type="email" name="email" required />
-            </label>
-
-            <label className="field">
-              <span>סיסמה</span>
-              <input className="input" type="password" name="password" required />
-            </label>
-
-            {searchParams.error ? (
-              <p className="error">פרטי ההתחברות אינם תקינים.</p>
-            ) : null}
-
-            <button className="button" type="submit">
-              כניסה
-            </button>
-          </form>
         </div>
+
+        <form action={signIn} className="form">
+          <label className="field">
+            <span>אימייל</span>
+            <input className="input" type="email" name="email" required />
+          </label>
+
+          <label className="field">
+            <span>סיסמה</span>
+            <input className="input" type="password" name="password" required />
+          </label>
+
+          {searchParams.error ? <p className="error">פרטי ההתחברות אינם תקינים.</p> : null}
+
+          <button className="button" type="submit">
+            כניסה למערכת
+          </button>
+        </form>
       </section>
     </main>
   );
