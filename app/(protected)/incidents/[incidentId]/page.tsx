@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { KpiDrilldown, type KpiDrilldownItem, type KpiDrilldownRow } from "./kpi-drilldown";
 import { OperationalStatusOverview, type OperationalStatusTile } from "./operational-status-overview";
 
 type DashboardRow = {
@@ -19,7 +20,6 @@ type DashboardRow = {
   operational_gap: number;
   active_operational_numbers_count?: number;
   gap_resolved_count?: number;
-  unassigned_operational_numbers_count?: number;
   active_teams: number;
   available_teams: number;
   active_team_site_assignments: number;
@@ -99,7 +99,7 @@ function pct(value: number, total: number) {
   return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
 }
 
-function coverageLevel(updatedPotential: number, activeOperationalNumbers: number) {
+function gapLevel(updatedPotential: number, activeOperationalNumbers: number) {
   if (updatedPotential <= 0) {
     return "low";
   }
@@ -117,20 +117,20 @@ function coverageLevel(updatedPotential: number, activeOperationalNumbers: numbe
   return "low";
 }
 
-function coverageLabel(level: string) {
+function gapLabel(level: string) {
   if (level === "high") {
-    return "פער גבוה";
+    return "\u05e4\u05e2\u05e8 \u05d2\u05d1\u05d5\u05d4";
   }
 
   if (level === "medium") {
-    return "פער בינוני";
+    return "\u05e4\u05e2\u05e8 \u05d1\u05d9\u05e0\u05d5\u05e0\u05d9";
   }
 
-  return "פער נמוך";
+  return "\u05e4\u05e2\u05e8 \u05e0\u05de\u05d5\u05da";
 }
 
 function siteDisplayName(site: SiteSummaryRow) {
-  return site.name?.trim() || `אתר ${site.site_number}`;
+  return site.name?.trim() || `\u05d0\u05ea\u05e8 ${site.site_number}`;
 }
 
 function siteAddress(site: SiteSummaryRow) {
@@ -139,22 +139,22 @@ function siteAddress(site: SiteSummaryRow) {
 
 function teamName(teamNumber: number, name?: string | null) {
   if (teamNumber === 9) {
-    return name?.trim() || "צוות אוכלוסייה";
+    return name?.trim() || "\u05e6\u05d5\u05d5\u05ea \u05d0\u05d5\u05db\u05dc\u05d5\u05e1\u05d9\u05d9\u05d4";
   }
 
-  return name?.trim() || `צוות ${teamNumber}`;
+  return name?.trim() || `\u05e6\u05d5\u05d5\u05ea ${teamNumber}`;
 }
 
 function importanceLabel(importance: string) {
   if (importance === "critical") {
-    return "קריטי";
+    return "\u05e7\u05e8\u05d9\u05d8\u05d9";
   }
 
   if (importance === "important") {
-    return "חשוב";
+    return "\u05d7\u05e9\u05d5\u05d1";
   }
 
-  return "רגיל";
+  return "\u05e8\u05d2\u05d9\u05dc";
 }
 
 function statusBreakdown(operationalNumbers: OperationalNumberRow[], group: string) {
@@ -189,6 +189,31 @@ function statusTile(
     details,
     value: details.reduce((sum, row) => sum + row.count, 0)
   };
+}
+
+function siteKpiRows(
+  sites: SiteSummaryRow[],
+  selector: (site: SiteSummaryRow) => number,
+  total: number,
+  incidentId: string
+): KpiDrilldownRow[] {
+  const rows: KpiDrilldownRow[] = sites.map((site) => ({
+    label: siteDisplayName(site),
+    href: `/incidents/${incidentId}/sites/${site.site_id}`,
+    value: selector(site)
+  }));
+  const rowTotal = rows.reduce((sum, row) => sum + row.value, 0);
+  const difference = total - rowTotal;
+
+  if (difference !== 0) {
+    rows.push({
+      label: "\u05dc\u05dc\u05d0 \u05d0\u05ea\u05e8 / \u05d4\u05ea\u05d0\u05de\u05d4",
+      href: null,
+      value: difference
+    });
+  }
+
+  return rows;
 }
 
 export default async function IncidentDashboardPage({
@@ -255,8 +280,7 @@ export default async function IncidentDashboardPage({
   const siteWizardHref = `/incidents/${summary.incident_id}/sites/new`;
   const activeOperationalNumbers =
     summary.active_operational_numbers_count ?? summary.gap_resolved_count ?? operationalNumbers.length;
-  const coveragePercent = pct(activeOperationalNumbers, summary.updated_potential);
-  const incidentCoverageLevel = coverageLevel(summary.updated_potential, activeOperationalNumbers);
+  const incidentGapLevel = gapLevel(summary.updated_potential, activeOperationalNumbers);
   const assignedTeamIdsBySite = assignments.reduce((map, assignment) => {
     const next = map.get(assignment.site_id) ?? [];
     next.push(assignment.team_id);
@@ -278,36 +302,40 @@ export default async function IncidentDashboardPage({
   const rescueTeams = teams.filter((team) => team.team_number !== 9);
   const populationTeam = teams.find((team) => team.team_number === 9);
 
-  const statusTiles = [
+  const kpiItems: KpiDrilldownItem[] = [
     {
-      label: "נעדר / לא ידוע",
-      value: summary.operational_numbers_missing_unknown_count ?? 0,
-      tone: "blue"
+      id: "initial-potential",
+      label: "\u05e4\u05d5\u05d8\u05e0\u05e6\u05d9\u05d0\u05dc \u05e8\u05d0\u05e9\u05d5\u05e0\u05d9",
+      value: summary.initial_potential,
+      detailLabel: "\u05e4\u05d5\u05d8\u05e0\u05e6\u05d9\u05d0\u05dc \u05e8\u05d0\u05e9\u05d5\u05e0\u05d9",
+      rows: siteKpiRows(sites, (site) => site.initial_potential, summary.initial_potential, summary.incident_id)
     },
     {
-      label: "לכוד אותר וטרם חולץ",
-      value: summary.operational_numbers_trapped_located_count ?? 0,
-      tone: "orange"
+      id: "updated-potential",
+      label: "\u05e4\u05d5\u05d8\u05e0\u05e6\u05d9\u05d0\u05dc \u05de\u05e2\u05d5\u05d3\u05db\u05df",
+      value: summary.updated_potential,
+      detailLabel: "\u05e4\u05d5\u05d8\u05e0\u05e6\u05d9\u05d0\u05dc \u05de\u05e2\u05d5\u05d3\u05db\u05df",
+      rows: siteKpiRows(sites, (site) => site.updated_potential, summary.updated_potential, summary.incident_id)
     },
     {
-      label: "מחולצים",
-      value: summary.operational_numbers_rescued_count ?? 0,
-      tone: "green"
+      id: "active-operational-numbers",
+      label: "\u05de\u05e1\u05e4\u05e8\u05d9\u05dd \u05de\u05d1\u05e6\u05e2\u05d9\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd",
+      value: activeOperationalNumbers,
+      detailLabel: "\u05de\u05e1\u05e4\u05e8\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd",
+      rows: siteKpiRows(
+        sites,
+        (site) => site.active_operational_numbers_count ?? site.gap_resolved_count ?? 0,
+        activeOperationalNumbers,
+        summary.incident_id
+      )
     },
     {
-      label: "פונו",
-      value: summary.operational_numbers_evacuated_count ?? 0,
-      tone: "green"
-    },
-    {
-      label: "אותרו מחוץ לאתר",
-      value: summary.operational_numbers_located_outside_site_count ?? 0,
-      tone: "green"
-    },
-    {
-      label: "נפטרים",
-      value: summary.operational_numbers_deceased_count ?? 0,
-      tone: "red"
+      id: "operational-gap",
+      label: "\u05e4\u05e2\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9",
+      value: summary.operational_gap,
+      tone: "gap",
+      detailLabel: "\u05e4\u05e2\u05e8",
+      rows: siteKpiRows(sites, (site) => site.operational_gap, summary.operational_gap, summary.incident_id)
     }
   ];
 
@@ -330,22 +358,20 @@ export default async function IncidentDashboardPage({
     statusTile(operationalNumbers, "deceased", "\u05e0\u05e4\u05d8\u05e8\u05d9\u05dd", "red")
   ];
 
-  void statusTiles;
-
   return (
     <main className="page commander-dashboard-page">
       <div className="command-hero">
         <div>
-          <p className="eyebrow">תמונת מצב פיקודית</p>
+          <p className="eyebrow">{"\u05ea\u05de\u05d5\u05e0\u05ea \u05de\u05e6\u05d1 \u05e4\u05d9\u05e7\u05d5\u05d3\u05d9\u05ea"}</p>
           <h1>{summary.name}</h1>
           <p>
-            {[summary.city, summary.address].filter(Boolean).join(" · ") || "ללא מיקום ראשי"} · נפתח{" "}
-            {formatDateTime(summary.opened_at)}
+            {[summary.city, summary.address].filter(Boolean).join(" · ") || "\u05dc\u05dc\u05d0 \u05de\u05d9\u05e7\u05d5\u05dd \u05e8\u05d0\u05e9\u05d9"} ·{" "}
+            {"\u05e0\u05e4\u05ea\u05d7"} {formatDateTime(summary.opened_at)}
           </p>
           <div className="command-hero-badges">
-            <span className="command-badge">{summary.incident_status_label ?? (summary.is_closed ? "סגור" : "פעיל")}</span>
-            <span className={`command-badge coverage-${incidentCoverageLevel}`}>{coverageLabel(incidentCoverageLevel)}</span>
-            <span className="command-badge">{formatNumber(summary.total_sites)} אתרים</span>
+            <span className="command-badge">{summary.incident_status_label ?? (summary.is_closed ? "\u05e1\u05d2\u05d5\u05e8" : "\u05e4\u05e2\u05d9\u05dc")}</span>
+            <span className={`command-badge coverage-${incidentGapLevel}`}>{gapLabel(incidentGapLevel)}</span>
+            <span className="command-badge">{formatNumber(summary.total_sites)} {"\u05d0\u05ea\u05e8\u05d9\u05dd"}</span>
           </div>
         </div>
 
@@ -377,39 +403,7 @@ export default async function IncidentDashboardPage({
         </section>
       ) : null}
 
-      <section className="kpi-grid" aria-label="מדדי פיקוד">
-        <article className="kpi-card">
-          <span>פוטנציאל ראשוני</span>
-          <strong>{formatNumber(summary.initial_potential)}</strong>
-        </article>
-        <article className="kpi-card">
-          <span>פוטנציאל מעודכן</span>
-          <strong>{formatNumber(summary.updated_potential)}</strong>
-        </article>
-        <article className="kpi-card">
-          <span>מספרים מבצעיים פעילים</span>
-          <strong>{formatNumber(activeOperationalNumbers)}</strong>
-          <small>{coveragePercent}% כיסוי מבצעי</small>
-        </article>
-        <article className={`kpi-card kpi-gap coverage-${incidentCoverageLevel}`}>
-          <span>פער מבצעי</span>
-          <strong>{formatNumber(summary.operational_gap)}</strong>
-          <small>{coverageLabel(incidentCoverageLevel)}</small>
-        </article>
-      </section>
-
-      <section className="panel command-coverage-panel section-spaced">
-        <div className="command-section-heading">
-          <div>
-            <h2>כיסוי מבצעי</h2>
-            <p className="muted">מספרים מבצעיים פעילים מתוך הפוטנציאל המעודכן</p>
-          </div>
-          <strong>{coveragePercent}%</strong>
-        </div>
-        <div className={`command-progress coverage-${incidentCoverageLevel}`}>
-          <span style={{ width: `${coveragePercent}%` }} />
-        </div>
-      </section>
+      <KpiDrilldown items={kpiItems} />
 
       {summary.total_sites === 0 ? (
         <section className="panel section-spaced next-action-panel">
@@ -423,21 +417,11 @@ export default async function IncidentDashboardPage({
         </section>
       ) : null}
 
-      <section className="panel section-spaced">
+      <section className="panel section-spaced site-decision-panel">
         <div className="command-section-heading">
           <div>
-            <h2>מצב מספרים מבצעיים</h2>
-            <p className="muted">פירוק לפי הסטטוס המבצעי העדכני</p>
-          </div>
-        </div>
-        <OperationalStatusOverview tiles={interactiveStatusTiles} />
-      </section>
-
-      <section className="panel section-spaced">
-        <div className="command-section-heading">
-          <div>
-            <h2>אתרים</h2>
-            <p className="muted">פער, כיסוי וצוותים לכל אתר</p>
+            <h2>תמונת אתרים</h2>
+            <p className="muted">היכן נמצא הפער המבצעי המרכזי כרגע</p>
           </div>
           <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites`}>
             כל האתרים
@@ -447,76 +431,88 @@ export default async function IncidentDashboardPage({
         {sites.length === 0 ? (
           <p className="muted">לא נמצאו אתרים לאירוע זה.</p>
         ) : (
-          <div className="site-command-grid">
-            {sites.map((site) => {
-              const activeForSite = site.active_operational_numbers_count ?? site.gap_resolved_count ?? 0;
-              const siteCoverage = pct(activeForSite, site.updated_potential);
-              const level = coverageLevel(site.updated_potential, activeForSite);
-              const assignedTeams = (assignedTeamIdsBySite.get(site.site_id) ?? [])
-                .map((teamId) => teamsById.get(teamId))
-                .filter(Boolean) as TeamRow[];
-              const hasRescueTeam = assignedTeams.some((team) => team.team_number !== 9);
-              const completed = site.updated_potential > 0 && site.operational_gap === 0;
+          <div className="table-scroll">
+            <table className="table site-decision-table">
+              <thead>
+                <tr>
+                  <th>אתר</th>
+                  <th>סטטוס</th>
+                  <th>פוטנציאל מעודכן</th>
+                  <th>מספרים מבצעיים פעילים</th>
+                  <th>טופלו / ידועים</th>
+                  <th>פער מבצעי</th>
+                  <th>צוותים</th>
+                  <th>פעולות</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sites.map((site) => {
+                  const activeForSite = site.active_operational_numbers_count ?? site.gap_resolved_count ?? 0;
+                  const level = gapLevel(site.updated_potential, activeForSite);
+                  const assignedTeams = (assignedTeamIdsBySite.get(site.site_id) ?? [])
+                    .map((teamId) => teamsById.get(teamId))
+                    .filter(Boolean) as TeamRow[];
+                  const rowLevel = site.operational_gap === 0 ? "low" : level;
 
-              return (
-                <article className={`site-command-card coverage-${level}`} key={site.site_id}>
-                  <div className="site-command-card-header">
-                    <div>
-                      <h3>{siteDisplayName(site)}</h3>
-                      <p className="muted">{siteAddress(site)}</p>
-                    </div>
-                    <span className={`command-badge coverage-${completed ? "low" : level}`}>
-                      {completed ? "הושלם" : coverageLabel(level)}
-                    </span>
-                  </div>
-
-                  <div className="site-command-metrics">
-                    <div>
-                      <span>פוטנציאל</span>
-                      <strong>{formatNumber(site.updated_potential)}</strong>
-                    </div>
-                    <div>
-                      <span>מספרים פעילים</span>
-                      <strong>{formatNumber(activeForSite)}</strong>
-                    </div>
-                    <div>
-                      <span>פער</span>
-                      <strong>{formatNumber(site.operational_gap)}</strong>
-                    </div>
-                  </div>
-
-                  <div className={`command-progress coverage-${level}`}>
-                    <span style={{ width: `${siteCoverage}%` }} />
-                  </div>
-                  <p className="muted">{siteCoverage}% כיסוי · {formatNumber(site.open_units)} יחידות פתוחות</p>
-
-                  <div className="site-alerts">
-                    {!hasRescueTeam ? <span className="alert-chip danger">ללא צוות חילוץ משויך</span> : null}
-                    {site.operational_gap > 0 ? <span className="alert-chip warning">פער פעיל</span> : null}
-                    {completed ? <span className="alert-chip success">ללא פער</span> : null}
-                  </div>
-
-                  <div className="assigned-team-list">
-                    {assignedTeams.length === 0 ? (
-                      <span className="muted">אין צוותים משויכים</span>
-                    ) : (
-                      assignedTeams.map((team) => <span key={team.id}>{teamName(team.team_number, team.name)}</span>)
-                    )}
-                  </div>
-
-                  <div className="site-command-actions">
-                    <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites/${site.site_id}`}>
-                      תמונת מבנה
-                    </Link>
-                    <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites/${site.site_id}/operational-numbers`}>
-                      מספרים מבצעיים
-                    </Link>
-                  </div>
-                </article>
-              );
-            })}
+                  return (
+                    <tr className={`site-decision-row coverage-${rowLevel}`} key={site.site_id}>
+                      <td>
+                        <Link href={`/incidents/${summary.incident_id}/sites/${site.site_id}`}>
+                          <strong>{siteDisplayName(site)}</strong>
+                        </Link>
+                        <div className="muted">{siteAddress(site)}</div>
+                      </td>
+                      <td>
+                        <span className={`command-badge coverage-${rowLevel}`}>
+                          {site.operational_gap === 0 ? "\u05dc\u05dc\u05d0 \u05e4\u05e2\u05e8" : gapLabel(rowLevel)}
+                        </span>
+                        <div className="muted">{site.site_status_label ?? "-"}</div>
+                      </td>
+                      <td>{formatNumber(site.updated_potential)}</td>
+                      <td>{formatNumber(activeForSite)}</td>
+                      <td>{formatNumber(site.gap_resolved_count ?? activeForSite)}</td>
+                      <td className="table-emphasis">{formatNumber(site.operational_gap)}</td>
+                      <td>
+                        {assignedTeams.length === 0 ? (
+                          <span className="alert-chip danger">ללא צוות</span>
+                        ) : (
+                          <div className="assigned-team-list compact">
+                            {assignedTeams.map((team) => (
+                              <span key={team.id}>{teamName(team.team_number, team.name)}</span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div className="site-decision-actions">
+                          <Link className="button compact secondary" href={`/incidents/${summary.incident_id}/sites/${site.site_id}`}>
+                            תמונת מבנה
+                          </Link>
+                          <Link className="button compact secondary" href={`/incidents/${summary.incident_id}/sites/${site.site_id}/operational-numbers`}>
+                            מספרים מבצעיים
+                          </Link>
+                          <Link className="button compact secondary" href={`/incidents/${summary.incident_id}/sites/${site.site_id}/operational-log`}>
+                            יומן מבצעי אתר
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
+      </section>
+
+      <section className="panel section-spaced">
+        <div className="command-section-heading">
+          <div>
+            <h2>מצב מספרים מבצעיים</h2>
+            <p className="muted">פירוק לפי הסטטוס המבצעי העדכני</p>
+          </div>
+        </div>
+        <OperationalStatusOverview tiles={interactiveStatusTiles} />
       </section>
 
       <section className="panel section-spaced">

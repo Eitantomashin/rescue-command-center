@@ -426,6 +426,53 @@ textarea {
   min-height: 124px;
 }
 
+.kpi-clickable {
+  color: inherit;
+  text-align: right;
+  cursor: pointer;
+}
+
+.kpi-clickable:hover,
+.kpi-clickable.active {
+  border-color: var(--primary);
+  background: #eef4ff;
+  box-shadow: 0 8px 24px rgba(32, 33, 36, 0.08);
+}
+
+.kpi-clickable.kpi-gap {
+  border-color: var(--danger);
+  background: #fff5f5;
+}
+
+.kpi-clickable.kpi-gap strong {
+  color: var(--danger);
+}
+
+.kpi-clickable.kpi-gap:hover,
+.kpi-clickable.kpi-gap.active {
+  background: #fce8e6;
+}
+
+.kpi-drilldown-section {
+  display: grid;
+  gap: 12px;
+}
+
+.kpi-drilldown-panel {
+  padding: 16px;
+}
+
+.kpi-drilldown-table td:last-child,
+.kpi-drilldown-table th:last-child {
+  text-align: left;
+  font-weight: 700;
+}
+
+.kpi-drilldown-total-row {
+  background: #f8f9fa;
+  font-weight: 700;
+}
+
 .kpi-card span,
 .kpi-card small {
   color: var(--muted);
@@ -465,11 +512,6 @@ textarea {
 
 .command-section-heading p {
   margin: 0;
-}
-
-.command-coverage-panel .command-section-heading strong {
-  font-size: 28px;
-  color: var(--primary);
 }
 
 .command-progress {
@@ -804,6 +846,43 @@ textarea {
 .table-emphasis {
   color: var(--danger);
   font-weight: 700;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.site-decision-table {
+  min-width: 980px;
+}
+
+.site-decision-row {
+  border-right: 5px solid transparent;
+}
+
+.site-decision-row.coverage-high {
+  border-right-color: var(--danger);
+  background: #fff7f6;
+}
+
+.site-decision-row.coverage-medium {
+  border-right-color: #f9ab00;
+  background: #fffaf0;
+}
+
+.site-decision-row.coverage-low {
+  border-right-color: #188038;
+  background: #f8fcf9;
+}
+
+.site-decision-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.assigned-team-list.compact {
+  margin-top: 0;
 }
 
 .form {
