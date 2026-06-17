@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { DashboardSiteAnalysis, type SiteAnalysisRow, type SiteStatusSegments, type SiteUnitAnalysisRow } from "./dashboard-site-analysis";
 import { KpiDrilldown, type KpiDrilldownItem, type KpiDrilldownRow } from "./kpi-drilldown";
-import { OperationalStatusOverview, type OperationalStatusTile } from "./operational-status-overview";
+import { OperationalStatusOverview, type OperationalStatusSiteBreakdown, type OperationalStatusTile } from "./operational-status-overview";
+import { TeamOperationalDrilldown, type TeamDrilldownItem } from "./team-operational-drilldown";
 
 type DashboardRow = {
   incident_id: string;
@@ -56,8 +58,14 @@ type OperationalNumberRow = {
   site_id: string | null;
   operational_number: number;
   team_number: number;
+  first_name: string | null;
+  last_name: string | null;
+  resident_first_name: string | null;
+  resident_last_name: string | null;
   current_status_key: string | null;
   current_status_label: string | null;
+  latest_report_status_label: string | null;
+  latest_reported_at: string | null;
   dashboard_status_group: string | null;
   is_merged: boolean;
 };
@@ -90,6 +98,40 @@ type EventLogRow = {
   metadata: Record<string, unknown>;
 };
 
+type FloorRow = {
+  id: string;
+  site_id: string;
+  floor_number: number | null;
+};
+
+type UnitRow = {
+  id: string;
+  site_id: string;
+  floor_id: string | null;
+  unit_number: string;
+  zone_type: string | null;
+  zone_name: string | null;
+  zone_sequence: number | null;
+  expected_occupants: number | null;
+  known_people_count: number | null;
+  is_active: boolean;
+};
+
+type ResidentRow = {
+  id: string;
+  site_id: string;
+  unit_id: string | null;
+  status_id: string | null;
+  linked_person_id: string | null;
+  is_active: boolean;
+};
+
+type StatusRow = {
+  id: string;
+  status_key: string;
+  counts_as_gap_resolved: boolean;
+};
+
 function metadataText(metadata: Record<string, unknown>, key: string) {
   const value = metadata[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -105,7 +147,9 @@ function pct(value: number, total: number) {
   return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
 }
 
-function gapLevel(updatedPotential: number, activeOperationalNumbers: number) {
+type GapLevel = "high" | "medium" | "low";
+
+function gapLevel(updatedPotential: number, activeOperationalNumbers: number): GapLevel {
   if (updatedPotential <= 0) {
     return "low";
   }
@@ -151,6 +195,65 @@ function teamName(teamNumber: number, name?: string | null) {
   return name?.trim() || `\u05e6\u05d5\u05d5\u05ea ${teamNumber}`;
 }
 
+function operationalPersonName(person: OperationalNumberRow) {
+  const personName = [person.first_name, person.last_name].filter(Boolean).join(" ").trim();
+  if (personName) {
+    return personName;
+  }
+
+  const residentName = [person.resident_first_name, person.resident_last_name].filter(Boolean).join(" ").trim();
+  return residentName || null;
+}
+
+function zoneTypeLabel(zoneType: string | null) {
+  const labels = new Map([
+    ["apartment", "דירה"],
+    ["store", "חנות"],
+    ["office", "משרד"],
+    ["parking_area", "חניה"],
+    ["lobby", "לובי"],
+    ["shelter", "מקלט"],
+    ["warehouse", "מחסן"],
+    ["machine_room", "חדר מכונות"],
+    ["commercial_area", "שטח מסחרי"],
+    ["other", "אזור"]
+  ]);
+
+  return labels.get(zoneType ?? "") ?? "אזור";
+}
+
+function unitDisplayLabel(unit: UnitRow) {
+  if (unit.zone_type === "apartment" || !unit.zone_type) {
+    return `דירה ${unit.zone_sequence ?? unit.unit_number}`;
+  }
+
+  if (unit.zone_type === "other" && unit.zone_name) {
+    return `${unit.zone_name} ${unit.zone_sequence ?? unit.unit_number}`;
+  }
+
+  return `${zoneTypeLabel(unit.zone_type)} ${unit.zone_sequence ?? unit.unit_number}`;
+}
+
+function statusSegmentGroup(group: string | null): keyof SiteStatusSegments {
+  if (group === "missing_unknown") {
+    return "missingUnknown";
+  }
+
+  if (group === "trapped_located_not_yet_rescued" || group === "in_progress") {
+    return "inProgress";
+  }
+
+  if (group === "deceased") {
+    return "deceased";
+  }
+
+  if (RESOLVED_STATUS_GROUPS.has(group ?? "")) {
+    return "completed";
+  }
+
+  return "other";
+}
+
 function importanceLabel(importance: string) {
   if (importance === "critical") {
     return "\u05e7\u05e8\u05d9\u05d8\u05d9";
@@ -182,17 +285,54 @@ function statusBreakdown(operationalNumbers: OperationalNumberRow[], group: stri
 
 function statusTile(
   operationalNumbers: OperationalNumberRow[],
+  sitesById: Map<string, SiteSummaryRow>,
   group: string,
   label: string,
   tone: string
 ): OperationalStatusTile {
   const details = statusBreakdown(operationalNumbers, group);
+  const filteredNumbers = operationalNumbers.filter((person) => person.dashboard_status_group === group);
+  const sites = filteredNumbers.reduce((map, person) => {
+    const siteName = person.site_id ? siteDisplayName(sitesById.get(person.site_id) ?? ({
+      site_id: person.site_id,
+      site_number: 0,
+      name: null,
+      city: null,
+      street: "",
+      house_number: "",
+      site_status_label: null,
+      initial_potential: 0,
+      updated_potential: 0,
+      total_active_units: 0,
+      open_units: 0,
+      operational_gap: 0
+    } as SiteSummaryRow)) : "ללא אתר";
+    const current = map.get(person.site_id ?? "none") ?? {
+      siteId: person.site_id,
+      siteName,
+      count: 0,
+      people: []
+    };
+    current.count += 1;
+    current.people.push({
+      operationalNumber: person.operational_number,
+      statusLabel:
+        person.latest_report_status_label?.trim() ||
+        person.current_status_label?.trim() ||
+        person.current_status_key?.trim() ||
+        "לא ידוע",
+      personName: operationalPersonName(person)
+    });
+    map.set(person.site_id ?? "none", current);
+    return map;
+  }, new Map<string, OperationalStatusSiteBreakdown>());
 
   return {
     group,
     label,
     tone,
     details,
+    siteBreakdown: Array.from(sites.values()).sort((a, b) => b.count - a.count || a.siteName.localeCompare(b.siteName, "he")),
     value: details.reduce((sum, row) => sum + row.count, 0)
   };
 }
@@ -248,7 +388,11 @@ export default async function IncidentDashboardPage({
     { data: teamRows },
     { data: assignmentRows },
     { data: importantLogRows },
-    { data: openNoteRows }
+    { data: openNoteRows },
+    { data: floorRows },
+    { data: unitRows },
+    { data: residentRows },
+    { data: statusRows }
   ] = await Promise.all([
     supabase
       .from("site_dashboard_summary")
@@ -257,7 +401,9 @@ export default async function IncidentDashboardPage({
       .order("site_number", { ascending: true }),
     supabase
       .from("operational_numbers_dashboard")
-      .select("person_id,site_id,operational_number,team_number,current_status_key,current_status_label,dashboard_status_group,is_merged")
+      .select(
+        "person_id,site_id,operational_number,team_number,first_name,last_name,resident_first_name,resident_last_name,current_status_key,current_status_label,latest_report_status_label,latest_reported_at,dashboard_status_group,is_merged"
+      )
       .eq("incident_id", params.incidentId),
     supabase
       .from("teams")
@@ -283,7 +429,26 @@ export default async function IncidentDashboardPage({
       .eq("incident_id", params.incidentId)
       .in("log_type", ["general_operational_note", "general_operational_note_status_changed"])
       .order("reported_at", { ascending: false })
-      .limit(200)
+      .limit(200),
+    supabase
+      .from("floors")
+      .select("id,site_id,floor_number")
+      .eq("incident_id", params.incidentId),
+    supabase
+      .from("units")
+      .select("id,site_id,floor_id,unit_number,zone_type,zone_name,zone_sequence,expected_occupants,known_people_count,is_active")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true),
+    supabase
+      .from("unit_residents")
+      .select("id,site_id,unit_id,status_id,linked_person_id,is_active")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true),
+    supabase
+      .from("status_types")
+      .select("id,status_key,counts_as_gap_resolved")
+      .eq("is_active", true)
+      .in("category", ["resident", "person"])
   ]);
 
   const sites = (siteRows ?? []) as SiteSummaryRow[];
@@ -292,6 +457,10 @@ export default async function IncidentDashboardPage({
   const assignments = (assignmentRows ?? []) as TeamAssignmentRow[];
   const importantLogs = (importantLogRows ?? []) as EventLogRow[];
   const noteRows = (openNoteRows ?? []) as EventLogRow[];
+  const floors = (floorRows ?? []) as FloorRow[];
+  const units = (unitRows ?? []) as UnitRow[];
+  const residents = (residentRows ?? []) as ResidentRow[];
+  const residentStatuses = new Map(((statusRows ?? []) as StatusRow[]).map((status) => [status.id, status]));
   const latestNoteStatusByGroup = noteRows.reduce((map, note) => {
     if (note.log_type !== "general_operational_note_status_changed") {
       return map;
@@ -340,6 +509,135 @@ export default async function IncidentDashboardPage({
   }, new Map<number, { open: number; resolved: number; total: number }>());
   const rescueTeams = teams.filter((team) => team.team_number !== 9);
   const populationTeam = teams.find((team) => team.team_number === 9);
+  const sitesById = new Map(sites.map((site) => [site.site_id, site]));
+  const activeOperationalPersonIds = new Set(operationalNumbers.map((person) => person.person_id));
+  const floorsById = new Map(floors.map((floor) => [floor.id, floor]));
+  const residentsByUnitId = residents.reduce((map, resident) => {
+    if (!resident.unit_id) {
+      return map;
+    }
+
+    const unitResidents = map.get(resident.unit_id) ?? [];
+    unitResidents.push(resident);
+    map.set(resident.unit_id, unitResidents);
+    return map;
+  }, new Map<string, ResidentRow[]>());
+  const unitsBySiteId = units.reduce((map, unit) => {
+    const siteUnits = map.get(unit.site_id) ?? [];
+    siteUnits.push(unit);
+    map.set(unit.site_id, siteUnits);
+    return map;
+  }, new Map<string, UnitRow[]>());
+  const operationalNumbersBySiteId = operationalNumbers.reduce((map, person) => {
+    if (!person.site_id) {
+      return map;
+    }
+
+    const sitePeople = map.get(person.site_id) ?? [];
+    sitePeople.push(person);
+    map.set(person.site_id, sitePeople);
+    return map;
+  }, new Map<string, OperationalNumberRow[]>());
+
+  const siteAnalysisRows: SiteAnalysisRow[] = sites.map((site) => {
+    const activeForSite = site.active_operational_numbers_count ?? site.gap_resolved_count ?? 0;
+    const level = site.operational_gap === 0 ? "low" : gapLevel(site.updated_potential, activeForSite);
+    const assignedTeams = (assignedTeamIdsBySite.get(site.site_id) ?? [])
+      .map((teamId) => teamsById.get(teamId))
+      .filter(Boolean) as TeamRow[];
+    const siteOperationalNumbers = operationalNumbersBySiteId.get(site.site_id) ?? [];
+    const statusSegments = siteOperationalNumbers.reduce<SiteStatusSegments>(
+      (segments, person) => {
+        const key = statusSegmentGroup(person.dashboard_status_group);
+        segments[key] += 1;
+        return segments;
+      },
+      { missingUnknown: 0, inProgress: 0, completed: 0, deceased: 0, other: 0 }
+    );
+    const siteUnits: SiteUnitAnalysisRow[] = (unitsBySiteId.get(site.site_id) ?? [])
+      .map((unit) => {
+        const unitResidents = residentsByUnitId.get(unit.id) ?? [];
+        const knownHandled = unitResidents.filter((resident) => {
+          if (resident.linked_person_id && activeOperationalPersonIds.has(resident.linked_person_id)) {
+            return true;
+          }
+
+          return Boolean(resident.status_id && residentStatuses.get(resident.status_id)?.counts_as_gap_resolved);
+        }).length;
+        const totalResidents = unitResidents.length;
+
+        return {
+          id: unit.id,
+          floorNumber: unit.floor_id ? floorsById.get(unit.floor_id)?.floor_number ?? null : null,
+          unitLabel: unitDisplayLabel(unit),
+          totalResidents,
+          expectedPotential: unit.expected_occupants ?? unit.known_people_count ?? totalResidents,
+          knownHandled,
+          gap: Math.max(0, totalResidents - knownHandled)
+        };
+      })
+      .sort((a, b) => (a.floorNumber ?? -999) - (b.floorNumber ?? -999) || a.unitLabel.localeCompare(b.unitLabel, "he"));
+
+    return {
+      siteId: site.site_id,
+      name: siteDisplayName(site),
+      address: siteAddress(site),
+      statusLabel: site.site_status_label,
+      updatedPotential: site.updated_potential,
+      activeOperationalNumbers: activeForSite,
+      knownHandled: site.gap_resolved_count ?? activeForSite,
+      operationalGap: site.operational_gap,
+      level,
+      teams: assignedTeams.map((team) => teamName(team.team_number, team.name)),
+      structureHref: `/incidents/${summary.incident_id}/sites/${site.site_id}`,
+      operationalNumbersHref: `/incidents/${summary.incident_id}/sites/${site.site_id}/operational-numbers`,
+      operationalLogHref: `/incidents/${summary.incident_id}/sites/${site.site_id}/operational-log`,
+      units: siteUnits,
+      statusSegments
+    };
+  });
+
+  const teamDrilldownItems: TeamDrilldownItem[] = [...rescueTeams, ...(populationTeam ? [populationTeam] : [])].map((team) => {
+    const counts = operationalByTeam.get(team.team_number) ?? { open: 0, resolved: 0, total: 0 };
+    const rows = operationalNumbers
+      .filter((person) => person.team_number === team.team_number)
+      .sort((a, b) => a.operational_number - b.operational_number)
+      .map((person) => ({
+        personId: person.person_id,
+        operationalNumber: person.operational_number,
+        siteName: person.site_id ? siteDisplayName(sitesById.get(person.site_id) ?? ({
+          site_id: person.site_id,
+          site_number: 0,
+          name: null,
+          city: null,
+          street: "",
+          house_number: "",
+          site_status_label: null,
+          initial_potential: 0,
+          updated_potential: 0,
+          total_active_units: 0,
+          open_units: 0,
+          operational_gap: 0
+        } as SiteSummaryRow)) : "ללא אתר",
+        statusLabel:
+          person.latest_report_status_label?.trim() ||
+          person.current_status_label?.trim() ||
+          person.current_status_key?.trim() ||
+          "לא ידוע",
+        personName: operationalPersonName(person),
+        latestReportedAt: person.latest_reported_at
+      }));
+
+    return {
+      id: team.id,
+      label: team.team_number === 9 ? "צוות אוכלוסייה" : teamName(team.team_number, team.name),
+      commanderName: team.commander_name,
+      open: counts.open,
+      resolved: counts.resolved,
+      isPopulation: team.team_number === 9,
+      rows
+    };
+  });
 
   const kpiItems: KpiDrilldownItem[] = [
     {
@@ -379,22 +677,24 @@ export default async function IncidentDashboardPage({
   ];
 
   const interactiveStatusTiles = [
-    statusTile(operationalNumbers, "missing_unknown", "\u05e0\u05e2\u05d3\u05e8 / \u05dc\u05d0 \u05d9\u05d3\u05d5\u05e2", "blue"),
+    statusTile(operationalNumbers, sitesById, "missing_unknown", "\u05e0\u05e2\u05d3\u05e8 / \u05dc\u05d0 \u05d9\u05d3\u05d5\u05e2", "blue"),
     statusTile(
       operationalNumbers,
+      sitesById,
       "trapped_located_not_yet_rescued",
       "\u05dc\u05db\u05d5\u05d3 \u05d0\u05d5\u05ea\u05e8 \u05d5\u05d8\u05e8\u05dd \u05d7\u05d5\u05dc\u05e5",
       "orange"
     ),
-    statusTile(operationalNumbers, "rescued", "\u05de\u05d7\u05d5\u05dc\u05e6\u05d9\u05dd", "green"),
-    statusTile(operationalNumbers, "evacuated", "\u05e4\u05d5\u05e0\u05d5", "green"),
+    statusTile(operationalNumbers, sitesById, "rescued", "\u05de\u05d7\u05d5\u05dc\u05e6\u05d9\u05dd", "green"),
+    statusTile(operationalNumbers, sitesById, "evacuated", "\u05e4\u05d5\u05e0\u05d5", "green"),
     statusTile(
       operationalNumbers,
+      sitesById,
       "located_outside_site",
       "\u05d0\u05d5\u05ea\u05e8\u05d5 \u05de\u05d7\u05d5\u05e5 \u05dc\u05d0\u05ea\u05e8",
       "green"
     ),
-    statusTile(operationalNumbers, "deceased", "\u05e0\u05e4\u05d8\u05e8\u05d9\u05dd", "red")
+    statusTile(operationalNumbers, sitesById, "deceased", "\u05e0\u05e4\u05d8\u05e8\u05d9\u05dd", "red")
   ];
 
   return (
@@ -456,93 +756,8 @@ export default async function IncidentDashboardPage({
         </section>
       ) : null}
 
-      <section className="panel section-spaced site-decision-panel">
-        <div className="command-section-heading">
-          <div>
-            <h2>תמונת אתרים</h2>
-            <p className="muted">היכן נמצא הפער המבצעי המרכזי כרגע</p>
-          </div>
-          <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites`}>
-            כל האתרים
-          </Link>
-        </div>
+      <DashboardSiteAnalysis sites={siteAnalysisRows} />
 
-        {sites.length === 0 ? (
-          <p className="muted">לא נמצאו אתרים לאירוע זה.</p>
-        ) : (
-          <div className="table-scroll">
-            <table className="table site-decision-table">
-              <thead>
-                <tr>
-                  <th>אתר</th>
-                  <th>סטטוס</th>
-                  <th>פוטנציאל מעודכן</th>
-                  <th>מספרים מבצעיים פעילים</th>
-                  <th>טופלו / ידועים</th>
-                  <th>פער מבצעי</th>
-                  <th>צוותים</th>
-                  <th>פעולות</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sites.map((site) => {
-                  const activeForSite = site.active_operational_numbers_count ?? site.gap_resolved_count ?? 0;
-                  const level = gapLevel(site.updated_potential, activeForSite);
-                  const assignedTeams = (assignedTeamIdsBySite.get(site.site_id) ?? [])
-                    .map((teamId) => teamsById.get(teamId))
-                    .filter(Boolean) as TeamRow[];
-                  const rowLevel = site.operational_gap === 0 ? "low" : level;
-
-                  return (
-                    <tr className={`site-decision-row coverage-${rowLevel}`} key={site.site_id}>
-                      <td>
-                        <Link href={`/incidents/${summary.incident_id}/sites/${site.site_id}`}>
-                          <strong>{siteDisplayName(site)}</strong>
-                        </Link>
-                        <div className="muted">{siteAddress(site)}</div>
-                      </td>
-                      <td>
-                        <span className={`command-badge coverage-${rowLevel}`}>
-                          {site.operational_gap === 0 ? "\u05dc\u05dc\u05d0 \u05e4\u05e2\u05e8" : gapLabel(rowLevel)}
-                        </span>
-                        <div className="muted">{site.site_status_label ?? "-"}</div>
-                      </td>
-                      <td>{formatNumber(site.updated_potential)}</td>
-                      <td>{formatNumber(activeForSite)}</td>
-                      <td>{formatNumber(site.gap_resolved_count ?? activeForSite)}</td>
-                      <td className="table-emphasis">{formatNumber(site.operational_gap)}</td>
-                      <td>
-                        {assignedTeams.length === 0 ? (
-                          <span className="alert-chip danger">ללא צוות</span>
-                        ) : (
-                          <div className="assigned-team-list compact">
-                            {assignedTeams.map((team) => (
-                              <span key={team.id}>{teamName(team.team_number, team.name)}</span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        <div className="site-decision-actions">
-                          <Link className="button compact secondary" href={`/incidents/${summary.incident_id}/sites/${site.site_id}`}>
-                            תמונת מבנה
-                          </Link>
-                          <Link className="button compact secondary" href={`/incidents/${summary.incident_id}/sites/${site.site_id}/operational-numbers`}>
-                            מספרים מבצעיים
-                          </Link>
-                          <Link className="button compact secondary" href={`/incidents/${summary.incident_id}/sites/${site.site_id}/operational-log`}>
-                            יומן מבצעי אתר
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
 
       <section className="panel section-spaced">
         <div className="command-section-heading">
@@ -563,45 +778,8 @@ export default async function IncidentDashboardPage({
           <span className="command-badge">{formatNumber(summary.active_rescue_teams_count ?? summary.active_teams)} צוותי חילוץ פעילים</span>
         </div>
 
-        <div className="team-overview-grid">
-          {rescueTeams.map((team) => {
-            const counts = operationalByTeam.get(team.team_number) ?? { open: 0, resolved: 0, total: 0 };
+        <TeamOperationalDrilldown teams={teamDrilldownItems} />
 
-            return (
-              <article className="team-card" key={team.id}>
-                <div>
-                  <h3>{teamName(team.team_number, team.name)}</h3>
-                  <p className="muted">{team.commander_name || "ללא מפקד צוות"}</p>
-                </div>
-                <div className="team-card-counts">
-                  <span>
-                    פתוחים <strong>{formatNumber(counts.open)}</strong>
-                  </span>
-                  <span>
-                    נפתרו <strong>{formatNumber(counts.resolved)}</strong>
-                  </span>
-                </div>
-              </article>
-            );
-          })}
-
-          {populationTeam ? (
-            <article className="team-card population-team-card">
-              <div>
-                <h3>צוות אוכלוסייה</h3>
-                <p className="muted">{populationTeam.commander_name || "צוות 9"}</p>
-              </div>
-              <div className="team-card-counts">
-                <span>
-                  פתוחים <strong>{formatNumber((operationalByTeam.get(9) ?? { open: 0 }).open)}</strong>
-                </span>
-                <span>
-                  נפתרו <strong>{formatNumber((operationalByTeam.get(9) ?? { resolved: 0 }).resolved)}</strong>
-                </span>
-              </div>
-            </article>
-          ) : null}
-        </div>
       </section>
 
       <section className="panel section-spaced">

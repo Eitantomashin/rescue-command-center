@@ -8,12 +8,26 @@ export type OperationalStatusBreakdownRow = {
   count: number;
 };
 
+export type OperationalStatusPersonRow = {
+  operationalNumber: number;
+  statusLabel: string;
+  personName: string | null;
+};
+
+export type OperationalStatusSiteBreakdown = {
+  siteId: string | null;
+  siteName: string;
+  count: number;
+  people: OperationalStatusPersonRow[];
+};
+
 export type OperationalStatusTile = {
   group: string;
   label: string;
   value: number;
   tone: string;
   details: OperationalStatusBreakdownRow[];
+  siteBreakdown?: OperationalStatusSiteBreakdown[];
 };
 
 export function OperationalStatusOverview({ tiles }: { tiles: OperationalStatusTile[] }) {
@@ -39,8 +53,34 @@ export function OperationalStatusOverview({ tiles }: { tiles: OperationalStatusT
             {isOpen ? (
               <div className="status-breakdown-panel">
                 <h3>{`\u05e4\u05d9\u05e8\u05d5\u05d8 ${tile.label}`}</h3>
-                {tile.details.length === 0 ? (
+                {(tile.siteBreakdown?.length ?? tile.details.length) === 0 ? (
                   <p>{`\u05d0\u05d9\u05df \u05e4\u05d9\u05e8\u05d5\u05d8 \u05e0\u05d5\u05e1\u05e3`}</p>
+                ) : tile.siteBreakdown?.length ? (
+                  <>
+                    <div className="status-site-breakdown">
+                      {tile.siteBreakdown.map((site) => (
+                        <section key={site.siteId ?? site.siteName}>
+                          <h4>
+                            <span>{site.siteName}</span>
+                            <strong>{formatNumber(site.count)}</strong>
+                          </h4>
+                          <ul>
+                            {site.people.map((person) => (
+                              <li key={person.operationalNumber}>
+                                <span>#{person.operationalNumber}</span>
+                                <span>{person.statusLabel}</span>
+                                {person.personName ? <span>{person.personName}</span> : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      ))}
+                    </div>
+                    <div className="status-breakdown-total">
+                      <span>{`\u05e1\u05d4\"\u05db`}</span>
+                      <strong>{formatNumber(tile.value)}</strong>
+                    </div>
+                  </>
                 ) : (
                   <>
                     <dl>
