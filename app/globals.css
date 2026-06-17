@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
-  --brand-primary: #16324f;
-  --brand-secondary: #f58220;
+  --brand-primary: #16324F;
+  --brand-secondary: #F58220;
   --success: #2e7d32;
   --warning: #f9a825;
   --critical: #d32f2f;
@@ -13,8 +13,8 @@
   --surface: #ffffff;
   --primary: var(--brand-primary);
   --danger: var(--critical);
-  --shadow-sm: 0 8px 22px rgba(22, 50, 79, 0.08);
-  --shadow-md: 0 16px 40px rgba(22, 50, 79, 0.12);
+  --shadow-sm: 0 10px 26px rgba(22, 50, 79, 0.11);
+  --shadow-md: 0 18px 46px rgba(22, 50, 79, 0.16);
 }
 
 * {
@@ -116,6 +116,15 @@ textarea {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 24px;
+}
+
+.header h1,
+.page h1 {
+  margin-top: 0;
+  color: var(--brand-primary);
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 1.08;
 }
 
 .header.compact {
@@ -536,15 +545,15 @@ textarea {
 }
 
 .panel {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(22, 50, 79, 0.16);
   border-radius: 8px;
   background: var(--surface);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
+  padding: 22px;
+  box-shadow: var(--shadow-md);
 }
 
 .section-spaced {
-  margin-top: 16px;
+  margin-top: 24px;
 }
 
 .grid {
@@ -554,16 +563,19 @@ textarea {
 }
 
 .metric {
-  border: 1px solid rgba(22, 50, 79, 0.12);
+  border: 1px solid rgba(22, 50, 79, 0.18);
   border-radius: 8px;
-  background: var(--surface);
-  padding: 16px;
-  box-shadow: var(--shadow-sm);
+  background: linear-gradient(180deg, #ffffff, #f8fbfe);
+  padding: 18px;
+  box-shadow: var(--shadow-md);
 }
 
 .metric strong {
   display: block;
-  font-size: 28px;
+  color: var(--brand-primary);
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: 0;
   margin-top: 8px;
 }
 
@@ -595,7 +607,9 @@ textarea {
 
 .command-hero h1 {
   margin: 4px 0 8px;
-  font-size: 34px;
+  color: var(--brand-primary);
+  font-size: 42px;
+  font-weight: 900;
 }
 
 .command-hero p {
@@ -627,9 +641,9 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 999px;
   background: #fff;
-  padding: 4px 10px;
+  padding: 5px 11px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 850;
 }
 
 .command-badge.coverage-high,
@@ -662,12 +676,12 @@ textarea {
 .kpi-card {
   display: grid;
   gap: 8px;
-  border: 1px solid rgba(22, 50, 79, 0.13);
+  border: 1px solid rgba(22, 50, 79, 0.2);
   border-radius: 8px;
-  background: linear-gradient(180deg, #ffffff, #fbfcfe);
-  padding: 18px;
-  min-height: 124px;
-  box-shadow: var(--shadow-sm);
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  padding: 22px;
+  min-height: 144px;
+  box-shadow: var(--shadow-md);
   transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
@@ -701,11 +715,11 @@ textarea {
 
 .kpi-drilldown-section {
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
 .kpi-drilldown-panel {
-  padding: 16px;
+  padding: 20px;
 }
 
 .kpi-drilldown-table td:last-child,
@@ -722,10 +736,12 @@ textarea {
 .kpi-card span,
 .kpi-card small {
   color: var(--muted);
+  font-weight: 800;
 }
 
 .kpi-card strong {
-  font-size: 34px;
+  font-size: 46px;
+  font-weight: 950;
   line-height: 1;
   color: var(--brand-primary);
 }
@@ -750,11 +766,14 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .command-section-heading h2 {
   margin: 0 0 4px;
+  color: var(--brand-primary);
+  font-size: 24px;
+  font-weight: 900;
 }
 
 .command-section-heading p {
@@ -801,7 +820,7 @@ textarea {
   border-radius: 8px;
   background: #fff;
   padding: 16px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .status-tile.open {
@@ -830,7 +849,9 @@ textarea {
 }
 
 .status-tile strong {
-  font-size: 28px;
+  color: var(--brand-primary);
+  font-size: 34px;
+  font-weight: 900;
 }
 
 .status-tile.tone-blue {
@@ -904,7 +925,7 @@ textarea {
 .site-command-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .site-command-card {
@@ -915,7 +936,7 @@ textarea {
   border-radius: 8px;
   background: #fff;
   padding: 16px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .site-command-card.coverage-high {
@@ -979,7 +1000,7 @@ textarea {
 .team-overview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .team-card {
@@ -989,7 +1010,7 @@ textarea {
   border-radius: 8px;
   background: #fff;
   padding: 16px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .population-team-card {
@@ -1020,7 +1041,7 @@ textarea {
 
 .dashboard-update-list {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1035,7 +1056,7 @@ textarea {
   border-radius: 8px;
   background: #fff;
   padding: 12px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .dashboard-update-row.importance-important {
@@ -1111,7 +1132,7 @@ textarea {
 
 .table th {
   background: #f8fafc;
-  color: var(--muted);
+  color: var(--brand-primary);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0;
@@ -1123,7 +1144,7 @@ textarea {
 }
 
 .table tbody tr:hover {
-  background: #f9fbfd;
+  background: #f5f9fc;
 }
 
 .table-emphasis {
@@ -1279,24 +1300,26 @@ textarea {
   gap: 6px;
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 11px 16px;
   background: var(--primary);
   color: #fff;
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(22, 50, 79, 0.16);
   transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
 .button:hover {
   background: #0f263d;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 12px 26px rgba(22, 50, 79, 0.22);
   transform: translateY(-1px);
 }
 
 .button.secondary {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(22, 50, 79, 0.24);
   background: #fff;
   color: var(--brand-primary);
+  box-shadow: 0 6px 16px rgba(22, 50, 79, 0.08);
 }
 
 .button.secondary:hover {
@@ -1315,6 +1338,7 @@ textarea {
   border-color: var(--danger);
   background: #fff;
   color: var(--danger);
+  box-shadow: 0 6px 16px rgba(211, 47, 47, 0.12);
 }
 
 .button.danger:hover {
@@ -1323,7 +1347,7 @@ textarea {
 }
 
 .button.compact {
-  padding: 7px 10px;
+  padding: 8px 11px;
   font-size: 13px;
 }
 
