@@ -478,7 +478,7 @@ textarea {
 
 .incident-ops-strip {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) repeat(4, minmax(100px, 0.65fr));
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -486,7 +486,7 @@ textarea {
 .incident-ops-strip div {
   display: grid;
   gap: 4px;
-  border: 1px solid rgba(22, 50, 79, 0.14);
+  border: 1px solid rgba(22, 50, 79, 0.16);
   border-radius: 8px;
   background: #fff;
   box-shadow: var(--shadow-sm);
@@ -501,10 +501,57 @@ textarea {
 
 .incident-ops-strip strong {
   color: var(--brand-primary);
-  font-size: 15px;
+  font-size: 24px;
+  font-weight: 950;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.operational-status-strip {
+  align-items: stretch;
+}
+
+.operational-status-strip .status-strip-item {
+  position: relative;
+  overflow: hidden;
+  border-inline-start-width: 5px;
+}
+
+.operational-status-strip .status-strip-item span {
+  color: var(--foreground);
+}
+
+.status-strip-critical {
+  border-inline-start-color: var(--critical) !important;
+  background: #fff5f5 !important;
+}
+
+.status-strip-critical strong {
+  color: var(--critical);
+}
+
+.status-strip-warning {
+  border-inline-start-color: var(--brand-secondary) !important;
+  background: #fff7ef !important;
+}
+
+.status-strip-warning strong {
+  color: #9a520c;
+}
+
+.status-strip-success {
+  border-inline-start-color: var(--success) !important;
+  background: #edf7ee !important;
+}
+
+.status-strip-success strong {
+  color: var(--success);
+}
+
+.status-strip-neutral {
+  border-inline-start-color: var(--brand-primary) !important;
+  background: #f8fafc !important;
 }
 
 .incident-command-content {

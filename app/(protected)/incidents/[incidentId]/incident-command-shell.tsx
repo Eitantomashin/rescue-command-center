@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CurrentTime } from "@/app/current-time";
 import { formatNumber } from "@/lib/format";
 
 export type IncidentShellIncident = {
@@ -31,6 +30,10 @@ export type IncidentShellSummary = {
   operational_gap: number;
   total_sites?: number | null;
   active_teams?: number | null;
+  operational_numbers_rescued_count?: number | null;
+  operational_numbers_evacuated_count?: number | null;
+  operational_numbers_located_outside_site_count?: number | null;
+  operational_numbers_deceased_count?: number | null;
 };
 
 function siteLabel(site: IncidentShellSite) {
@@ -133,6 +136,12 @@ export function IncidentCommandShell({
   const pathname = usePathname();
   const base = `/incidents/${incident.id}`;
   const activeOperationalNumbers = summary.active_operational_numbers_count ?? summary.gap_resolved_count ?? 0;
+  const completedOperationalNumbers =
+    (summary.operational_numbers_rescued_count ?? 0) +
+    (summary.operational_numbers_evacuated_count ?? 0) +
+    (summary.operational_numbers_located_outside_site_count ?? 0) +
+    (summary.operational_numbers_deceased_count ?? 0);
+  const knownInTreatment = Math.max(0, activeOperationalNumbers - completedOperationalNumbers);
   const coverage =
     summary.updated_potential > 0 ? Math.round((activeOperationalNumbers / summary.updated_potential) * 100) : 0;
   const breadcrumbs = breadcrumbItems(incident, sites, pathname);
@@ -221,28 +230,26 @@ export function IncidentCommandShell({
       </aside>
 
       <div className="incident-command-content">
-        <section className="incident-ops-strip" aria-label="סיכום אירוע">
-          <div>
-            <span>אירוע</span>
-            <strong>{incident.name}</strong>
+        <section className="incident-ops-strip operational-status-strip" aria-label="סיכום מבצעי">
+          <div className="status-strip-item status-strip-critical">
+            <span>🔴 פער מבצעי</span>
+            <strong>{formatNumber(summary.operational_gap)}</strong>
           </div>
-          <div>
-            <span>סטטוס</span>
-            <strong>{incident.is_closed ? "סגור" : "פעיל"}</strong>
+          <div className="status-strip-item status-strip-warning">
+            <span>🟠 ידועים / בטיפול</span>
+            <strong>{formatNumber(knownInTreatment)}</strong>
           </div>
-          <div>
-            <span>אתרים</span>
+          <div className="status-strip-item status-strip-success">
+            <span>🟢 טופלו</span>
+            <strong>{formatNumber(completedOperationalNumbers)}</strong>
+          </div>
+          <div className="status-strip-item status-strip-neutral">
+            <span>🏢 אתרים</span>
             <strong>{formatNumber(summary.total_sites ?? sites.length)}</strong>
           </div>
-          <div>
-            <span>צוותים</span>
+          <div className="status-strip-item status-strip-neutral">
+            <span>🚒 צוותים</span>
             <strong>{formatNumber(summary.active_teams ?? 0)}</strong>
-          </div>
-          <div>
-            <span>שעה</span>
-            <strong>
-              <CurrentTime />
-            </strong>
           </div>
         </section>
 
