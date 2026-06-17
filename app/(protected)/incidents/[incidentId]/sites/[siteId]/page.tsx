@@ -556,25 +556,56 @@ export default async function SiteDetailsPage({
           <div className="building-stack">
             {floors.map((floor) => {
               const floorUnits = sortUnits(unitsByFloor.get(floor.id) ?? []);
+              const floorSummary = floorUnits.reduce(
+                (summary, unit) => {
+                  const activeResidents = (residentsByUnit.get(unit.id) ?? []).filter(
+                    (resident) => resident.is_active
+                  );
+                  const knownHandledResidents = activeResidents.filter((resident) =>
+                    countsAsKnownHandledForUnitGap(
+                      statuses,
+                      resident,
+                      resident.linked_person_id ? personsById.get(resident.linked_person_id) : null
+                    )
+                  ).length;
+
+                  summary.totalResidents += activeResidents.length;
+                  summary.knownHandled += knownHandledResidents;
+                  summary.gap += activeResidents.length - knownHandledResidents;
+                  return summary;
+                },
+                { totalResidents: 0, knownHandled: 0, gap: 0 }
+              );
+              const floorTone =
+                floorSummary.gap === 0
+                  ? "complete"
+                  : floorSummary.knownHandled > 0
+                    ? "progress"
+                    : "high-gap";
 
               return (
-                <section
-                  className={["floor-card", !floor.is_active ? "inactive" : ""]
+                <details
+                  className={["floor-card", `floor-${floorTone}`, !floor.is_active ? "inactive" : ""]
                     .filter(Boolean)
                     .join(" ")}
                   key={floor.id}
                   aria-label={`קומה ${floor.floor_number}`}
+                  open
                 >
-                  <div className="floor-card-header">
-                    <div>
+                  <summary className="floor-summary-bar">
+                    <div className="floor-summary-title">
+                      <span className="floor-tone-dot" />
                       <h3>קומה {floor.floor_number}</h3>
-                      <p className="muted">{formatNumber(floorUnits.length)} דירות</p>
+                      <span className="muted">{formatNumber(floorUnits.length)} יחידות</span>
                     </div>
-                    <div className="floor-status">
+                    <div className="floor-summary-metrics">
+                      <span>דיירים <strong>{formatNumber(floorSummary.totalResidents)}</strong></span>
+                      <span>ידועים/בטיפול <strong>{formatNumber(floorSummary.knownHandled)}</strong></span>
+                      <span>פער <strong>{formatNumber(floorSummary.gap)}</strong></span>
                       <span className="badge">{statusLabel(statuses, floor.status_id) ?? "-"}</span>
                       {!floor.is_active ? <span className="badge inactive">לא פעילה</span> : null}
                     </div>
-                  </div>
+                  </summary>
 
                   {floorUnits.length === 0 ? (
                     <p className="muted">אין דירות רשומות בקומה זו.</p>
@@ -592,12 +623,23 @@ export default async function SiteDetailsPage({
                           )
                         ).length;
                         const unknownResidents = activeResidents.length - knownHandledResidents;
+                        const linkedOperationalNumbers = activeResidents
+                          .map((resident) =>
+                            resident.linked_person_id ? personsById.get(resident.linked_person_id) : null
+                          )
+                          .filter(Boolean) as PersonRow[];
+                        const unitTone =
+                          unknownResidents === 0
+                            ? "cleared"
+                            : knownHandledResidents > 0
+                              ? "partial"
+                              : "high-gap";
 
                         return (
                           <article
                             className={[
                               "apartment-card",
-                              knownHandledResidents > 0 && unknownResidents === 0 ? "cleared" : "open",
+                              unitTone,
                               !unit.is_active ? "inactive" : ""
                             ]
                               .filter(Boolean)
@@ -609,6 +651,9 @@ export default async function SiteDetailsPage({
                               <div className="apartment-badges">
                                 <span className={unit.is_active ? "badge active" : "badge inactive"}>
                                   {unit.is_active ? "פעילה" : "לא פעילה"}
+                                </span>
+                                <span className={`unit-gap-badge ${unitTone}`}>
+                                  פער {formatNumber(unknownResidents)}
                                 </span>
                               </div>
                             </div>
@@ -636,6 +681,21 @@ export default async function SiteDetailsPage({
                               </div>
                             </dl>
 
+                            <div className="unit-operational-links">
+                              <span>מספרים מבצעיים</span>
+                              {linkedOperationalNumbers.length === 0 ? (
+                                <strong>אין קישורים</strong>
+                              ) : (
+                                <div>
+                                  {linkedOperationalNumbers.map((person) => (
+                                    <span className="operational-number-badge" key={person.id}>
+                                      #{person.operational_number}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
                             <div className="resident-section">
                               <h5>דיירים רשומים</h5>
                               {activeResidents.length === 0 ? (
@@ -661,15 +721,24 @@ export default async function SiteDetailsPage({
                                         <div className="resident-display-row">
                                           <div>
                                             <strong>{residentLine(statuses, resident, linkedPerson)}</strong>
+                                            <div className="resident-meta-badges">
+                                              {linkedPerson ? (
+                                                <span className="operational-number-badge prominent">
+                                                  #{linkedPerson.operational_number}
+                                                </span>
+                                              ) : (
+                                                <span className="resident-muted-badge">ללא מספר מבצעי</span>
+                                              )}
+                                              <span className={`resident-treatment ${state}`}>
+                                                {treatmentLabel(state)}
+                                              </span>
+                                            </div>
                                             <small>
                                               {resident.age === null ? "" : `גיל ${resident.age} · `}
                                               טיפול: {treatmentLabel(state)}
                                             </small>
                                           </div>
                                           <div className="resident-row-actions">
-                                            <span className={`resident-treatment ${state}`}>
-                                              {treatmentLabel(state)}
-                                            </span>
                                             {canDeletePlaceholder ? (
                                               <form action={deleteEmptyPlaceholderResident} className="placeholder-delete-form inline">
                                                 {hiddenContext(params.incidentId, params.siteId)}
@@ -791,7 +860,7 @@ export default async function SiteDetailsPage({
                       })}
                     </div>
                   )}
-                </section>
+                </details>
               );
             })}
           </div>
@@ -826,16 +895,25 @@ export default async function SiteDetailsPage({
               return (
                 <li className={`resident-item treatment-${state}`} key={resident.id}>
                   <div className="resident-display-row">
-                    <div>
-                      <strong>{residentLine(statuses, resident, linkedPerson)}</strong>
-                      <small>
-                        {resident.age === null ? "" : `גיל ${resident.age} · `}
-                        טיפול: {treatmentLabel(state)}
-                      </small>
-                    </div>
-                    <div className="resident-row-actions">
+                  <div>
+                    <strong>{residentLine(statuses, resident, linkedPerson)}</strong>
+                    <div className="resident-meta-badges">
+                      {linkedPerson ? (
+                        <span className="operational-number-badge prominent">
+                          #{linkedPerson.operational_number}
+                        </span>
+                      ) : (
+                        <span className="resident-muted-badge">ללא מספר מבצעי</span>
+                      )}
                       <span className={`resident-treatment ${state}`}>{treatmentLabel(state)}</span>
                     </div>
+                    <small>
+                      {resident.age === null ? "" : `גיל ${resident.age} · `}
+                      טיפול: {treatmentLabel(state)}
+                    </small>
+                  </div>
+                  <div className="resident-row-actions">
+                  </div>
                   </div>
 
                   <details className="resident-edit" key={residentEditKey}>
