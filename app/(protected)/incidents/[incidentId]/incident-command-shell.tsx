@@ -247,10 +247,6 @@ export function IncidentCommandShell({
             <span>🏢 אתרים</span>
             <strong>{formatNumber(summary.total_sites ?? sites.length)}</strong>
           </div>
-          <div className="status-strip-item status-strip-neutral">
-            <span>🚒 צוותים</span>
-            <strong>{formatNumber(summary.active_teams ?? 0)}</strong>
-          </div>
         </section>
 
         <nav className="breadcrumb-bar" aria-label="מיקום נוכחי">

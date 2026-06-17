@@ -154,8 +154,9 @@ textarea {
   top: 0;
   z-index: 50;
   min-height: 76px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 30px rgba(22, 50, 79, 0.08);
+  border-bottom: 3px solid var(--brand-secondary);
+  background: var(--brand-primary);
+  box-shadow: 0 14px 34px rgba(22, 50, 79, 0.24);
   backdrop-filter: blur(12px);
 }
 
@@ -172,28 +173,29 @@ textarea {
 }
 
 .brand-cluster strong {
-  color: var(--brand-primary);
-  font-size: 22px;
+  color: #ffffff;
+  font-size: 24px;
   line-height: 1;
 }
 
 .brand-cluster span {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.76);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .brand-logo {
-  width: 48px;
-  height: 48px;
+  width: auto;
+  height: 52px;
+  max-width: 72px;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: 0;
 }
 
 .primary-logo {
-  background: #fff;
-  border: 1px solid var(--border);
+  background: transparent;
+  border: 0;
 }
 
 .rescue-cluster {
@@ -205,8 +207,9 @@ textarea {
 }
 
 .rescue-logo {
-  width: 42px;
-  height: 42px;
+  width: auto;
+  height: 50px;
+  max-width: 84px;
 }
 
 .header-ops-summary {
@@ -219,20 +222,20 @@ textarea {
   display: grid;
   gap: 2px;
   min-width: 92px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
-  background: var(--neutral);
+  background: rgba(255, 255, 255, 0.08);
   padding: 8px 10px;
 }
 
 .header-ops-summary span {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.68);
   font-size: 11px;
   font-weight: 700;
 }
 
 .header-ops-summary strong {
-  color: var(--brand-primary);
+  color: #ffffff;
   font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -246,14 +249,14 @@ textarea {
 .nav-links a {
   border: 1px solid transparent;
   border-radius: 8px;
-  color: var(--brand-primary);
+  color: #ffffff;
   font-weight: 800;
   padding: 8px 10px;
 }
 
 .nav-links a:hover {
   border-color: rgba(245, 130, 32, 0.35);
-  background: rgba(245, 130, 32, 0.08);
+  background: rgba(245, 130, 32, 0.18);
 }
 
 .command-action-panel {
@@ -274,7 +277,7 @@ textarea {
   border-radius: 8px;
   background: #ffffff;
   box-shadow: var(--shadow-sm);
-  color: var(--primary);
+  color: var(--brand-primary);
   padding: 10px 12px;
   font-weight: 700;
 }
@@ -318,19 +321,19 @@ textarea {
   gap: 14px;
   max-height: calc(100vh - 32px);
   overflow: auto;
-  border: 1px solid rgba(22, 50, 79, 0.16);
+  border: 1px solid rgba(22, 50, 79, 0.22);
   border-radius: 12px;
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
   box-shadow: var(--shadow-md);
-  padding: 14px;
+  padding: 16px;
 }
 
 .incident-nav-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(22, 50, 79, 0.16);
+  padding-bottom: 14px;
 }
 
 .incident-nav-header strong {
@@ -347,10 +350,10 @@ textarea {
 .incident-site-node summary {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 9px 10px;
+  padding: 10px 11px;
   color: #243447;
   font-weight: 700;
 }
@@ -382,9 +385,9 @@ textarea {
 .incident-nav-item.active,
 .incident-site-node summary.active {
   border-color: var(--brand-primary);
-  background: rgba(22, 50, 79, 0.08);
+  background: rgba(22, 50, 79, 0.1);
   color: var(--primary);
-  box-shadow: inset -4px 0 0 var(--brand-secondary);
+  box-shadow: inset -5px 0 0 var(--brand-secondary), 0 8px 18px rgba(22, 50, 79, 0.08);
 }
 
 .incident-site-tree {
@@ -478,30 +481,30 @@ textarea {
 
 .incident-ops-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .incident-ops-strip div {
   display: grid;
-  gap: 4px;
+  gap: 5px;
   border: 1px solid rgba(22, 50, 79, 0.16);
   border-radius: 8px;
   background: #fff;
   box-shadow: var(--shadow-sm);
-  padding: 10px 12px;
+  padding: 11px 13px;
 }
 
 .incident-ops-strip span {
-  color: var(--muted);
+  color: var(--foreground);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .incident-ops-strip strong {
   color: var(--brand-primary);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 950;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -516,6 +519,7 @@ textarea {
   position: relative;
   overflow: hidden;
   border-inline-start-width: 5px;
+  box-shadow: 0 12px 28px rgba(22, 50, 79, 0.13);
 }
 
 .operational-status-strip .status-strip-item span {
@@ -524,7 +528,7 @@ textarea {
 
 .status-strip-critical {
   border-inline-start-color: var(--critical) !important;
-  background: #fff5f5 !important;
+  background: linear-gradient(180deg, #fffafa, #fdecec) !important;
 }
 
 .status-strip-critical strong {
@@ -533,7 +537,7 @@ textarea {
 
 .status-strip-warning {
   border-inline-start-color: var(--brand-secondary) !important;
-  background: #fff7ef !important;
+  background: linear-gradient(180deg, #fffaf5, #fff0e3) !important;
 }
 
 .status-strip-warning strong {
@@ -542,7 +546,7 @@ textarea {
 
 .status-strip-success {
   border-inline-start-color: var(--success) !important;
-  background: #edf7ee !important;
+  background: linear-gradient(180deg, #f7fff8, #eaf6eb) !important;
 }
 
 .status-strip-success strong {
@@ -551,7 +555,7 @@ textarea {
 
 .status-strip-neutral {
   border-inline-start-color: var(--brand-primary) !important;
-  background: #f8fafc !important;
+  background: linear-gradient(180deg, #ffffff, #f2f6fa) !important;
 }
 
 .incident-command-content {
@@ -1352,17 +1356,17 @@ textarea {
   border: 1px solid transparent;
   border-radius: 8px;
   padding: 11px 16px;
-  background: var(--primary);
+  background: var(--brand-secondary);
   color: #fff;
   cursor: pointer;
   font-weight: 900;
-  box-shadow: 0 8px 18px rgba(22, 50, 79, 0.16);
+  box-shadow: 0 8px 18px rgba(245, 130, 32, 0.22);
   transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
 .button:hover {
-  background: #0f263d;
-  box-shadow: 0 12px 26px rgba(22, 50, 79, 0.22);
+  background: #d96f16;
+  box-shadow: 0 12px 26px rgba(245, 130, 32, 0.28);
   transform: translateY(-1px);
 }
 
