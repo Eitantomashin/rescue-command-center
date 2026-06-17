@@ -114,6 +114,8 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
 
     if (pathname === `${currentSiteHref}/operational-numbers`) {
       items.push({ label: "מספרים מבצעיים", href: pathname });
+    } else if (pathname === `${currentSiteHref}/grid-map`) {
+      items.push({ label: "ריכוז פעילות מול תא שטח", href: pathname });
     } else if (pathname === `${currentSiteHref}/operational-log`) {
       items.push({ label: "יומן מבצעי אתר", href: pathname });
     }
@@ -191,6 +193,13 @@ export function IncidentCommandShell({
                     >
                       <span className="nav-icon" aria-hidden="true">#</span>
                       מספרים מבצעיים
+                    </Link>
+                    <Link
+                      className={`incident-nav-item${activeClass(pathname, `${rootHref}/grid-map`)}`}
+                      href={`${rootHref}/grid-map`}
+                    >
+                      <span className="nav-icon" aria-hidden="true">▦</span>
+                      ריכוז פעילות מול תא שטח
                     </Link>
                     <Link
                       className={`incident-nav-item${activeClass(pathname, `${rootHref}/operational-log`)}`}
