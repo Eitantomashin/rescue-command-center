@@ -9,6 +9,7 @@ export type SearchParams = {
   eventType?: string;
   siteId?: string;
   importance?: string;
+  noteStatus?: string;
   eventId?: string;
   limit?: string;
 };
@@ -154,6 +155,36 @@ function eventGroup(logType: string) {
   return "system";
 }
 
+function eventGroupLabel(logType: string) {
+  const group = eventGroup(logType);
+
+  if (logType === "general_operational_note") {
+    return "הערה כללית";
+  }
+
+  if (logType === "general_operational_note_status_changed") {
+    return "עדכון מצב הערה";
+  }
+
+  if (group === "residents") {
+    return "עדכון דיירים";
+  }
+
+  if (group === "operational_numbers") {
+    return "מספרים מבצעיים";
+  }
+
+  if (group === "sites") {
+    return "אתרים";
+  }
+
+  if (group === "teams") {
+    return "צוותים";
+  }
+
+  return "מערכת";
+}
+
 function importanceLabel(importance: string) {
   if (importance === "critical") {
     return "קריטי";
@@ -164,6 +195,47 @@ function importanceLabel(importance: string) {
   }
 
   return "רגיל";
+}
+
+function treatmentStatusLabel(status: string | null | undefined) {
+  return noteTreatmentStatusOptions.find(([value]) => value === status)?.[1] ?? status ?? "פתוח";
+}
+
+function dateGroupLabel(value: string) {
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  if (sameDay(date, today)) {
+    return "היום";
+  }
+
+  if (sameDay(date, yesterday)) {
+    return "אתמול";
+  }
+
+  return new Intl.DateTimeFormat("he-IL", { dateStyle: "medium" }).format(date);
+}
+
+function groupedByDate(logs: EventLogRow[]) {
+  const groups: Array<{ label: string; logs: EventLogRow[] }> = [];
+
+  for (const log of logs) {
+    const label = dateGroupLabel(log.reported_at);
+    const current = groups.find((group) => group.label === label);
+
+    if (current) {
+      current.logs.push(log);
+    } else {
+      groups.push({ label, logs: [log] });
+    }
+  }
+
+  return groups;
 }
 
 function metadataText(metadata: Record<string, unknown>, key: string) {
@@ -285,6 +357,24 @@ function mergeLabel(metadata: Record<string, unknown>) {
   return merged && primary ? `#${merged} אוחד עם #${primary}` : null;
 }
 
+function logDisplayTitle(log: EventLogRow) {
+  return metadataText(log.metadata, "note_title") ?? log.title ?? log.log_type;
+}
+
+function logDisplayDescription(log: EventLogRow) {
+  if (log.log_type === "general_operational_note_status_changed") {
+    const oldTreatment =
+      metadataText(log.metadata, "old_treatment_status_label") ??
+      treatmentStatusLabel(metadataText(log.metadata, "old_treatment_status"));
+    const newTreatment =
+      metadataText(log.metadata, "new_treatment_status_label") ??
+      treatmentStatusLabel(metadataText(log.metadata, "new_treatment_status"));
+    return `מצב טיפול השתנה: ${oldTreatment} → ${newTreatment}`;
+  }
+
+  return metadataText(log.metadata, "note_content") ?? log.description;
+}
+
 function siteLabel(site?: SiteRow | null, metadata?: Record<string, unknown>) {
   const metadataSite = metadataText(metadata ?? {}, "site_name");
 
@@ -316,8 +406,14 @@ function detailFields(
   const sourcePhone = metadataText(log.metadata, "source_phone");
   const receivedAt = metadataText(log.metadata, "received_at");
   const treatmentStatus = metadataText(log.metadata, "treatment_status");
-  const oldTreatmentStatus = metadataText(log.metadata, "old_treatment_status_label") ?? metadataText(log.metadata, "old_treatment_status");
-  const newTreatmentStatus = metadataText(log.metadata, "new_treatment_status_label") ?? metadataText(log.metadata, "new_treatment_status");
+  const rawOldTreatmentStatus = metadataText(log.metadata, "old_treatment_status");
+  const rawNewTreatmentStatus = metadataText(log.metadata, "new_treatment_status");
+  const oldTreatmentStatus =
+    metadataText(log.metadata, "old_treatment_status_label") ??
+    (rawOldTreatmentStatus ? treatmentStatusLabel(rawOldTreatmentStatus) : null);
+  const newTreatmentStatus =
+    metadataText(log.metadata, "new_treatment_status_label") ??
+    (rawNewTreatmentStatus ? treatmentStatusLabel(rawNewTreatmentStatus) : null);
   const operationalNumber = operationalNumberLabel(log, persons);
   const resident = residentName(log, linkedResidents, persons);
   const location = locationLabel(log, floors, units);
@@ -467,6 +563,7 @@ export async function OperationalLogView({
   const limit = Math.min(Math.max(Number.parseInt(searchParams.limit ?? "200", 10) || 200, 50), 1000);
   const eventType = searchParams.eventType ?? "all";
   const importance = searchParams.importance ?? "all";
+  const noteStatus = searchParams.noteStatus ?? "all";
   const siteId = fixedSiteId ?? searchParams.siteId ?? "all";
   const search = (searchParams.q ?? "").trim().toLowerCase();
 
@@ -496,7 +593,9 @@ export async function OperationalLogView({
     .order("reported_at", { ascending: false })
     .limit(limit);
 
-  if (importance !== "all") {
+  if (importance === "important_critical") {
+    logQuery = logQuery.in("importance", ["important", "critical"]);
+  } else if (importance !== "all") {
     logQuery = logQuery.eq("importance", importance);
   }
 
@@ -598,10 +697,61 @@ export async function OperationalLogView({
       .filter((resident) => resident.linked_person_id)
       .map((resident) => [resident.linked_person_id as string, resident])
   );
+  const noteStatusByGroup = new Map<string, string>();
+  const noteStatusUpdatedGroups = new Set<string>();
+
+  for (const log of displayLogs) {
+    if (log.log_type === "general_operational_note") {
+      noteStatusByGroup.set(noteGroupId(log), metadataText(log.metadata, "treatment_status") ?? "open");
+    }
+  }
+
+  for (const log of displayLogs) {
+    if (log.log_type !== "general_operational_note_status_changed") {
+      continue;
+    }
+
+    const groupId = metadataText(log.metadata, "note_group_id") ?? metadataText(log.metadata, "original_note_event_log_id");
+    const status = metadataText(log.metadata, "new_treatment_status");
+
+    if (groupId && status && !noteStatusUpdatedGroups.has(groupId)) {
+      noteStatusByGroup.set(groupId, status);
+      noteStatusUpdatedGroups.add(groupId);
+    }
+  }
+
+  const noteStatusCounts = displayLogs
+    .filter((log) => log.log_type === "general_operational_note")
+    .reduce(
+      (counts, log) => {
+        const status = noteStatusByGroup.get(noteGroupId(log)) ?? "open";
+
+        if (status === "closed") {
+          counts.closed += 1;
+        } else if (status === "in_progress") {
+          counts.inProgress += 1;
+        } else {
+          counts.open += 1;
+        }
+
+        return counts;
+      },
+      { open: 0, inProgress: 0, closed: 0 }
+    );
 
   const filteredLogs = displayLogs.filter((log) => {
     if (eventType !== "all" && eventGroup(log.log_type) !== eventType) {
       return false;
+    }
+
+    if (noteStatus !== "all") {
+      if (log.log_type !== "general_operational_note") {
+        return false;
+      }
+
+      if ((noteStatusByGroup.get(noteGroupId(log)) ?? "open") !== noteStatus) {
+        return false;
+      }
     }
 
     if (search) {
@@ -613,6 +763,7 @@ export async function OperationalLogView({
   const selectedLog = filteredLogs.find((log) => log.id === searchParams.eventId) ?? filteredLogs[0] ?? null;
   const canLoadMore = (totalMatchingCount ?? 0) > limit;
   const defaultReceivedAt = datetimeLocalValue();
+  const timelineGroups = groupedByDate(filteredLogs);
 
   return (
     <main className="page operational-log-page">
@@ -648,6 +799,30 @@ export async function OperationalLogView({
           עדכוני דיירים
           <strong>{formatNumber(residentEvents ?? 0)}</strong>
         </div>
+      </section>
+
+      <section className="note-summary-strip" aria-label="סיכום הערות כלליות">
+        <Link
+          className={`note-summary-card status-open ${noteStatus === "open" ? "active" : ""}`}
+          href={queryWith(searchParams, { eventType: "general_notes", noteStatus: "open", eventId: null })}
+        >
+          <span>הערות פתוחות</span>
+          <strong>{formatNumber(noteStatusCounts.open)}</strong>
+        </Link>
+        <Link
+          className={`note-summary-card status-in_progress ${noteStatus === "in_progress" ? "active" : ""}`}
+          href={queryWith(searchParams, { eventType: "general_notes", noteStatus: "in_progress", eventId: null })}
+        >
+          <span>הערות בטיפול</span>
+          <strong>{formatNumber(noteStatusCounts.inProgress)}</strong>
+        </Link>
+        <Link
+          className={`note-summary-card status-closed ${noteStatus === "closed" ? "active" : ""}`}
+          href={queryWith(searchParams, { eventType: "general_notes", noteStatus: "closed", eventId: null })}
+        >
+          <span>הערות שנסגרו</span>
+          <strong>{formatNumber(noteStatusCounts.closed)}</strong>
+        </Link>
       </section>
 
       <details className="panel general-note-panel section-spaced">
@@ -740,7 +915,26 @@ export async function OperationalLogView({
         </form>
       </details>
 
-      <form className="panel operational-log-filters section-spaced">
+      <section className="panel operational-log-filter-panel section-spaced">
+        <div className="quick-filter-row" aria-label="סינון מהיר">
+          <Link className={`quick-filter-chip ${eventType === "all" && importance === "all" && noteStatus === "all" ? "active" : ""}`} href={queryWith(searchParams, { eventType: "all", importance: "all", noteStatus: null, eventId: null })}>
+            הכל
+          </Link>
+          <Link className={`quick-filter-chip ${importance === "important_critical" ? "active" : ""}`} href={queryWith(searchParams, { importance: "important_critical", eventId: null })}>
+            חשובים / קריטיים
+          </Link>
+          <Link className={`quick-filter-chip ${eventType === "general_notes" ? "active" : ""}`} href={queryWith(searchParams, { eventType: "general_notes", noteStatus: null, eventId: null })}>
+            הערות כלליות
+          </Link>
+          <Link className={`quick-filter-chip ${eventType === "operational_numbers" ? "active" : ""}`} href={queryWith(searchParams, { eventType: "operational_numbers", noteStatus: null, eventId: null })}>
+            עדכוני מספרים מבצעיים
+          </Link>
+          <Link className={`quick-filter-chip ${eventType === "residents" ? "active" : ""}`} href={queryWith(searchParams, { eventType: "residents", noteStatus: null, eventId: null })}>
+            עדכוני דיירים
+          </Link>
+        </div>
+
+      <form className="operational-log-filters">
         <label className="field">
           <span>חיפוש</span>
           <input className="input" name="q" defaultValue={searchParams.q ?? ""} placeholder="כותרת, תיאור, מספר מבצעי או שם" />
@@ -780,6 +974,7 @@ export async function OperationalLogView({
         <label className="field">
           <span>חשיבות</span>
           <select className="input" name="importance" defaultValue={importance}>
+            <option value="important_critical">חשובים / קריטיים</option>
             {phase6gImportanceOptions.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -791,7 +986,11 @@ export async function OperationalLogView({
         <button className="button" type="submit">
           סנן
         </button>
+        <Link className="button secondary" href={queryWith({}, {})}>
+          נקה סינון
+        </Link>
       </form>
+      </section>
 
       <section className="operational-log-layout section-spaced">
         <div className="panel operational-log-timeline">
@@ -805,43 +1004,70 @@ export async function OperationalLogView({
           {filteredLogs.length === 0 ? (
             <p className="muted">לא נמצאו עדכונים לפי הסינון הנוכחי.</p>
           ) : (
-            <ol className="timeline-list">
-              {filteredLogs.map((log) => {
-                const selected = selectedLog?.id === log.id;
-                const operationalNumber = operationalNumberLabel(log, personMap);
-                const location = locationLabel(log, floorMap, unitMap);
-                const site = log.site_id ? siteMap.get(log.site_id) : null;
-                const noteSource = metadataText(log.metadata, "information_source_type") ?? log.source_type;
-                const noteSourceName = metadataText(log.metadata, "source_name") ?? log.source_name;
-                const noteTreatmentStatus = metadataText(log.metadata, "treatment_status");
-                const noteTreatmentLabel = noteTreatmentStatus
-                  ? noteTreatmentStatusOptions.find(([value]) => value === noteTreatmentStatus)?.[1] ?? noteTreatmentStatus
-                  : null;
-                const operationalContext =
-                  operationalNumber && site && !fixedSiteId
-                    ? `${operationalNumber} · אתר ${site.site_number}`
-                    : operationalNumber;
+            <div className="timeline-group-list">
+              {timelineGroups.map((group) => (
+                <section className="timeline-date-group" key={group.label}>
+                  <h3>{group.label}</h3>
+                  <ol className="timeline-list">
+                    {group.logs.map((log) => {
+                      const selected = selectedLog?.id === log.id;
+                      const operationalNumber = operationalNumberLabel(log, personMap);
+                      const location = locationLabel(log, floorMap, unitMap);
+                      const site = log.site_id ? siteMap.get(log.site_id) : null;
+                      const noteSource = metadataText(log.metadata, "information_source_type") ?? log.source_type;
+                      const noteSourceName = metadataText(log.metadata, "source_name") ?? log.source_name;
+                      const noteTitle = metadataText(log.metadata, "note_title");
+                      const noteContent = metadataText(log.metadata, "note_content");
+                      const currentNoteStatus = log.log_type === "general_operational_note"
+                        ? noteStatusByGroup.get(noteGroupId(log)) ?? metadataText(log.metadata, "treatment_status")
+                        : metadataText(log.metadata, "new_treatment_status");
+                      const noteTreatmentLabel = treatmentStatusLabel(currentNoteStatus);
+                      const oldTreatment = metadataText(log.metadata, "old_treatment_status_label") ?? treatmentStatusLabel(metadataText(log.metadata, "old_treatment_status"));
+                      const newTreatment = metadataText(log.metadata, "new_treatment_status_label") ?? treatmentStatusLabel(metadataText(log.metadata, "new_treatment_status"));
+                      const operationalContext =
+                        operationalNumber && site && !fixedSiteId
+                          ? `${operationalNumber} · אתר ${site.site_number}`
+                          : operationalNumber;
+                      const rowTitle = log.log_type === "general_operational_note" && noteTitle
+                        ? noteTitle
+                        : log.title || log.log_type;
+                      const rowDescription = log.log_type === "general_operational_note_status_changed"
+                        ? `מצב טיפול השתנה: ${oldTreatment} → ${newTreatment}`
+                        : noteContent || log.description;
 
-                return (
-                  <li className={`timeline-row importance-${log.importance} ${selected ? "selected" : ""}`} key={log.id}>
-                    <Link href={queryWith(searchParams, { eventId: log.id })}>
-                      <time>{formatDateTime(log.reported_at)}</time>
-                      <strong>{log.title || log.log_type}</strong>
-                      {log.description ? <p>{log.description}</p> : null}
-                      <div className="timeline-meta">
-                        <span>{importanceLabel(log.importance)}</span>
-                        {site ? <span>אתר {site.site_number}</span> : null}
-                        {location ? <span>{location}</span> : null}
-                        {operationalContext ? <span>{operationalContext}</span> : null}
-                        {log.log_type === "general_operational_note" && noteSource ? <span>{noteSource}</span> : null}
-                        {log.log_type === "general_operational_note" && noteSourceName ? <span>{noteSourceName}</span> : null}
-                        {log.log_type === "general_operational_note" && noteTreatmentLabel ? <span>{noteTreatmentLabel}</span> : null}
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
+                      return (
+                        <li className={`timeline-row importance-${log.importance} event-group-${eventGroup(log.log_type)} ${selected ? "selected" : ""}`} key={log.id}>
+                          <Link href={queryWith(searchParams, { eventId: log.id })}>
+                            <div className="timeline-row-top">
+                              <span className={`event-type-pill event-group-${eventGroup(log.log_type)}`}>
+                                {log.log_type === "general_operational_note" ? "📝 " : ""}
+                                {eventGroupLabel(log.log_type)}
+                              </span>
+                              <time>{formatDateTime(log.reported_at)}</time>
+                            </div>
+                            <strong>{rowTitle}</strong>
+                            {rowDescription ? <p>{rowDescription}</p> : null}
+                            <div className="timeline-meta">
+                              <span className={`importance-chip importance-${log.importance}`}>{importanceLabel(log.importance)}</span>
+                              {site ? <span>אתר {site.site_number}</span> : null}
+                              {location ? <span>{location}</span> : null}
+                              {operationalContext ? <span>{operationalContext}</span> : null}
+                              {noteSource ? <span>{noteSource}</span> : null}
+                              {noteSourceName ? <span>{noteSourceName}</span> : null}
+                              {log.log_type.startsWith("general_operational_note") ? (
+                                <span className={`note-status-badge status-${currentNoteStatus ?? "open"}`}>
+                                  {noteTreatmentLabel}
+                                </span>
+                              ) : null}
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              ))}
+            </div>
           )}
 
           {canLoadMore ? (
@@ -858,8 +1084,12 @@ export async function OperationalLogView({
                 <span className={`badge importance-badge importance-${selectedLog.importance}`}>
                   {importanceLabel(selectedLog.importance)}
                 </span>
-                <h2>{selectedLog.title || selectedLog.log_type}</h2>
-                {selectedLog.description ? <p>{selectedLog.description}</p> : null}
+                <span className={`event-type-pill event-group-${eventGroup(selectedLog.log_type)}`}>
+                  {selectedLog.log_type === "general_operational_note" ? "📝 " : ""}
+                  {eventGroupLabel(selectedLog.log_type)}
+                </span>
+                <h2>{logDisplayTitle(selectedLog)}</h2>
+                {logDisplayDescription(selectedLog) ? <p>{logDisplayDescription(selectedLog)}</p> : null}
                 <time>{formatDateTime(selectedLog.reported_at)}</time>
               </div>
 
