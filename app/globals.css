@@ -3259,6 +3259,40 @@ textarea {
   flex-wrap: wrap;
 }
 
+.sector-management-panel {
+  display: grid;
+  gap: 14px;
+  border-color: rgba(245, 130, 32, 0.28);
+  background: linear-gradient(180deg, #fff, #fff8f1);
+}
+
+.sector-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.layers-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgba(22, 50, 79, 0.1);
+  padding-top: 12px;
+}
+
+.layers-panel .checkbox-row {
+  width: auto;
+  min-height: 34px;
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 999px;
+  background: #fff;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 850;
+}
+
 .grid-map-stage {
   border: 1px solid rgba(22, 50, 79, 0.16);
   border-radius: 8px;
@@ -3279,6 +3313,46 @@ textarea {
   width: 100%;
   max-height: 72vh;
   object-fit: contain;
+}
+
+.grid-map-image-placeholder {
+  width: 100%;
+  min-height: 560px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08) 25%, transparent 25%) 0 0 / 28px 28px,
+    linear-gradient(225deg, rgba(255, 255, 255, 0.08) 25%, transparent 25%) 0 0 / 28px 28px,
+    #0b1826;
+}
+
+.sector-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.sector-overlay polygon,
+.sector-overlay rect,
+.sector-overlay polyline {
+  pointer-events: auto;
+}
+
+.entry-point-marker {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--brand-primary);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
 }
 
 .grid-overlay {
@@ -3426,6 +3500,54 @@ textarea {
   padding: 10px;
 }
 
+.sector-editor-panel {
+  border-color: rgba(22, 50, 79, 0.18);
+  background: #fff;
+}
+
+.sector-editor-panel h2 {
+  margin-top: 0;
+}
+
+.print-grid-map {
+  display: none;
+}
+
+.print-grid-map ul {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.print-grid-map li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.print-grid-map li span {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #111827;
+  border-radius: 4px;
+}
+
+.print-grid-map table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.print-grid-map th,
+.print-grid-map td {
+  height: 30px;
+  border: 1px solid #111827;
+  padding: 6px;
+  text-align: right;
+}
+
 @media (max-width: 640px) {
   .site-grid-upload-panel,
   .site-grid-upload-form,
@@ -3442,6 +3564,63 @@ textarea {
     min-width: 31px;
     min-height: 24px;
     font-size: 11px;
+  }
+
+  .sector-tool-row,
+  .layers-panel {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .command-header,
+  .incident-shell-sidebar,
+  .site-grid-upload-panel,
+  .grid-map-summary,
+  .grid-map-toolbar,
+  .sector-management-panel,
+  .sector-editor-panel,
+  .invalid-grid-cells,
+  .breadcrumb-bar,
+  .right-action-panel {
+    display: none !important;
+  }
+
+  .site-grid-map-page,
+  .page {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .grid-map-stage {
+    break-inside: avoid;
+    border: 1px solid #111827;
+    background: #fff;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .grid-map-image-frame {
+    border-radius: 0;
+    background: #fff;
+  }
+
+  .grid-marker-popup {
+    display: none;
+  }
+
+  .print-grid-map {
+    display: block;
+    margin-top: 18px;
+    break-before: page;
+    color: #111827;
   }
 }
 

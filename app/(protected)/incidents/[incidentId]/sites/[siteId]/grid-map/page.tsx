@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { uploadSiteGridImage } from "./actions";
-import { SiteGridMap, type GridMarker } from "./site-grid-map";
+import { SiteGridMap, type GridMarker, type MapObject, type MapTeam } from "./site-grid-map";
 
 type SiteRow = {
   id: string;
@@ -31,6 +31,23 @@ type OperationalNumberRow = {
   latest_grid_cell: string | null;
   latest_reported_at: string | null;
   is_merged: boolean;
+};
+
+type MapObjectRow = {
+  id: string;
+  object_type: "sector" | "entry_point" | "route";
+  name: string;
+  assigned_team_number: number | null;
+  color: string | null;
+  operational_status: string | null;
+  notes: string | null;
+  geometry: Record<string, unknown>;
+  is_active: boolean;
+};
+
+type TeamRow = {
+  team_number: number;
+  name: string | null;
 };
 
 function siteTitle(site: SiteRow) {
@@ -87,15 +104,30 @@ export default async function SiteGridMapPage({
 
   const site = siteData as SiteRow;
   const imageUrl = await imageUrlFromReference(site.image_data_url, supabase);
-  const { data: operationalRows } = await supabase
-    .from("operational_numbers_dashboard")
-    .select(
-      "person_id,operational_number,team_number,first_name,last_name,resident_first_name,resident_last_name,dashboard_status_group,dashboard_card_color,dashboard_status_label,current_status_label,latest_report_status_label,latest_grid_cell,latest_reported_at,is_merged"
-    )
-    .eq("incident_id", params.incidentId)
-    .eq("site_id", params.siteId)
-    .eq("is_merged", false)
-    .order("operational_number", { ascending: true });
+  const [{ data: operationalRows }, { data: mapObjectRows }, { data: teamRows }] = await Promise.all([
+    supabase
+      .from("operational_numbers_dashboard")
+      .select(
+        "person_id,operational_number,team_number,first_name,last_name,resident_first_name,resident_last_name,dashboard_status_group,dashboard_card_color,dashboard_status_label,current_status_label,latest_report_status_label,latest_grid_cell,latest_reported_at,is_merged"
+      )
+      .eq("incident_id", params.incidentId)
+      .eq("site_id", params.siteId)
+      .eq("is_merged", false)
+      .order("operational_number", { ascending: true }),
+    supabase
+      .from("site_map_objects")
+      .select("id,object_type,name,assigned_team_number,color,operational_status,notes,geometry,is_active")
+      .eq("incident_id", params.incidentId)
+      .eq("site_id", params.siteId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("teams")
+      .select("team_number,name")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true)
+      .order("team_number", { ascending: true })
+  ]);
 
   const markers: GridMarker[] = ((operationalRows ?? []) as OperationalNumberRow[]).map((row) => ({
     personId: row.person_id,
@@ -108,6 +140,32 @@ export default async function SiteGridMapPage({
     teamNumber: row.team_number,
     gridCell: row.latest_grid_cell
   }));
+  const mapObjects: MapObject[] = ((mapObjectRows ?? []) as MapObjectRow[]).map((row) => ({
+    id: row.id,
+    objectType: row.object_type,
+    name: row.name,
+    assignedTeamNumber: row.assigned_team_number,
+    color: row.color,
+    operationalStatus: row.operational_status,
+    notes: row.notes,
+    geometry: row.geometry
+  }));
+  const teamsByNumber = new Map<number, MapTeam>();
+  for (const teamNumber of [1, 2, 3, 4, 9]) {
+    teamsByNumber.set(teamNumber, {
+      teamNumber,
+      label: teamNumber === 9 ? "צוות אוכלוסייה" : `צוות ${teamNumber}`
+    });
+  }
+
+  for (const team of (teamRows ?? []) as TeamRow[]) {
+    teamsByNumber.set(team.team_number, {
+      teamNumber: team.team_number,
+      label: team.name?.trim() || (team.team_number === 9 ? "צוות אוכלוסייה" : `צוות ${team.team_number}`)
+    });
+  }
+
+  const teams = Array.from(teamsByNumber.values()).sort((a, b) => a.teamNumber - b.teamNumber);
 
   return (
     <main className="page site-grid-map-page">
@@ -136,7 +194,15 @@ export default async function SiteGridMapPage({
         </form>
       </section>
 
-      <SiteGridMap imageUrl={imageUrl} markers={markers} />
+      <SiteGridMap
+        incidentId={params.incidentId}
+        siteId={params.siteId}
+        siteName={siteTitle(site)}
+        imageUrl={imageUrl}
+        markers={markers}
+        mapObjects={mapObjects}
+        teams={teams}
+      />
     </main>
   );
 }

@@ -70,3 +70,72 @@ export async function uploadSiteGridImage(formData: FormData) {
   revalidatePath(path, "page");
   redirect(path);
 }
+
+function optionalInteger(formData: FormData, key: string) {
+  const raw = value(formData, key);
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function parseGeometry(formData: FormData) {
+  const raw = requiredValue(formData, "geometry", "גיאומטריה");
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error("גיאומטריית מפה אינה תקינה");
+  }
+}
+
+export async function createSiteMapObject(formData: FormData) {
+  const incidentId = requiredValue(formData, "incidentId", "אירוע");
+  const siteId = requiredValue(formData, "siteId", "אתר");
+  const path = `/incidents/${incidentId}/sites/${siteId}/grid-map`;
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("create_site_map_object", {
+    p_site_id: siteId,
+    p_object_type: requiredValue(formData, "objectType", "סוג אובייקט"),
+    p_name: requiredValue(formData, "name", "שם"),
+    p_geometry: parseGeometry(formData),
+    p_assigned_team_number: optionalInteger(formData, "assignedTeamNumber"),
+    p_color: value(formData, "color") || null,
+    p_operational_status: value(formData, "operationalStatus") || null,
+    p_notes: value(formData, "notes") || null
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(path, "page");
+  redirect(path);
+}
+
+export async function updateSiteMapObject(formData: FormData) {
+  const incidentId = requiredValue(formData, "incidentId", "אירוע");
+  const siteId = requiredValue(formData, "siteId", "אתר");
+  const path = `/incidents/${incidentId}/sites/${siteId}/grid-map`;
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("update_site_map_object", {
+    p_map_object_id: requiredValue(formData, "mapObjectId", "אובייקט מפה"),
+    p_name: requiredValue(formData, "name", "שם"),
+    p_geometry: parseGeometry(formData),
+    p_assigned_team_number: optionalInteger(formData, "assignedTeamNumber"),
+    p_color: value(formData, "color") || null,
+    p_operational_status: value(formData, "operationalStatus") || null,
+    p_notes: value(formData, "notes") || null,
+    p_is_active: value(formData, "isActive") !== "false"
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(path, "page");
+  redirect(path);
+}
