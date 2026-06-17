@@ -413,7 +413,7 @@ export default async function OperationalNumbersPage({
       </section>
 
       {selectedPerson ? (
-        <section className="panel section-spaced detail-panel">
+        <section className="panel section-spaced detail-panel" key={selectedPerson.person_id}>
           <div className="header compact">
             <div>
               <h2>{operationalNumberTitle(selectedPerson)}</h2>
@@ -450,7 +450,11 @@ export default async function OperationalNumbersPage({
               ) : (
                 <>
 
-                  <form action={createOperationalReport} className="action-form report-form">
+                  <form
+                    action={createOperationalReport}
+                    className="action-form report-form"
+                    key={`report-form-${selectedPerson.person_id}`}
+                  >
                     {hiddenContext(params.incidentId, params.siteId)}
                     <input type="hidden" name="personId" value={selectedPerson.person_id} />
                     <input type="hidden" name="teamNumber" value={selectedPersonTeam ?? 1} />
@@ -496,7 +500,7 @@ export default async function OperationalNumbersPage({
               )}
 
               {!selectedPerson.is_merged ? (
-                <details className="create-number-panel merge-number-panel">
+                <details className="create-number-panel merge-number-panel" key={`merge-${selectedPerson.person_id}`}>
                   <summary className="button secondary">אחד עם מספר מבצעי</summary>
                   <form action={mergeOperationalNumbers} className="action-form report-form">
                     {hiddenContext(params.incidentId, params.siteId)}

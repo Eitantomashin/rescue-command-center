@@ -3319,11 +3319,11 @@ textarea {
   transform: translate(-50%, -50%);
   border: 2px solid #fff;
   border-radius: 999px;
-  min-width: 46px;
-  min-height: 34px;
-  padding: 5px 8px;
+  min-width: 31px;
+  min-height: 24px;
+  padding: 3px 6px;
   color: #fff;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 950;
   cursor: pointer;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
@@ -3371,6 +3371,16 @@ textarea {
 .grid-marker-popup strong {
   color: #fff;
   font-size: 22px;
+}
+
+.grid-marker-popup .grid-popup-cell {
+  width: max-content;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  padding: 3px 9px;
+  font-weight: 900;
 }
 
 .grid-marker-popup span,
@@ -3429,9 +3439,9 @@ textarea {
   }
 
   .grid-marker {
-    min-width: 38px;
-    min-height: 30px;
-    font-size: 12px;
+    min-width: 31px;
+    min-height: 24px;
+    font-size: 11px;
   }
 }
 

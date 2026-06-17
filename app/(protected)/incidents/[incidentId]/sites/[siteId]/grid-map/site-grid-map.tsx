@@ -24,6 +24,11 @@ type ParsedMarker = GridMarker & {
   y: number;
 };
 
+type DisplayMarker = ParsedMarker & {
+  displayX: number;
+  displayY: number;
+};
+
 function parseGridCell(value: string | null): { normalizedCell: string; x: number; y: number } | null {
   const normalized = value?.replace(/\s+/g, "").trim();
   if (!normalized) {
@@ -45,7 +50,7 @@ function parseGridCell(value: string | null): { normalizedCell: string; x: numbe
 
   return {
     normalizedCell: `${match[1]}${number}`,
-    x: ((numberIndex + 0.5) / GRID_NUMBERS.length) * 100,
+    x: ((GRID_NUMBERS.length - numberIndex - 0.5) / GRID_NUMBERS.length) * 100,
     y: ((letterIndex + 0.5) / GRID_LETTERS.length) * 100
   };
 }
@@ -94,6 +99,33 @@ function markerMatchesFilter(marker: ParsedMarker, filter: string) {
   return true;
 }
 
+function spreadMarkers(markers: ParsedMarker[]): DisplayMarker[] {
+  const byCell = markers.reduce((map, marker) => {
+    const cellMarkers = map.get(marker.normalizedCell) ?? [];
+    cellMarkers.push(marker);
+    map.set(marker.normalizedCell, cellMarkers);
+    return map;
+  }, new Map<string, ParsedMarker[]>());
+
+  return markers.map((marker) => {
+    const cellMarkers = byCell.get(marker.normalizedCell) ?? [marker];
+    const index = cellMarkers.findIndex((cellMarker) => cellMarker.personId === marker.personId);
+
+    if (cellMarkers.length === 1 || index < 0) {
+      return { ...marker, displayX: marker.x, displayY: marker.y };
+    }
+
+    const angle = (Math.PI * 2 * index) / cellMarkers.length;
+    const radius = Math.min(3.2, 1.4 + cellMarkers.length * 0.28);
+
+    return {
+      ...marker,
+      displayX: Math.max(2, Math.min(98, marker.x + Math.cos(angle) * radius)),
+      displayY: Math.max(2, Math.min(98, marker.y + Math.sin(angle) * radius))
+    };
+  });
+}
+
 export function SiteGridMap({
   imageUrl,
   markers
@@ -119,7 +151,7 @@ export function SiteGridMap({
 
     return { valid, invalid };
   }, [markers]);
-  const visibleMarkers = parsed.valid.filter((marker) => markerMatchesFilter(marker, filter));
+  const visibleMarkers = spreadMarkers(parsed.valid.filter((marker) => markerMatchesFilter(marker, filter)));
   const selectedMarker = visibleMarkers.find((marker) => marker.personId === selectedPersonId) ?? null;
   const activeCells = new Set(visibleMarkers.map((marker) => marker.normalizedCell));
   const rescuedCount = visibleMarkers.filter((marker) => marker.statusGroup === "rescued").length;
@@ -204,7 +236,7 @@ export function SiteGridMap({
                 className={`grid-marker marker-${markerTone(marker)}`}
                 key={marker.personId}
                 type="button"
-                style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+                style={{ left: `${marker.displayX}%`, top: `${marker.displayY}%` }}
                 onClick={() => setSelectedPersonId(selectedPersonId === marker.personId ? null : marker.personId)}
                 title={`#${marker.operationalNumber} ${marker.normalizedCell}`}
               >
@@ -214,9 +246,9 @@ export function SiteGridMap({
             {selectedMarker ? (
               <aside className="grid-marker-popup">
                 <strong>#{selectedMarker.operationalNumber}</strong>
+                <span className="grid-popup-cell">תא שטח: {selectedMarker.normalizedCell}</span>
                 <span>{selectedMarker.personName ?? "שם לא ידוע"}</span>
                 <span>{selectedMarker.statusLabel ?? "סטטוס לא ידוע"}</span>
-                <span>{selectedMarker.normalizedCell}</span>
                 {selectedMarker.teamNumber ? <span>צוות {selectedMarker.teamNumber}</span> : null}
                 <time>{formatDateTime(selectedMarker.latestReportedAt)}</time>
               </aside>
