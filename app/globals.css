@@ -592,6 +592,10 @@ textarea {
   width: min(1240px, calc(100% - 32px));
 }
 
+.commander-dashboard-page > .section-spaced {
+  margin-top: 28px;
+}
+
 .command-hero {
   display: flex;
   align-items: flex-start;
@@ -800,11 +804,11 @@ textarea {
 }
 
 .command-progress.coverage-medium span {
-  background: #f9ab00;
+  background: var(--warning);
 }
 
 .command-progress.coverage-low span {
-  background: #188038;
+  background: var(--success);
 }
 
 .status-overview-grid {
@@ -1413,8 +1417,8 @@ textarea {
 }
 
 .legend-swatch.cleared {
-  border-color: #188038;
-  background: #e6f4ea;
+  border-color: var(--success);
+  background: #edf7ee;
 }
 
 .legend-swatch.inactive {
@@ -1423,13 +1427,13 @@ textarea {
 }
 
 .legend-swatch.in-progress {
-  border-color: #f9ab00;
-  background: #fff8e1;
+  border-color: var(--brand-secondary);
+  background: #fff7ef;
 }
 
 .legend-swatch.missing {
-  border-color: #174ea6;
-  background: #e8f0fe;
+  border-color: var(--brand-primary);
+  background: #eef4f9;
 }
 
 .legend-swatch.unknown {
@@ -1483,20 +1487,21 @@ textarea {
 .apartment-card {
   border: 1px solid var(--border);
   border-right: 5px solid #9aa0a6;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #fff;
   padding: 14px;
   min-height: 170px;
+  box-shadow: var(--shadow-sm);
 }
 
 .apartment-card.cleared {
-  border-color: #188038;
-  border-right-color: #188038;
-  background: #f1f8f4;
+  border-color: var(--success);
+  border-right-color: var(--success);
+  background: #edf7ee;
 }
 
 .apartment-card.open {
-  border-right-color: #f9ab00;
+  border-right-color: var(--brand-secondary);
 }
 
 .apartment-card.inactive {
@@ -1770,9 +1775,9 @@ textarea {
 }
 
 .person-status.evacuated {
-  border-color: #174ea6;
-  color: #174ea6;
-  background: #e8f0fe;
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background: #eef4f9;
 }
 
 .person-status.duplicate {
@@ -1859,21 +1864,21 @@ textarea {
 }
 
 .badge.open {
-  border-color: #f9ab00;
+  border-color: var(--brand-secondary);
   color: #8a5a00;
-  background: #fff8e1;
+  background: #fff7ef;
 }
 
 .badge.active {
-  border-color: #174ea6;
-  color: #174ea6;
-  background: #e8f0fe;
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background: #eef4f9;
 }
 
 .badge.cleared {
-  border-color: #188038;
-  color: #188038;
-  background: #e6f4ea;
+  border-color: var(--success);
+  color: var(--success);
+  background: #edf7ee;
 }
 
 .badge.inactive {
@@ -1934,7 +1939,7 @@ textarea {
 .team-tab.active {
   border-color: var(--primary);
   color: var(--primary);
-  background: #e8f0fe;
+  background: #eef4f9;
 }
 
 .team-tab.active span {
@@ -1977,31 +1982,32 @@ textarea {
   display: grid;
   gap: 12px;
   border: 1px solid var(--border);
-  border-right: 6px solid #174ea6;
-  border-radius: 6px;
+  border-right: 6px solid var(--brand-primary);
+  border-radius: 8px;
   background: #fff;
   padding: 14px;
   min-height: 210px;
+  box-shadow: var(--shadow-sm);
 }
 
 .operational-card-blue {
-  border-right-color: #174ea6;
-  background: #f5f8ff;
+  border-right-color: var(--brand-primary);
+  background: #eef4f9;
 }
 
 .operational-card-orange {
-  border-right-color: #f9ab00;
-  background: #fffaf0;
+  border-right-color: var(--brand-secondary);
+  background: #fff7ef;
 }
 
 .operational-card-green {
-  border-right-color: #188038;
+  border-right-color: var(--success);
   background: #f3faf5;
 }
 
 .operational-card-red {
-  border-right-color: #b3261e;
-  background: #fff5f5;
+  border-right-color: var(--critical);
+  background: #fdecec;
 }
 
 .operational-card-header {
@@ -2133,7 +2139,7 @@ textarea {
 
 .wizard-step.active {
   border-color: var(--primary);
-  background: #e8f0fe;
+  background: #eef4f9;
   color: var(--primary);
 }
 
@@ -2274,8 +2280,8 @@ textarea {
 
 .success-panel {
   margin-bottom: 16px;
-  border-color: #188038;
-  background: #f1f8f4;
+  border-color: var(--success);
+  background: #edf7ee;
 }
 
 .success-panel h2,
@@ -2297,7 +2303,7 @@ textarea {
 .operational-log-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.42fr);
-  gap: 16px;
+  gap: 24px;
   align-items: start;
 }
 
@@ -2307,58 +2313,64 @@ textarea {
 
 .timeline-list {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .timeline-row {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(22, 50, 79, 0.16);
   border-right: 6px solid #dadce0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #fff;
+  box-shadow: var(--shadow-sm);
 }
 
 .timeline-row a {
   display: grid;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 15px 16px;
 }
 
 .timeline-row time,
 .event-detail-heading time {
   color: var(--muted);
   font-size: 13px;
+  font-weight: 800;
 }
 
 .timeline-row strong {
-  font-size: 16px;
+  color: var(--brand-primary);
+  font-size: 18px;
+  font-weight: 900;
 }
 
 .timeline-row p {
   margin: 0;
   color: var(--foreground);
+  line-height: 1.45;
 }
 
 .timeline-row.selected {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--brand-secondary);
   outline-offset: 1px;
 }
 
 .timeline-meta {
   display: flex;
-  gap: 6px;
+  gap: 7px;
   flex-wrap: wrap;
 }
 
 .timeline-meta span {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(22, 50, 79, 0.14);
   border-radius: 999px;
-  background: #f8f9fa;
+  background: #f8fafc;
   color: var(--muted);
-  padding: 2px 8px;
+  padding: 3px 9px;
   font-size: 12px;
+  font-weight: 700;
 }
 
 .importance-normal {
@@ -2366,13 +2378,13 @@ textarea {
 }
 
 .importance-important {
-  border-right-color: #f9ab00;
-  background: #fffaf0;
+  border-right-color: var(--warning);
+  background: #fff8df;
 }
 
 .importance-critical {
   border-right-color: var(--danger);
-  background: #fff5f5;
+  background: #fdecec;
 }
 
 .event-detail-panel {
@@ -2390,10 +2402,14 @@ textarea {
 
 .event-detail-heading h2 {
   margin: 0;
+  color: var(--brand-primary);
+  font-size: 24px;
+  font-weight: 900;
 }
 
 .event-detail-heading p {
   margin: 0;
+  line-height: 1.45;
 }
 
 .importance-badge.importance-normal {
@@ -2403,15 +2419,15 @@ textarea {
 }
 
 .importance-badge.importance-important {
-  border-color: #f9ab00;
+  border-color: var(--warning);
   color: #8a5a00;
-  background: #fff8e1;
+  background: #fff8df;
 }
 
 .importance-badge.importance-critical {
   border-color: var(--danger);
   color: var(--danger);
-  background: #fce8e6;
+  background: #fdecec;
 }
 
 .event-detail-fields {
@@ -2424,8 +2440,8 @@ textarea {
   display: grid;
   grid-template-columns: 110px 1fr;
   gap: 8px;
-  border-top: 1px solid #ececea;
-  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
 }
 
 .event-detail-fields div:first-child {
@@ -2435,11 +2451,13 @@ textarea {
 
 .event-detail-fields dt {
   color: var(--muted);
+  font-weight: 800;
 }
 
 .event-detail-fields dd {
   margin: 0;
-  font-weight: 600;
+  color: var(--foreground);
+  font-weight: 750;
 }
 
 .technical-metadata {
