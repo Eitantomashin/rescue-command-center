@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { formatDateTime, formatNumber } from "@/lib/format";
-import { createSiteMapObject, updateSiteMapObject } from "./actions";
+import { createSiteMapObject, deleteSiteMapObject, updateSiteMapObject } from "./actions";
 
 const GRID_LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י"];
 const GRID_NUMBERS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
@@ -57,6 +57,8 @@ type DraftObject = {
   mode: "cells" | "polygon" | "point" | "route";
   geometry: Record<string, unknown>;
 };
+
+type DrawMode = "none" | "cells" | "polygon" | "entry" | "route";
 
 const SECTOR_COLORS = [
   { value: "#2563eb", label: "כחול" },
@@ -180,8 +182,36 @@ function cellsFromGeometry(geometry: Record<string, unknown>) {
   return Array.isArray(geometry.cells) ? geometry.cells.filter((cell): cell is string => typeof cell === "string") : [];
 }
 
+function pointFromValue(value: unknown) {
+  return typeof value === "object" &&
+    value !== null &&
+    typeof (value as MapPoint).x === "number" &&
+    typeof (value as MapPoint).y === "number"
+    ? (value as MapPoint)
+    : null;
+}
+
+function labelGridRefFromGeometry(geometry: Record<string, unknown>) {
+  return typeof geometry.label_grid_ref === "string" ? geometry.label_grid_ref : "";
+}
+
+function entryGridRefFromGeometry(geometry: Record<string, unknown>) {
+  return typeof geometry.grid_ref === "string" ? geometry.grid_ref : "";
+}
+
 function polygonString(points: MapPoint[]) {
   return points.map((point) => `${point.x},${point.y}`).join(" ");
+}
+
+function averagePoint(points: MapPoint[]) {
+  if (points.length === 0) {
+    return null;
+  }
+
+  return {
+    x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+    y: points.reduce((sum, point) => sum + point.y, 0) / points.length
+  };
 }
 
 function pointInPolygon(point: MapPoint, polygon: MapPoint[]) {
@@ -213,6 +243,44 @@ function markerSector(marker: ParsedMarker | DisplayMarker, sectors: MapObject[]
     const points = pointsFromGeometry(sector.geometry);
     return points.length >= 3 && pointInPolygon({ x: marker.x, y: marker.y }, points);
   });
+}
+
+function sectorLabelPosition(sector: MapObject) {
+  const stored = pointFromValue(sector.geometry.label_position);
+  if (stored) {
+    return stored;
+  }
+
+  const labelGridRef = labelGridRefFromGeometry(sector.geometry);
+  const parsedLabel = parseGridCell(labelGridRef);
+  if (parsedLabel) {
+    return { x: parsedLabel.x, y: parsedLabel.y };
+  }
+
+  const points = pointsFromGeometry(sector.geometry);
+  const polygonCentroid = averagePoint(points);
+  if (polygonCentroid) {
+    return polygonCentroid;
+  }
+
+  const cellCenters = cellsFromGeometry(sector.geometry)
+    .map((cell) => parseGridCell(cell))
+    .filter((cell): cell is { normalizedCell: string; x: number; y: number } => Boolean(cell))
+    .map((cell) => ({ x: cell.x, y: cell.y }));
+
+  return averagePoint(cellCenters);
+}
+
+function mapObjectTypeLabel(type: MapObject["objectType"]) {
+  if (type === "sector") {
+    return "גזרה";
+  }
+
+  if (type === "entry_point") {
+    return "נקודת כניסה";
+  }
+
+  return "ציר";
 }
 
 function teamLabel(teams: MapTeam[], teamNumber: number | null) {
@@ -298,7 +366,7 @@ export function SiteGridMap({
   const [filter, setFilter] = useState("all");
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [sectorMode, setSectorMode] = useState(false);
-  const [drawMode, setDrawMode] = useState<"none" | "cells" | "polygon" | "entry" | "route">("none");
+  const [drawMode, setDrawMode] = useState<DrawMode>("none");
   const [selectedCells, setSelectedCells] = useState<string[]>([]);
   const [draftPoints, setDraftPoints] = useState<MapPoint[]>([]);
   const [draftObject, setDraftObject] = useState<DraftObject | null>(null);
@@ -337,6 +405,45 @@ export function SiteGridMap({
   const rescuedCount = visibleMarkers.filter((marker) => marker.statusGroup === "rescued").length;
   const inProgressCount = visibleMarkers.filter((marker) => markerMatchesFilter(marker, "in_progress")).length;
   const missingCount = visibleMarkers.filter((marker) => marker.statusGroup === "missing_unknown").length;
+  const isCreatingDraft = Boolean(draftObject);
+  const objectInForm = draftObject ?? editingObject;
+  const isEditingExisting = !draftObject && Boolean(editingObject);
+  const selectedObjectId = editingObject?.id ?? null;
+
+  function startDrawing(mode: DrawMode) {
+    setDrawMode(mode);
+    setDraftObject(null);
+    setEditingObject(null);
+    if (mode !== "cells") {
+      setSelectedCells([]);
+    }
+    if (mode !== "polygon" && mode !== "route") {
+      setDraftPoints([]);
+    }
+  }
+
+  function openDraftObject(draft: DraftObject) {
+    setDraftObject(draft);
+    setEditingObject(null);
+  }
+
+  function openExistingObject(object: MapObject) {
+    if (editingObject?.id === object.id && !draftObject) {
+      setEditingObject(null);
+      return;
+    }
+
+    setEditingObject(object);
+    setDraftObject(null);
+    setDrawMode("none");
+    setSelectedCells([]);
+    setDraftPoints([]);
+  }
+
+  function clearObjectSelection() {
+    setEditingObject(null);
+    setDraftObject(null);
+  }
 
   return (
     <div className="grid-map-workspace">
@@ -403,34 +510,39 @@ export function SiteGridMap({
       {sectorMode ? (
         <section className="panel sector-management-panel">
           <div className="sector-tool-row">
-            <button className={`button compact ${drawMode === "cells" ? "" : "secondary"}`} type="button" onClick={() => { setDrawMode("cells"); setDraftPoints([]); }}>
+            {editingObject ? (
+              <button className="button compact secondary" type="button" onClick={clearObjectSelection}>
+                נקה בחירה
+              </button>
+            ) : null}
+            <button className={`button compact ${drawMode === "cells" ? "" : "secondary"}`} type="button" onClick={() => startDrawing("cells")}>
               גזרת תאי גריד
             </button>
-            <button className={`button compact ${drawMode === "polygon" ? "" : "secondary"}`} type="button" onClick={() => { setDrawMode("polygon"); setSelectedCells([]); }}>
+            <button className={`button compact ${drawMode === "polygon" ? "" : "secondary"}`} type="button" onClick={() => startDrawing("polygon")}>
               גזרה חופשית
             </button>
-            <button className={`button compact ${drawMode === "entry" ? "" : "secondary"}`} type="button" onClick={() => { setDrawMode("entry"); setDraftPoints([]); }}>
+            <button className={`button compact ${drawMode === "entry" ? "" : "secondary"}`} type="button" onClick={() => startDrawing("entry")}>
               נקודת כניסה
             </button>
-            <button className={`button compact ${drawMode === "route" ? "" : "secondary"}`} type="button" onClick={() => { setDrawMode("route"); setSelectedCells([]); }}>
+            <button className={`button compact ${drawMode === "route" ? "" : "secondary"}`} type="button" onClick={() => startDrawing("route")}>
               ציר תנועה
             </button>
             {drawMode === "polygon" && draftPoints.length >= 3 ? (
-              <button className="button compact" type="button" onClick={() => setDraftObject({ objectType: "sector", mode: "polygon", geometry: { mode: "polygon", points: draftPoints } })}>
+              <button className="button compact" type="button" onClick={() => openDraftObject({ objectType: "sector", mode: "polygon", geometry: { mode: "polygon", points: draftPoints } })}>
                 סגור גזרה
               </button>
             ) : null}
             {drawMode === "cells" && selectedCells.length > 0 ? (
-              <button className="button compact" type="button" onClick={() => setDraftObject({ objectType: "sector", mode: "cells", geometry: { mode: "cells", cells: selectedCells } })}>
+              <button className="button compact" type="button" onClick={() => openDraftObject({ objectType: "sector", mode: "cells", geometry: { mode: "cells", cells: selectedCells } })}>
                 צור גזרה מהתאים
               </button>
             ) : null}
             {drawMode === "route" && draftPoints.length >= 2 ? (
-              <button className="button compact" type="button" onClick={() => setDraftObject({ objectType: "route", mode: "route", geometry: { mode: "route", points: draftPoints } })}>
+              <button className="button compact" type="button" onClick={() => openDraftObject({ objectType: "route", mode: "route", geometry: { mode: "route", points: draftPoints } })}>
                 שמור ציר
               </button>
             ) : null}
-            <button className="button compact secondary" type="button" onClick={() => { setDrawMode("none"); setSelectedCells([]); setDraftPoints([]); setDraftObject(null); }}>
+            <button className="button compact secondary" type="button" onClick={() => { setDrawMode("none"); setSelectedCells([]); setDraftPoints([]); setDraftObject(null); setEditingObject(null); }}>
               נקה ציור
             </button>
           </div>
@@ -476,7 +588,7 @@ export function SiteGridMap({
                 } else if (drawMode === "polygon") {
                   setDraftPoints((points) => [...points, point]);
                 } else if (drawMode === "entry") {
-                  setDraftObject({ objectType: "entry_point", mode: "point", geometry: { mode: "point", point } });
+                  openDraftObject({ objectType: "entry_point", mode: "point", geometry: { mode: "point", point } });
                 } else if (drawMode === "route") {
                   setDraftPoints((points) => [...points, point]);
                 }
@@ -486,26 +598,34 @@ export function SiteGridMap({
                 const points = pointsFromGeometry(sector.geometry);
                 const cells = cellsFromGeometry(sector.geometry);
                 const color = sectorVisualColor(sector, layers.scanned);
+                const isSelected = selectedObjectId === sector.id;
                 return (
-                  <g key={sector.id} onClick={(event) => { event.stopPropagation(); setEditingObject(sector); }}>
+                  <g key={sector.id} onClick={(event) => { event.stopPropagation(); openExistingObject(sector); }}>
                     {cells.map((cell) => {
                       const rect = cellRect(cell);
-                      return rect ? <rect key={cell} x={rect.left} y={rect.top} width={rect.width} height={rect.height} fill={color} opacity="0.24" stroke={color} strokeWidth="0.4" /> : null;
-                    })}
-                    {points.length >= 3 ? <polygon points={polygonString(points)} fill={color} opacity="0.24" stroke={color} strokeWidth="0.7" /> : null}
-                    {points.length >= 3 ? (
-                      <text x={points[0].x} y={points[0].y} fill={color} fontSize="3" fontWeight="700">
-                        {teamLabel(teams, sector.assignedTeamNumber)}
-                      </text>
-                    ) : null}
-                    {points.length < 3 && cells.length > 0 ? (() => {
-                      const rect = cellRect(cells[0]);
                       return rect ? (
-                        <text x={rect.left + 1} y={rect.top + 5} fill={color} fontSize="3" fontWeight="700">
-                          {teamLabel(teams, sector.assignedTeamNumber)}
-                        </text>
+                        <rect
+                          key={cell}
+                          x={rect.left}
+                          y={rect.top}
+                          width={rect.width}
+                          height={rect.height}
+                          fill={color}
+                          opacity={isSelected ? "0.34" : "0.24"}
+                          stroke={isSelected ? "#ffffff" : color}
+                          strokeWidth={isSelected ? "1.1" : "0.4"}
+                        />
                       ) : null;
-                    })() : null}
+                    })}
+                    {points.length >= 3 ? (
+                      <polygon
+                        points={polygonString(points)}
+                        fill={color}
+                        opacity={isSelected ? "0.34" : "0.24"}
+                        stroke={isSelected ? "#ffffff" : color}
+                        strokeWidth={isSelected ? "1.2" : "0.7"}
+                      />
+                    ) : null}
                   </g>
                 );
               }) : null}
@@ -518,7 +638,18 @@ export function SiteGridMap({
               ) : null}
               {layers.routes ? routes.map((route) => {
                 const points = pointsFromGeometry(route.geometry);
-                return points.length >= 2 ? <polyline key={route.id} points={polygonString(points)} fill="none" stroke={route.color ?? "#7c3aed"} strokeWidth="0.8" markerEnd="url(#route-arrow)" onClick={(event) => { event.stopPropagation(); setEditingObject(route); }} /> : null;
+                const isSelected = selectedObjectId === route.id;
+                return points.length >= 2 ? (
+                  <polyline
+                    key={route.id}
+                    points={polygonString(points)}
+                    fill="none"
+                    stroke={isSelected ? "#ffffff" : route.color ?? "#7c3aed"}
+                    strokeWidth={isSelected ? "1.4" : "0.8"}
+                    markerEnd="url(#route-arrow)"
+                    onClick={(event) => { event.stopPropagation(); openExistingObject(route); }}
+                  />
+                ) : null;
               }) : null}
               <defs>
                 <marker id="route-arrow" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto">
@@ -526,10 +657,30 @@ export function SiteGridMap({
                 </marker>
               </defs>
             </svg>
+            {layers.sectors ? sectors.map((sector) => {
+              const position = sectorLabelPosition(sector);
+              const color = sectorVisualColor(sector, layers.scanned);
+              return position ? (
+                <button
+                  className={`sector-map-label${selectedObjectId === sector.id ? " selected" : ""}`}
+                  key={`label-${sector.id}`}
+                  type="button"
+                  style={{
+                    left: `${position.x}%`,
+                    top: `${position.y}%`,
+                    borderColor: color
+                  }}
+                  onClick={() => openExistingObject(sector)}
+                >
+                  <strong>{sector.name}</strong>
+                  {sector.assignedTeamNumber ? <span>{teamLabel(teams, sector.assignedTeamNumber)}</span> : null}
+                </button>
+              ) : null;
+            }) : null}
             {layers.entryPoints ? entryPoints.map((entry) => {
               const point = (entry.geometry.point ?? null) as MapPoint | null;
               return point ? (
-                <button className="entry-point-marker" key={entry.id} type="button" style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => setEditingObject(entry)}>
+                <button className={`entry-point-marker${selectedObjectId === entry.id ? " selected" : ""}`} key={entry.id} type="button" style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => openExistingObject(entry)}>
                   🚪
                 </button>
               ) : null;
@@ -571,6 +722,11 @@ export function SiteGridMap({
                 <time>{formatDateTime(selectedMarker.latestReportedAt)}</time>
               </aside>
             ) : null}
+            {editingObject ? (
+              <span className="selected-map-object-badge">
+                נבחר: {mapObjectTypeLabel(editingObject.objectType)} · {editingObject.name}
+              </span>
+            ) : null}
           </div>
         ) : (
           <div className="grid-map-empty">
@@ -595,38 +751,109 @@ export function SiteGridMap({
         </section>
       ) : null}
 
-      {(draftObject || editingObject) ? (
-        <section className="panel sector-editor-panel">
-          <h2>{editingObject ? "עריכת אובייקט מפה" : "יצירת אובייקט מפה"}</h2>
-          <form action={editingObject ? updateSiteMapObject : createSiteMapObject} className="form-grid">
+      {mapObjects.length > 0 ? (
+        <section className="panel map-object-list-panel">
+          <div className="section-title-row">
+            <h2>אובייקטים במפה</h2>
+            <span className="status-pill neutral">{formatNumber(mapObjects.length)}</span>
+          </div>
+          <div className="map-object-list">
+            {mapObjects.map((object) => (
+              <button
+                className={`map-object-row${selectedObjectId === object.id ? " selected" : ""}`}
+                key={object.id}
+                type="button"
+                onClick={() => openExistingObject(object)}
+              >
+                <span className="map-object-type">{mapObjectTypeLabel(object.objectType)}</span>
+                <strong>{object.name}</strong>
+                <span>{object.assignedTeamNumber ? teamLabel(teams, object.assignedTeamNumber) : "לא משויך"}</span>
+                <span>{statusLabel(object.operationalStatus)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {objectInForm ? (
+        <section className={`panel sector-editor-panel${isEditingExisting ? " selected" : ""}`}>
+          <h2>{isEditingExisting ? "עריכת אובייקט מפה" : "יצירת אובייקט מפה"}</h2>
+          {isEditingExisting && editingObject ? (
+            <p className="selected-object-note">האובייקט הנבחר: {mapObjectTypeLabel(editingObject.objectType)} · {editingObject.name}</p>
+          ) : null}
+          <form
+            action={isCreatingDraft ? createSiteMapObject : updateSiteMapObject}
+            className="form-grid"
+            key={isEditingExisting ? editingObject?.id : `${draftObject?.objectType}-${draftObject?.mode}-${JSON.stringify(draftObject?.geometry)}`}
+          >
             <input type="hidden" name="incidentId" value={incidentId} />
             <input type="hidden" name="siteId" value={siteId} />
-            {editingObject ? <input type="hidden" name="mapObjectId" value={editingObject.id} /> : null}
-            <input type="hidden" name="objectType" value={editingObject?.objectType ?? draftObject?.objectType ?? "sector"} />
-            <input type="hidden" name="geometry" value={JSON.stringify(editingObject?.geometry ?? draftObject?.geometry ?? {})} />
-            <input className="input" name="name" defaultValue={editingObject?.name ?? ""} placeholder="שם" required />
-            <select className="input" name="assignedTeamNumber" defaultValue={editingObject?.assignedTeamNumber ?? ""}>
+            {isEditingExisting && editingObject ? <input type="hidden" name="mapObjectId" value={editingObject.id} /> : null}
+            <input type="hidden" name="objectType" value={objectInForm.objectType} />
+            <input type="hidden" name="geometry" value={JSON.stringify(objectInForm.geometry)} />
+            <input className="input" name="name" defaultValue={isEditingExisting && editingObject ? editingObject.name : ""} placeholder="שם" required />
+            <select className="input" name="assignedTeamNumber" defaultValue={isEditingExisting && editingObject ? editingObject.assignedTeamNumber ?? "" : ""}>
               <option value="">לא משויך</option>
               {teams.map((team) => (
                 <option key={team.teamNumber} value={team.teamNumber}>{team.label}</option>
               ))}
             </select>
-            <select className="input" name="color" defaultValue={editingObject?.color ?? SECTOR_COLORS[0].value}>
+            <select className="input" name="color" defaultValue={isEditingExisting && editingObject ? editingObject.color ?? SECTOR_COLORS[0].value : SECTOR_COLORS[0].value}>
               {SECTOR_COLORS.map((color) => (
                 <option key={color.value} value={color.value}>{color.label}</option>
               ))}
             </select>
-            <select className="input" name="operationalStatus" defaultValue={editingObject?.operationalStatus ?? "open"}>
+            <select className="input" name="operationalStatus" defaultValue={isEditingExisting && editingObject ? editingObject.operationalStatus ?? "open" : "open"}>
               {SECTOR_STATUSES.map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
-            <textarea className="input wide" name="notes" defaultValue={editingObject?.notes ?? ""} placeholder="הערות" rows={3} />
+            {objectInForm.objectType === "sector" ? (
+              <label className="field">
+                <span>מיקום תווית</span>
+                <input
+                  className="input"
+                  name="labelGridRef"
+                  defaultValue={isEditingExisting && editingObject ? labelGridRefFromGeometry(editingObject.geometry) : ""}
+                  placeholder="לדוגמה ה30"
+                />
+              </label>
+            ) : null}
+            {objectInForm.objectType === "entry_point" ? (
+              <label className="field">
+                <span>מיקום נקודת כניסה</span>
+                <input
+                  className="input"
+                  name="entryLocationGridRef"
+                  defaultValue={isEditingExisting && editingObject ? entryGridRefFromGeometry(editingObject.geometry) : ""}
+                  placeholder="לדוגמה ד40"
+                />
+              </label>
+            ) : null}
+            <textarea className="input wide" name="notes" defaultValue={isEditingExisting && editingObject ? editingObject.notes ?? "" : ""} placeholder="הערות" rows={3} />
             <button className="button" type="submit">שמור</button>
             <button className="button secondary" type="button" onClick={() => { setDraftObject(null); setEditingObject(null); }}>
               ביטול
             </button>
           </form>
+          {isEditingExisting && editingObject ? (
+            <form action={deleteSiteMapObject} className="delete-map-object-form">
+              <input type="hidden" name="incidentId" value={incidentId} />
+              <input type="hidden" name="siteId" value={siteId} />
+              <input type="hidden" name="mapObjectId" value={editingObject.id} />
+              <button
+                className="button danger"
+                type="submit"
+                onClick={(event) => {
+                  if (!window.confirm("האם למחוק את האובייקט מהמפה?")) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                מחק אובייקט
+              </button>
+            </form>
+          ) : null}
         </section>
       ) : null}
 
