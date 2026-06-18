@@ -33,6 +33,7 @@ export default async function ProtectedLayout({
 
         <nav className="nav-links" aria-label="ניווט ראשי">
           <Link href="/incidents">אירועים</Link>
+          <Link href="/personnel">כ&quot;א יחידתי</Link>
         </nav>
 
         <div className="header-ops-summary" aria-label="סיכום מערכת">

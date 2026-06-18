@@ -3638,6 +3638,161 @@ textarea {
   font-weight: 950;
 }
 
+.status-pill.success {
+  border-color: rgba(46, 125, 50, 0.26);
+  background: #eaf6ed;
+  color: var(--success);
+}
+
+.status-pill.warning {
+  border-color: rgba(249, 168, 37, 0.32);
+  background: #fff7df;
+  color: #8a5b00;
+}
+
+.status-pill.danger {
+  border-color: rgba(211, 47, 47, 0.24);
+  background: #fff0ee;
+  color: var(--danger);
+}
+
+.status-pill.neutral {
+  border-color: rgba(22, 50, 79, 0.14);
+  background: #f5f7fa;
+  color: var(--brand-primary);
+}
+
+.personnel-page {
+  width: min(1320px, calc(100% - 32px));
+}
+
+.personnel-form {
+  align-items: end;
+}
+
+.personnel-import-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.success-panel {
+  border-color: rgba(46, 125, 50, 0.24);
+  background: #edf8f0;
+  color: var(--success);
+  font-weight: 900;
+}
+
+.warning-panel {
+  border-color: rgba(249, 168, 37, 0.32);
+  background: #fff7df;
+  color: #8a5b00;
+  font-weight: 900;
+}
+
+.import-summary-panel {
+  border-color: rgba(245, 130, 32, 0.28);
+  background: #fff8ef;
+}
+
+.import-summary-panel h2 {
+  margin-top: 0;
+}
+
+.import-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.import-summary-grid span {
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
+  font-weight: 850;
+}
+
+.personnel-roster-list,
+.event-personnel-list {
+  display: grid;
+  gap: 10px;
+}
+
+.personnel-roster-entry {
+  display: grid;
+  gap: 6px;
+}
+
+.personnel-roster-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.personnel-activity-form {
+  margin: 0;
+}
+
+.personnel-roster-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.personnel-roster-row.inactive {
+  background: #f8fafc;
+  opacity: 0.72;
+}
+
+.personnel-summary-table {
+  overflow-x: auto;
+}
+
+.personnel-department-panel {
+  scroll-margin-top: 120px;
+}
+
+.event-personnel-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) 110px 150px minmax(240px, 1.2fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.event-personnel-row strong,
+.event-personnel-row span {
+  display: block;
+}
+
+.event-personnel-row > div span,
+.event-personnel-row time {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.inline-status-form {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  gap: 8px;
+}
+
 .print-grid-map {
   display: none;
 }
@@ -3697,7 +3852,12 @@ textarea {
 
   .sector-tool-row,
   .layers-panel,
-  .map-object-row {
+  .map-object-row,
+  .personnel-roster-row,
+  .event-personnel-row,
+  .inline-status-form,
+  .personnel-import-form,
+  .personnel-roster-meta {
     display: grid;
     grid-template-columns: 1fr;
   }

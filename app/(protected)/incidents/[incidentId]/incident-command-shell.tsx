@@ -103,6 +103,11 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
     return items;
   }
 
+  if (pathname === `${base}/personnel`) {
+    items.push({ label: "כח אדם באירוע", href: pathname });
+    return items;
+  }
+
   if (pathname === `${base}/sites/new`) {
     items.push({ label: "הקמת אתר", href: pathname });
     return items;
@@ -168,6 +173,10 @@ export function IncidentCommandShell({
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/sites`)}`} href={`${base}/sites`}>
             <span className="nav-icon" aria-hidden="true">א</span>
             כל האתרים
+          </Link>
+          <Link className={`incident-nav-item${activeClass(pathname, `${base}/personnel`)}`} href={`${base}/personnel`}>
+            <span className="nav-icon" aria-hidden="true">כ</span>
+            כח אדם באירוע
           </Link>
 
           <div className="incident-site-tree">

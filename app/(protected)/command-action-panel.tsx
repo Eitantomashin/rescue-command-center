@@ -24,6 +24,10 @@ export function CommandActionPanel() {
         <span aria-hidden="true">+</span>
         פתיחת אירוע חדש
       </Link>
+      <Link className="command-action-button" href="/personnel">
+        <span aria-hidden="true">+</span>
+        פתיחה/עדכון כ&quot;א יחידתי
+      </Link>
       {incidentId ? (
         <Link className="command-action-button" href={`/incidents/${incidentId}/sites/new`}>
           <span aria-hidden="true">+</span>
