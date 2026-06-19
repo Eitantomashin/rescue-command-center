@@ -1455,6 +1455,30 @@ textarea {
   color: #fff;
 }
 
+.realtime-refresh-toast {
+  position: fixed;
+  z-index: 80;
+  left: 24px;
+  bottom: 24px;
+  transform: translateY(12px);
+  border: 1px solid rgba(46, 125, 50, 0.28);
+  border-radius: 999px;
+  background: rgba(237, 248, 240, 0.96);
+  color: var(--success);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.realtime-refresh-toast.visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
 @media (max-width: 900px) {
   .site-scope-tabs {
     max-width: 100%;

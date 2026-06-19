@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { IncidentCommandShell } from "./incident-command-shell";
+import { RealtimeRefresh } from "./realtime-refresh";
 
 type IncidentRow = {
   id: string;
@@ -79,6 +80,7 @@ export default async function IncidentLayout({
         }
       }
     >
+      <RealtimeRefresh incidentId={params.incidentId} />
       {children}
     </IncidentCommandShell>
   );
