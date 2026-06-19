@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createUnitPersonnel, importUnitPersonnel, updateUnitPersonnel } from "./actions";
-import { PersonnelActivityForm, PersonnelCreateForm, PersonnelEditForm, PersonnelImportForm } from "./personnel-forms";
-import { personnelDepartmentLabel, personnelRoleLabel } from "./personnel-options";
+import { PersonnelDirectory } from "./personnel-directory";
+import { PersonnelCreateForm, PersonnelImportForm } from "./personnel-forms";
 
 type PersonnelRow = {
   id: string;
@@ -34,44 +34,20 @@ export default async function PersonnelPage({
     .order("last_name", { ascending: true });
 
   const personnel = (data ?? []) as PersonnelRow[];
-  const activePersonnel = personnel.filter((person) => person.is_active);
-  const inactivePersonnel = personnel.filter((person) => !person.is_active);
-
-  function renderPersonnelList(rows: PersonnelRow[], emptyText: string) {
-    if (rows.length === 0) {
-      return <p className="muted">{emptyText}</p>;
-    }
-
-    return (
-      <div className="personnel-roster-list">
-        {rows.map((person) => (
-          <div className="personnel-roster-entry" key={person.id}>
-            <PersonnelEditForm action={updateUnitPersonnel} person={person} />
-            <div className="personnel-roster-meta">
-              <span className="muted">
-                {personnelDepartmentLabel(person.department, person.department_other)} · {personnelRoleLabel(person.role, person.role_other)}
-              </span>
-              <PersonnelActivityForm action={updateUnitPersonnel} person={person} />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   return (
     <main className="page personnel-page">
       <div className="header">
         <div>
-          <p className="eyebrow">כ&quot;א יחידתי</p>
-          <h1>פתיחה/עדכון כ&quot;א יחידתי</h1>
+          <p className="eyebrow">כ״א יחידתי</p>
+          <h1>פתיחה/עדכון כ״א יחידתי</h1>
           <p className="muted">רשימת המאסטר של אנשי היחידה. סטטוס נוכחות באירוע מנוהל בנפרד לכל אירוע.</p>
         </div>
       </div>
 
       {error ? (
         <section className="panel">
-          <p className="error">לא ניתן לטעון כ&quot;א: {error.message}</p>
+          <p className="error">לא ניתן לטעון כ״א: {error.message}</p>
         </section>
       ) : null}
 
@@ -83,7 +59,7 @@ export default async function PersonnelPage({
 
       {queryValue(searchParams, "duplicate") ? (
         <section className="panel warning-panel">
-          <p>האדם כבר קיים ברשימת כ&quot;א.</p>
+          <p>האדם כבר קיים ברשימת כ״א.</p>
         </section>
       ) : null}
 
@@ -115,21 +91,7 @@ export default async function PersonnelPage({
         <PersonnelImportForm action={importUnitPersonnel} />
       </section>
 
-      <section className="panel">
-        <div className="section-title-row">
-          <h2>כ&quot;א פעיל</h2>
-          <span className="status-pill success">{activePersonnel.length}</span>
-        </div>
-        {renderPersonnelList(activePersonnel, "לא הוגדר עדיין כ\"א פעיל.")}
-      </section>
-
-      <section className="panel">
-        <div className="section-title-row">
-          <h2>עוזבי היחידה</h2>
-          <span className="status-pill neutral">{inactivePersonnel.length}</span>
-        </div>
-        {renderPersonnelList(inactivePersonnel, "אין כרגע אנשי כ\"א ברשימת עוזבי היחידה.")}
-      </section>
+      <PersonnelDirectory personnel={personnel} updateAction={updateUnitPersonnel} />
     </main>
   );
 }

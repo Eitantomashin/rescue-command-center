@@ -1354,6 +1354,114 @@ textarea {
   font-size: 22px;
 }
 
+.personnel-team-dashboard {
+  display: grid;
+  gap: 16px;
+}
+
+.personnel-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.personnel-team-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(22, 50, 79, 0.14);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+  box-shadow: var(--shadow-md);
+  color: inherit;
+  text-align: start;
+}
+
+.personnel-team-card:hover,
+.personnel-team-card.selected {
+  border-color: var(--brand-secondary);
+  box-shadow: 0 16px 34px rgba(22, 50, 79, 0.16);
+}
+
+.personnel-team-counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.personnel-team-counts div {
+  border: 1px solid rgba(22, 50, 79, 0.1);
+  border-radius: 8px;
+  background: var(--neutral);
+  padding: 9px;
+}
+
+.personnel-team-counts dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.personnel-team-counts dd {
+  margin: 2px 0 0;
+  color: var(--brand-primary);
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.personnel-team-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.personnel-dashboard-drilldown {
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+  box-shadow: var(--shadow-md);
+}
+
+.anchor-heading-with-filter {
+  align-items: start;
+  gap: 16px;
+}
+
+.site-scope-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  max-width: 60%;
+}
+
+.site-scope-tab {
+  border: 1px solid rgba(22, 50, 79, 0.16);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--brand-primary);
+  padding: 8px 13px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.site-scope-tab:hover,
+.site-scope-tab.active {
+  border-color: var(--brand-secondary);
+  background: var(--brand-secondary);
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .site-scope-tabs {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
 .dashboard-update-list {
   display: grid;
   gap: 12px;
@@ -3675,6 +3783,15 @@ textarea {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.personnel-filter-panel {
+  border-color: rgba(22, 50, 79, 0.16);
+  background: #fbfcfe;
+}
+
+.personnel-filter-grid {
+  align-items: end;
 }
 
 .success-panel {

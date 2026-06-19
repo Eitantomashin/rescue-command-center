@@ -123,7 +123,7 @@ export function PersonnelActivityForm({
       action={action}
       className="personnel-activity-form"
       onSubmit={(event) => {
-        if (!targetActive && !window.confirm("האם להעביר את איש כ\"א לרשימת עוזבי היחידה?")) {
+        if (!targetActive && !window.confirm("האם להעביר את איש כ״א לרשימת עוזבי היחידה?")) {
           event.preventDefault();
         }
       }}

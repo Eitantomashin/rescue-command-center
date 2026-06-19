@@ -4,7 +4,7 @@ export const PERSONNEL_ROLES = [
   ["team_commander", "מפקד/ת צוות"],
   ["deputy_team_commander", "סגן מפקד צוות"],
   ["rescuer", "מחלץ/ת"],
-  ["personnel", "כ\"א"],
+  ["personnel", "כ״א"],
   ["medic", "חובש"],
   ["engineer", "מהנדס"],
   ["other", "אחר"]
@@ -14,7 +14,7 @@ export const PERSONNEL_DEPARTMENTS = [
   ["headquarters", "מטה"],
   ["logistics", "לוגיסטיקה"],
   ["population", "אוכלוסיה"],
-  ["command_post", "חפ\"ק"],
+  ["command_post", "חפ״ק"],
   ["medical", "רפואה"],
   ["team_1", "צוות 1"],
   ["team_2", "צוות 2"],

@@ -2,10 +2,20 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
-import { DashboardSiteAnalysis, type SiteAnalysisRow, type SiteStatusSegments, type SiteUnitAnalysisRow } from "./dashboard-site-analysis";
-import { KpiDrilldown, type KpiDrilldownItem, type KpiDrilldownRow } from "./kpi-drilldown";
-import { OperationalStatusOverview, type OperationalStatusSiteBreakdown, type OperationalStatusTile } from "./operational-status-overview";
-import { TeamOperationalDrilldown, type TeamDrilldownItem } from "./team-operational-drilldown";
+import type { SiteAnalysisRow, SiteStatusSegments, SiteUnitAnalysisRow } from "./dashboard-site-analysis";
+import { DashboardSiteScope, type DashboardScopeOperationalNumber } from "./dashboard-site-scope";
+import type { KpiDrilldownItem, KpiDrilldownRow } from "./kpi-drilldown";
+import type { OperationalStatusSiteBreakdown, OperationalStatusTile } from "./operational-status-overview";
+import { PersonnelTeamDrilldown, type PersonnelTeamItem } from "./personnel-team-drilldown";
+import type { TeamDrilldownItem } from "./team-operational-drilldown";
+import {
+  ATTENDANCE_STATUSES,
+  PERSONNEL_DEPARTMENTS,
+  type AttendanceStatus,
+  labelFromOptions,
+  personnelDepartmentLabel,
+  personnelRoleLabel
+} from "../../personnel/personnel-options";
 
 type DashboardRow = {
   incident_id: string;
@@ -65,6 +75,7 @@ type OperationalNumberRow = {
   current_status_key: string | null;
   current_status_label: string | null;
   latest_report_status_label: string | null;
+  latest_grid_cell: string | null;
   latest_reported_at: string | null;
   dashboard_status_group: string | null;
   is_merged: boolean;
@@ -132,12 +143,31 @@ type StatusRow = {
   counts_as_gap_resolved: boolean;
 };
 
+type UnitPersonnelRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  role_other: string | null;
+  department: string;
+  department_other: string | null;
+  mobile_phone: string | null;
+  is_active: boolean;
+};
+
+type PersonnelAttendanceRow = {
+  personnel_id: string;
+  attendance_status: AttendanceStatus;
+  updated_at: string;
+};
+
 function metadataText(metadata: Record<string, unknown>, key: string) {
   const value = metadata[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 const RESOLVED_STATUS_GROUPS = new Set(["rescued", "evacuated", "located_outside_site", "deceased"]);
+const ATTENDANCE_ORDER: AttendanceStatus[] = ["present", "en_route", "unavailable", "inactive"];
 
 function pct(value: number, total: number) {
   if (total <= 0) {
@@ -203,6 +233,15 @@ function operationalPersonName(person: OperationalNumberRow) {
 
   const residentName = [person.resident_first_name, person.resident_last_name].filter(Boolean).join(" ").trim();
   return residentName || null;
+}
+
+function departmentTeamNumber(department: string) {
+  if (department === "population") {
+    return 9;
+  }
+
+  const match = department.match(/^team_(\d+)$/);
+  return match ? Number(match[1]) : null;
 }
 
 function zoneTypeLabel(zoneType: string | null) {
@@ -392,7 +431,9 @@ export default async function IncidentDashboardPage({
     { data: floorRows },
     { data: unitRows },
     { data: residentRows },
-    { data: statusRows }
+    { data: statusRows },
+    { data: personnelRows },
+    { data: personnelAttendanceRows }
   ] = await Promise.all([
     supabase
       .from("site_dashboard_summary")
@@ -402,7 +443,7 @@ export default async function IncidentDashboardPage({
     supabase
       .from("operational_numbers_dashboard")
       .select(
-        "person_id,site_id,operational_number,team_number,first_name,last_name,resident_first_name,resident_last_name,current_status_key,current_status_label,latest_report_status_label,latest_reported_at,dashboard_status_group,is_merged"
+        "person_id,site_id,operational_number,team_number,first_name,last_name,resident_first_name,resident_last_name,current_status_key,current_status_label,latest_report_status_label,latest_grid_cell,latest_reported_at,dashboard_status_group,is_merged"
       )
       .eq("incident_id", params.incidentId),
     supabase
@@ -448,7 +489,15 @@ export default async function IncidentDashboardPage({
       .from("status_types")
       .select("id,status_key,counts_as_gap_resolved")
       .eq("is_active", true)
-      .in("category", ["resident", "person"])
+      .in("category", ["resident", "person"]),
+    supabase
+      .from("unit_personnel")
+      .select("id,first_name,last_name,role,role_other,department,department_other,mobile_phone,is_active")
+      .eq("is_active", true),
+    supabase
+      .from("event_personnel_status")
+      .select("personnel_id,attendance_status,updated_at")
+      .eq("incident_id", params.incidentId)
   ]);
 
   const sites = (siteRows ?? []) as SiteSummaryRow[];
@@ -461,6 +510,10 @@ export default async function IncidentDashboardPage({
   const units = (unitRows ?? []) as UnitRow[];
   const residents = (residentRows ?? []) as ResidentRow[];
   const residentStatuses = new Map(((statusRows ?? []) as StatusRow[]).map((status) => [status.id, status]));
+  const unitPersonnel = (personnelRows ?? []) as UnitPersonnelRow[];
+  const attendanceByPersonId = new Map(
+    ((personnelAttendanceRows ?? []) as PersonnelAttendanceRow[]).map((row) => [row.personnel_id, row])
+  );
   const latestNoteStatusByGroup = noteRows.reduce((map, note) => {
     if (note.log_type !== "general_operational_note_status_changed") {
       return map;
@@ -583,6 +636,7 @@ export default async function IncidentDashboardPage({
       name: siteDisplayName(site),
       address: siteAddress(site),
       statusLabel: site.site_status_label,
+      initialPotential: site.initial_potential,
       updatedPotential: site.updated_potential,
       activeOperationalNumbers: activeForSite,
       knownHandled: site.gap_resolved_count ?? activeForSite,
@@ -596,6 +650,88 @@ export default async function IncidentDashboardPage({
       statusSegments
     };
   });
+
+  const personnelTeamItems: PersonnelTeamItem[] = PERSONNEL_DEPARTMENTS.map(([department, departmentLabel]) => {
+    const operationalTeamNumber = departmentTeamNumber(department);
+    const departmentRows = unitPersonnel
+      .filter((person) => person.department === department)
+      .map((person) => {
+        const attendance = attendanceByPersonId.get(person.id);
+        const attendanceStatus: AttendanceStatus = attendance?.attendance_status ?? "unavailable";
+
+        return {
+          id: person.id,
+          fullName: `${person.first_name} ${person.last_name}`.trim(),
+          roleLabel: personnelRoleLabel(person.role, person.role_other),
+          phone: person.mobile_phone,
+          attendanceStatus,
+          attendanceLabel: labelFromOptions(ATTENDANCE_STATUSES, attendanceStatus),
+          updatedAt: attendance?.updated_at ?? null
+        };
+      })
+      .sort((a, b) => {
+        const byStatus = ATTENDANCE_ORDER.indexOf(a.attendanceStatus) - ATTENDANCE_ORDER.indexOf(b.attendanceStatus);
+        if (byStatus !== 0) return byStatus;
+        return a.fullName.localeCompare(b.fullName, "he");
+      });
+
+    return {
+      id: department,
+      label: department === "other" ? departmentLabel : personnelDepartmentLabel(department),
+      present: departmentRows.filter((row) => row.attendanceStatus === "present").length,
+      enRoute: departmentRows.filter((row) => row.attendanceStatus === "en_route").length,
+      unavailable: departmentRows.filter((row) => row.attendanceStatus === "unavailable").length,
+      inactive: departmentRows.filter((row) => row.attendanceStatus === "inactive").length,
+      total: departmentRows.length,
+      rows: departmentRows,
+      operationalRows:
+        operationalTeamNumber === null
+          ? []
+          : operationalNumbers
+              .filter((person) => person.team_number === operationalTeamNumber)
+              .sort((a, b) => a.operational_number - b.operational_number)
+              .map((person) => ({
+                personId: person.person_id,
+                operationalNumber: person.operational_number,
+                personName: operationalPersonName(person),
+                siteName: person.site_id ? siteDisplayName(sitesById.get(person.site_id) ?? ({
+                  site_id: person.site_id,
+                  site_number: 0,
+                  name: null,
+                  city: null,
+                  street: "",
+                  house_number: "",
+                  site_status_label: null,
+                  initial_potential: 0,
+                  updated_potential: 0,
+                  total_active_units: 0,
+                  open_units: 0,
+                  operational_gap: 0
+                } as SiteSummaryRow)) : "ללא אתר",
+                statusLabel:
+                  person.latest_report_status_label?.trim() ||
+                  person.current_status_label?.trim() ||
+                  person.current_status_key?.trim() ||
+                  "לא ידוע",
+                gridCell: person.latest_grid_cell,
+                latestReportedAt: person.latest_reported_at
+              }))
+    };
+  });
+
+  const dashboardScopeOperationalNumbers: DashboardScopeOperationalNumber[] = operationalNumbers.map((person) => ({
+    personId: person.person_id,
+    siteId: person.site_id,
+    operationalNumber: person.operational_number,
+    firstName: person.first_name,
+    lastName: person.last_name,
+    residentFirstName: person.resident_first_name,
+    residentLastName: person.resident_last_name,
+    currentStatusKey: person.current_status_key,
+    currentStatusLabel: person.current_status_label,
+    latestReportStatusLabel: person.latest_report_status_label,
+    dashboardStatusGroup: person.dashboard_status_group
+  }));
 
   const teamDrilldownItems: TeamDrilldownItem[] = [...rescueTeams, ...(populationTeam ? [populationTeam] : [])].map((team) => {
     const counts = operationalByTeam.get(team.team_number) ?? { open: 0, resolved: 0, total: 0 };
@@ -742,43 +878,23 @@ export default async function IncidentDashboardPage({
         </section>
       ) : null}
 
-      <KpiDrilldown items={kpiItems} />
+      <DashboardSiteScope
+        kpiItems={kpiItems}
+        sites={siteAnalysisRows}
+        operationalNumbers={dashboardScopeOperationalNumbers}
+      />
 
-      {summary.total_sites === 0 ? (
-        <section className="panel section-spaced next-action-panel">
-          <div>
-            <h2>צור אתר ראשון</h2>
-            <p className="muted">האתר הוא המקום שבו מגדירים מבנה, דירות, אזורים וצוותים.</p>
-          </div>
-          <Link className="button" href={siteWizardHref}>
-            צור אתר ראשון
-          </Link>
-        </section>
-      ) : null}
-
-      <DashboardSiteAnalysis sites={siteAnalysisRows} />
 
 
       <section className="panel section-spaced">
         <div className="command-section-heading">
           <div>
-            <h2>מצב מספרים מבצעיים</h2>
-            <p className="muted">פירוק לפי הסטטוס המבצעי העדכני</p>
+            <h2>כח אדם לפי צוות</h2>
+            <p className="muted">תמונת נוכחות לפי מחלקה וצוות באירוע הנוכחי</p>
           </div>
         </div>
-        <OperationalStatusOverview tiles={interactiveStatusTiles} />
-      </section>
 
-      <section className="panel section-spaced">
-        <div className="command-section-heading">
-          <div>
-            <h2>צוותים</h2>
-            <p className="muted">תיקים פתוחים וסגורים לפי צוות חילוץ</p>
-          </div>
-          <span className="command-badge">{formatNumber(summary.active_rescue_teams_count ?? summary.active_teams)} צוותי חילוץ פעילים</span>
-        </div>
-
-        <TeamOperationalDrilldown teams={teamDrilldownItems} />
+        <PersonnelTeamDrilldown teams={personnelTeamItems} />
 
       </section>
 
