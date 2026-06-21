@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { CollaborativeLockBanner, useCollaborativeLock } from "../../../collaborative-lock";
 import { createSiteMapObject, deleteSiteMapObject, updateSiteMapObject } from "./actions";
 
 const GRID_LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י"];
@@ -409,6 +410,7 @@ export function SiteGridMap({
   const objectInForm = draftObject ?? editingObject;
   const isEditingExisting = !draftObject && Boolean(editingObject);
   const selectedObjectId = editingObject?.id ?? null;
+  const selectedObjectLock = useCollaborativeLock("site_map_object", selectedObjectId);
 
   function startDrawing(mode: DrawMode) {
     setDrawMode(mode);
@@ -781,6 +783,7 @@ export function SiteGridMap({
           {isEditingExisting && editingObject ? (
             <p className="selected-object-note">האובייקט הנבחר: {mapObjectTypeLabel(editingObject.objectType)} · {editingObject.name}</p>
           ) : null}
+          <CollaborativeLockBanner lock={selectedObjectLock} />
           <form
             action={isCreatingDraft ? createSiteMapObject : updateSiteMapObject}
             className="form-grid"
@@ -791,6 +794,7 @@ export function SiteGridMap({
             {isEditingExisting && editingObject ? <input type="hidden" name="mapObjectId" value={editingObject.id} /> : null}
             <input type="hidden" name="objectType" value={objectInForm.objectType} />
             <input type="hidden" name="geometry" value={JSON.stringify(objectInForm.geometry)} />
+            <fieldset disabled={Boolean(selectedObjectLock)} className="collaboration-lock-fieldset">
             <input className="input" name="name" defaultValue={isEditingExisting && editingObject ? editingObject.name : ""} placeholder="שם" required />
             <select className="input" name="assignedTeamNumber" defaultValue={isEditingExisting && editingObject ? editingObject.assignedTeamNumber ?? "" : ""}>
               <option value="">לא משויך</option>
@@ -832,6 +836,7 @@ export function SiteGridMap({
             ) : null}
             <textarea className="input wide" name="notes" defaultValue={isEditingExisting && editingObject ? editingObject.notes ?? "" : ""} placeholder="הערות" rows={3} />
             <button className="button" type="submit">שמור</button>
+            </fieldset>
             <button className="button secondary" type="button" onClick={() => { setDraftObject(null); setEditingObject(null); }}>
               ביטול
             </button>
@@ -843,6 +848,7 @@ export function SiteGridMap({
               <input type="hidden" name="mapObjectId" value={editingObject.id} />
               <button
                 className="button danger"
+                disabled={Boolean(selectedObjectLock)}
                 type="submit"
                 onClick={(event) => {
                   if (!window.confirm("האם למחוק את האובייקט מהמפה?")) {

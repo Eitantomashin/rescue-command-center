@@ -1752,6 +1752,42 @@ textarea {
   padding: 12px;
 }
 
+.collaboration-lock-banner {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(249, 168, 37, 0.44);
+  border-radius: 8px;
+  background: #fff8e1;
+  color: #7a4b00;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.collaboration-lock-banner strong {
+  color: #7a4b00;
+}
+
+.collaboration-lock-banner span {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.collaboration-lock-fieldset {
+  display: contents;
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.collaboration-lock-fieldset:disabled {
+  opacity: 0.72;
+}
+
+.collaboration-lock-fieldset:disabled :is(input, select, textarea, button) {
+  cursor: not-allowed;
+}
+
 @media (max-width: 900px) {
   .site-scope-tabs {
     max-width: 100%;

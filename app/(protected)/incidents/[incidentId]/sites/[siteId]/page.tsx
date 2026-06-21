@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatNumber } from "@/lib/format";
+import { CollaborativeLockSection } from "../../collaborative-lock";
 import {
   clearUnit,
   createGeneralAreaResident,
@@ -740,6 +741,7 @@ export default async function SiteDetailsPage({
                                           </div>
                                           <div className="resident-row-actions">
                                             {canDeletePlaceholder ? (
+                                              <CollaborativeLockSection objectType="resident" objectId={resident.id}>
                                               <form action={deleteEmptyPlaceholderResident} className="placeholder-delete-form inline">
                                                 {hiddenContext(params.incidentId, params.siteId)}
                                                 <input type="hidden" name="residentId" value={resident.id} />
@@ -747,12 +749,14 @@ export default async function SiteDetailsPage({
                                                   מחק דייר ריק
                                                 </button>
                                               </form>
+                                              </CollaborativeLockSection>
                                             ) : null}
                                           </div>
                                         </div>
 
                                         <details className="resident-edit" key={residentEditKey}>
                                           <summary>עדכון דייר</summary>
+                                          <CollaborativeLockSection objectType="resident" objectId={resident.id}>
                                           <form
                                             action={updateUnitResident}
                                             className="form-grid resident-update-form"
@@ -797,7 +801,8 @@ export default async function SiteDetailsPage({
                                             </button>
                                           </form>
 
-                                        </details>
+                                                            </CollaborativeLockSection>
+                  </details>
                                       </li>
                                     );
                                   })}
@@ -918,6 +923,7 @@ export default async function SiteDetailsPage({
 
                   <details className="resident-edit" key={residentEditKey}>
                     <summary>עדכון דייר</summary>
+                    <CollaborativeLockSection objectType="resident" objectId={resident.id}>
                     <form
                       action={updateUnitResident}
                       className="form-grid resident-update-form"
@@ -958,6 +964,7 @@ export default async function SiteDetailsPage({
                       </button>
                     </form>
 
+                                      </CollaborativeLockSection>
                   </details>
                 </li>
               );

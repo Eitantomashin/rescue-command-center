@@ -2,6 +2,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { CollaborativeLockSection } from "../../../collaborative-lock";
 import { ScreenPresenceIndicator } from "../../../incident-presence";
 import {
   createOperationalNumber,
@@ -438,6 +439,7 @@ export default async function OperationalNumbersPage({
             </Link>
           </div>
 
+          <CollaborativeLockSection objectType="operational_number" objectId={selectedPerson.person_id}>
           <div className="detail-grid">
             <div className="detail-actions-stack">
               {selectedPerson.is_merged ? (
@@ -554,6 +556,7 @@ export default async function OperationalNumbersPage({
               )}
             </div>
           </div>
+          </CollaborativeLockSection>
         </section>
       ) : null}
     </main>

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { CollaborativeLockSection } from "../collaborative-lock";
 import {
   ATTENDANCE_STATUSES,
   PERSONNEL_DEPARTMENTS,
@@ -170,6 +171,7 @@ export default async function IncidentPersonnelPage({
                       {labelFromOptions(ATTENDANCE_STATUSES, person.attendanceStatus)}
                     </span>
                     <time>{person.attendanceUpdatedAt ? formatDateTime(person.attendanceUpdatedAt) : "לא עודכן"}</time>
+                    <CollaborativeLockSection objectType="event_personnel" objectId={person.id}>
                     <form action={setEventPersonnelStatus} className="inline-status-form">
                       <input type="hidden" name="incidentId" value={params.incidentId} />
                       <input type="hidden" name="personnelId" value={person.id} />
@@ -178,6 +180,7 @@ export default async function IncidentPersonnelPage({
                       </select>
                       <button className="button secondary" type="submit">עדכן</button>
                     </form>
+                    </CollaborativeLockSection>
                   </div>
                 ))}
               </div>

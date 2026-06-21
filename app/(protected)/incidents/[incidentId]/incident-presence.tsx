@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -28,11 +28,24 @@ type PresenceUser = {
   locationLabel: string;
   onlineAt: string;
   lastSeenAt: string;
+  locks?: PresenceLock[];
+};
+
+export type PresenceLock = {
+  objectType: "operational_number" | "resident" | "site_map_object" | "event_personnel";
+  objectId: string;
+  userId: string;
+  displayName: string;
+  lockedAt: string;
 };
 
 type PresenceContextValue = {
   users: PresenceUser[];
   currentScreenUsers: PresenceUser[];
+  currentUserId: string;
+  locks: PresenceLock[];
+  acquireLock: (objectType: PresenceLock["objectType"], objectId: string) => void;
+  releaseLock: (objectType: PresenceLock["objectType"], objectId: string) => void;
   currentLocation: {
     screenKey: string;
     siteId: string | null;
@@ -190,6 +203,13 @@ function activePresenceUsers(users: PresenceUser[], now: number) {
   return users.filter((presence) => now - new Date(presence.lastSeenAt).getTime() <= STALE_PRESENCE_MS);
 }
 
+function activePresenceLocks(users: PresenceUser[], currentUserId: string, now: number) {
+  return users
+    .filter((presence) => presence.userId !== currentUserId)
+    .flatMap((presence) => presence.locks ?? [])
+    .filter((lock) => now - new Date(lock.lockedAt).getTime() <= STALE_PRESENCE_MS);
+}
+
 export function IncidentPresenceProvider({
   incidentId,
   user,
@@ -207,7 +227,9 @@ export function IncidentPresenceProvider({
 }) {
   const pathname = usePathname();
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const locksRef = useRef<PresenceLock[]>([]);
   const [users, setUsers] = useState<PresenceUser[]>([]);
+  const [, setLocalLocksVersion] = useState(0);
   const [now, setNow] = useState(Date.now());
   const displayName = displayNameFromUser(user);
   const currentLocation = useMemo(() => locationForPath(incidentId, pathname, sites), [incidentId, pathname, sites]);
@@ -243,6 +265,7 @@ export function IncidentPresenceProvider({
         siteId: currentLocation.siteId,
         siteName: currentLocation.siteName,
         locationLabel: currentLocation.label,
+        locks: locksRef.current,
         lastSeenAt: new Date().toISOString()
       });
     }
@@ -303,17 +326,60 @@ export function IncidentPresenceProvider({
       siteId: currentLocation.siteId,
       siteName: currentLocation.siteName,
       locationLabel: currentLocation.label,
+      locks: locksRef.current,
       lastSeenAt: new Date().toISOString()
     });
   }, [currentLocation, currentUser, pathname]);
 
   const activeUsers = activePresenceUsers(users, now);
+  const locks = activePresenceLocks(activeUsers, user.id, now);
   const currentScreenUsers = activeUsers.filter(
     (presence) => presence.screenKey === currentLocation.screenKey && presence.siteId === currentLocation.siteId
   );
 
+  const retrackWithLocks = useCallback((nextLocks: PresenceLock[]) => {
+    locksRef.current = nextLocks;
+    setLocalLocksVersion((value) => value + 1);
+
+    const channel = channelRef.current;
+    if (!channel) {
+      return;
+    }
+
+    void channel.track({
+      ...currentUser,
+      pathname,
+      screenKey: currentLocation.screenKey,
+      siteId: currentLocation.siteId,
+      siteName: currentLocation.siteName,
+      locationLabel: currentLocation.label,
+      locks: locksRef.current,
+      lastSeenAt: new Date().toISOString()
+    });
+  }, [currentLocation.label, currentLocation.screenKey, currentLocation.siteId, currentLocation.siteName, currentUser, pathname]);
+
+  const acquireLock = useCallback((objectType: PresenceLock["objectType"], objectId: string) => {
+    const key = `${objectType}:${objectId}`;
+    const remaining = locksRef.current.filter((lock) => `${lock.objectType}:${lock.objectId}` !== key);
+    retrackWithLocks([
+      ...remaining,
+      {
+        objectType,
+        objectId,
+        userId: user.id,
+        displayName,
+        lockedAt: new Date().toISOString()
+      }
+    ]);
+  }, [displayName, retrackWithLocks, user.id]);
+
+  const releaseLock = useCallback((objectType: PresenceLock["objectType"], objectId: string) => {
+    const key = `${objectType}:${objectId}`;
+    retrackWithLocks(locksRef.current.filter((lock) => `${lock.objectType}:${lock.objectId}` !== key));
+  }, [retrackWithLocks]);
+
   return (
-    <PresenceContext.Provider value={{ users: activeUsers, currentScreenUsers, currentLocation }}>
+    <PresenceContext.Provider value={{ users: activeUsers, currentScreenUsers, currentUserId: user.id, locks, acquireLock, releaseLock, currentLocation }}>
       {children}
     </PresenceContext.Provider>
   );
@@ -326,6 +392,10 @@ export function useIncidentPresence() {
     return {
       users: [],
       currentScreenUsers: [],
+      currentUserId: "",
+      locks: [],
+      acquireLock: () => undefined,
+      releaseLock: () => undefined,
       currentLocation: { screenKey: "unknown", siteId: null, label: "" }
     };
   }
