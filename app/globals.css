@@ -1795,6 +1795,35 @@ textarea {
   flex-wrap: wrap;
 }
 
+.incident-row-actions,
+.admin-archive-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.archive-confirm-panel,
+.admin-password-reset {
+  position: relative;
+}
+
+.archive-confirm-panel .action-form,
+.admin-password-form {
+  min-width: min(320px, 84vw);
+  margin-top: 8px;
+  border: 1px solid rgba(211, 47, 47, 0.18);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-md);
+  padding: 12px;
+}
+
+.admin-password-form {
+  display: grid;
+  gap: 8px;
+}
+
 .admin-role-form .input {
   min-width: 150px;
 }

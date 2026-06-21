@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
+import { archiveIncident, restoreIncident } from "./actions";
 
 type IncidentRow = {
   id: string;
@@ -11,65 +12,144 @@ type IncidentRow = {
   ended_at: string | null;
   status_id: string;
   is_closed: boolean;
+  archived_at: string | null;
+  archived_by: string | null;
 };
 
-export default async function IncidentsPage() {
+const text = {
+  title: "\u05d0\u05d9\u05e8\u05d5\u05e2\u05d9\u05dd",
+  subtitle: "\u05ea\u05de\u05d5\u05e0\u05ea \u05e4\u05ea\u05d9\u05d7\u05d4 \u05dc\u05db\u05dc \u05d0\u05d9\u05e8\u05d5\u05e2\u05d9 \u05d4\u05d7\u05d9\u05dc\u05d5\u05e5",
+  newIncident: "\u05e4\u05ea\u05d9\u05d7\u05ea \u05d0\u05d9\u05e8\u05d5\u05e2 \u05d7\u05d3\u05e9",
+  activeIncidents: "\u05d0\u05d9\u05e8\u05d5\u05e2\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd",
+  archivedIncidents: "\u05d0\u05d9\u05e8\u05d5\u05e2\u05d9\u05dd \u05d1\u05d0\u05e8\u05db\u05d9\u05d5\u05df",
+  noIncidents: "\u05d0\u05d9\u05df \u05d0\u05d9\u05e8\u05d5\u05e2\u05d9\u05dd \u05dc\u05d4\u05e6\u05d2\u05d4",
+  incidentName: "\u05e9\u05dd \u05d0\u05d9\u05e8\u05d5\u05e2",
+  city: "\u05e2\u05d9\u05e8",
+  address: "\u05db\u05ea\u05d5\u05d1\u05ea",
+  status: "\u05e1\u05d8\u05d8\u05d5\u05e1",
+  openedAt: "\u05e0\u05e4\u05ea\u05d7",
+  archivedAt: "\u05d0\u05d5\u05e8\u05db\u05d1",
+  open: "\u05e4\u05ea\u05d9\u05d7\u05d4",
+  active: "\u05e4\u05e2\u05d9\u05dc",
+  closed: "\u05e1\u05d2\u05d5\u05e8",
+  archive: "\u05d4\u05e2\u05d1\u05e8 \u05dc\u05d0\u05e8\u05db\u05d9\u05d5\u05df",
+  restore: "\u05e9\u05d7\u05d6\u05d5\u05e8 \u05de\u05d0\u05e8\u05db\u05d9\u05d5\u05df",
+  archiveConfirm: "\u05dc\u05d0\u05d9\u05e9\u05d5\u05e8 \u05d4\u05e2\u05d1\u05e8\u05d4 \u05dc\u05d0\u05e8\u05db\u05d9\u05d5\u05df, \u05d4\u05e7\u05dc\u05d3 \u05d0\u05ea \u05e9\u05dd \u05d4\u05d0\u05d9\u05e8\u05d5\u05e2 \u05d1\u05de\u05d3\u05d5\u05d9\u05e7.",
+  confirmPlaceholder: "\u05d4\u05e7\u05dc\u05d3 \u05e9\u05dd \u05d0\u05d9\u05e8\u05d5\u05e2"
+};
+
+export default async function IncidentsPage({
+  searchParams
+}: {
+  searchParams?: { view?: string };
+}) {
   const supabase = createClient();
-  const { data, error } = await supabase
+  const { data: systemRole } = await supabase.rpc("current_user_role");
+  const isAdmin = systemRole === "admin";
+  const archiveView = isAdmin && searchParams?.view === "archived";
+
+  let query = supabase
     .from("incidents")
-    .select("id,name,city,address,opened_at,ended_at,status_id,is_closed")
+    .select("id,name,city,address,opened_at,ended_at,status_id,is_closed,archived_at,archived_by")
     .order("opened_at", { ascending: false });
 
+  query = archiveView ? query.not("archived_at", "is", null) : query.is("archived_at", null);
+
+  const { data, error } = await query;
   const incidents = (data ?? []) as IncidentRow[];
 
   return (
     <main className="page">
       <div className="header">
         <div>
-          <h1>אירועים</h1>
-          <p className="muted">רשימת אירועי חילוץ שהמשתמש מורשה לראות</p>
+          <h1>{text.title}</h1>
+          <p className="muted">{text.subtitle}</p>
         </div>
-        <Link className="button" href="/incidents/new">
-          פתיחת אירוע חדש
-        </Link>
+        <div className="actions">
+          {isAdmin ? (
+            <div className="admin-archive-tabs">
+              <Link className={archiveView ? "button secondary" : "button"} href="/incidents">
+                {text.activeIncidents}
+              </Link>
+              <Link className={archiveView ? "button" : "button secondary"} href="/incidents?view=archived">
+                {text.archivedIncidents}
+              </Link>
+            </div>
+          ) : null}
+          <Link className="button" href="/incidents/new">
+            {text.newIncident}
+          </Link>
+        </div>
       </div>
 
       {error ? (
         <section className="panel">
-          <p className="error">לא ניתן לטעון אירועים: {error.message}</p>
+          <p className="error">{error.message}</p>
         </section>
       ) : null}
 
       <section className="panel">
         {incidents.length === 0 ? (
-          <p className="muted">לא נמצאו אירועים זמינים.</p>
+          <div className="empty-state">
+            <h2>{text.noIncidents}</h2>
+            {!archiveView ? <Link className="button" href="/incidents/new">{text.newIncident}</Link> : null}
+          </div>
         ) : (
           <table className="table">
             <thead>
               <tr>
-                <th>שם אירוע</th>
-                <th>עיר</th>
-                <th>כתובת</th>
-                <th>סטטוס</th>
-                <th>נפתח</th>
+                <th>{text.incidentName}</th>
+                <th>{text.city}</th>
+                <th>{text.address}</th>
+                <th>{text.status}</th>
+                <th>{archiveView ? text.archivedAt : text.openedAt}</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {incidents.map((incident) => (
                 <tr key={incident.id}>
-                  <td>{incident.name}</td>
+                  <td>
+                    <strong>{incident.name}</strong>
+                  </td>
                   <td>{incident.city ?? "-"}</td>
                   <td>{incident.address}</td>
                   <td>
-                    {incident.is_closed ? "סגור" : "פעיל"}
+                    <span className={`command-badge ${incident.is_closed ? "coverage-low" : "coverage-medium"}`}>
+                      {incident.is_closed ? text.closed : text.active}
+                    </span>
                     <div className="muted">{incident.status_id}</div>
                   </td>
-                  <td>{formatDateTime(incident.opened_at)}</td>
+                  <td>{formatDateTime(archiveView ? incident.archived_at ?? incident.opened_at : incident.opened_at)}</td>
                   <td>
-                    <Link className="button secondary" href={`/incidents/${incident.id}`}>
-                      פתיחה
-                    </Link>
+                    <div className="incident-row-actions">
+                      <Link className="button secondary" href={`/incidents/${incident.id}`}>
+                        {text.open}
+                      </Link>
+                      {isAdmin && !archiveView ? (
+                        <details className="archive-confirm-panel">
+                          <summary className="button danger">{text.archive}</summary>
+                          <form action={archiveIncident} className="action-form">
+                            <input type="hidden" name="incidentId" value={incident.id} />
+                            <input type="hidden" name="incidentName" value={incident.name} />
+                            <strong>{incident.name}</strong>
+                            <p className="muted">{text.archiveConfirm}</p>
+                            <input className="input" name="confirmationName" placeholder={text.confirmPlaceholder} required />
+                            <button className="button danger" type="submit">
+                              {text.archive}
+                            </button>
+                          </form>
+                        </details>
+                      ) : null}
+                      {isAdmin && archiveView ? (
+                        <form action={restoreIncident}>
+                          <input type="hidden" name="incidentId" value={incident.id} />
+                          <button className="button secondary" type="submit">
+                            {text.restore}
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
