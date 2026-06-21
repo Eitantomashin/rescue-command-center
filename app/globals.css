@@ -1788,6 +1788,45 @@ textarea {
   cursor: not-allowed;
 }
 
+.admin-role-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-role-form .input {
+  min-width: 150px;
+}
+
+.role-badge {
+  font-weight: 900;
+}
+
+.role-admin {
+  border-color: rgba(211, 47, 47, 0.28);
+  background: #fff5f5;
+  color: var(--danger);
+}
+
+.role-commander {
+  border-color: rgba(245, 130, 32, 0.32);
+  background: #fff8ef;
+  color: var(--brand-secondary);
+}
+
+.role-editor {
+  border-color: rgba(22, 50, 79, 0.22);
+  background: #eef4fb;
+  color: var(--brand-primary);
+}
+
+.role-viewer {
+  border-color: var(--border);
+  background: #f8fafc;
+  color: var(--muted);
+}
+
 @media (max-width: 900px) {
   .site-scope-tabs {
     max-width: 100%;

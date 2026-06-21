@@ -20,6 +20,8 @@ export default async function ProtectedLayout({
     redirect("/login");
   }
 
+  const { data: systemRole } = await supabase.rpc("current_user_role");
+
   return (
     <>
       <header className="command-header">
@@ -34,6 +36,7 @@ export default async function ProtectedLayout({
         <nav className="nav-links" aria-label="ניווט ראשי">
           <Link href="/incidents">אירועים</Link>
           <Link href="/personnel">כ&quot;א יחידתי</Link>
+          {systemRole === "admin" ? <Link href="/admin/users">{"\u05e0\u05d9\u05d4\u05d5\u05dc \u05de\u05e9\u05ea\u05de\u05e9\u05d9\u05dd"}</Link> : null}
         </nav>
 
         <div className="header-ops-summary" aria-label="סיכום מערכת">
