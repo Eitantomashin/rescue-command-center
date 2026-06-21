@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { DashboardSiteAnalysis, type SiteAnalysisRow } from "./dashboard-site-analysis";
 import { KpiDrilldown, type KpiDrilldownItem } from "./kpi-drilldown";
 import { OperationalStatusOverview, type OperationalStatusSiteBreakdown, type OperationalStatusTile } from "./operational-status-overview";
+import { PersonnelTeamDrilldown, type PersonnelTeamItem } from "./personnel-team-drilldown";
 
 export type DashboardScopeOperationalNumber = {
   personId: string;
@@ -93,9 +94,7 @@ function statusTile(
 }
 
 function scopedKpis(allKpis: KpiDrilldownItem[], selectedSite: SiteAnalysisRow | null): KpiDrilldownItem[] {
-  if (!selectedSite) {
-    return allKpis;
-  }
+  if (!selectedSite) return allKpis;
 
   return [
     {
@@ -133,11 +132,13 @@ function scopedKpis(allKpis: KpiDrilldownItem[], selectedSite: SiteAnalysisRow |
 export function DashboardSiteScope({
   kpiItems,
   sites,
-  operationalNumbers
+  operationalNumbers,
+  personnelTeams
 }: {
   kpiItems: KpiDrilldownItem[];
   sites: SiteAnalysisRow[];
   operationalNumbers: DashboardScopeOperationalNumber[];
+  personnelTeams: PersonnelTeamItem[];
 }) {
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const selectedSite = sites.find((site) => site.siteId === selectedSiteId) ?? null;
@@ -145,6 +146,11 @@ export function DashboardSiteScope({
   const visibleOperationalNumbers = selectedSite
     ? operationalNumbers.filter((person) => person.siteId === selectedSite.siteId)
     : operationalNumbers;
+  const visiblePersonIds = new Set(visibleOperationalNumbers.map((person) => person.personId));
+  const visiblePersonnelTeams = personnelTeams.map((team) => ({
+    ...team,
+    operationalRows: selectedSite ? team.operationalRows.filter((row) => visiblePersonIds.has(row.personId)) : team.operationalRows
+  }));
   const sitesById = useMemo(() => new Map(sites.map((site) => [site.siteId, site])), [sites]);
   const visibleKpis = scopedKpis(kpiItems, selectedSite);
   const visibleTiles = STATUS_GROUPS.map((status) =>
@@ -153,38 +159,41 @@ export function DashboardSiteScope({
 
   return (
     <>
+      <section className="dashboard-scope-toolbar" aria-label="סינון תמונת מצב פיקודית">
+        <div className="site-scope-tabs">
+          <button className={`site-scope-tab ${!selectedSiteId ? "active" : ""}`} type="button" onClick={() => setSelectedSiteId(null)}>
+            כל האתרים
+          </button>
+          {sites.map((site) => (
+            <button
+              className={`site-scope-tab ${selectedSiteId === site.siteId ? "active" : ""}`}
+              type="button"
+              key={site.siteId}
+              onClick={() => setSelectedSiteId(site.siteId)}
+            >
+              {site.name}
+            </button>
+          ))}
+        </div>
+      </section>
+
       <KpiDrilldown items={visibleKpis} />
 
       <section className="panel section-spaced">
-        <div className="command-section-heading anchor-heading-with-filter">
+        <div className="command-section-heading">
           <div>
             <h2>טבלת עוגן</h2>
             <p className="muted">פירוק לפי הסטטוס המבצעי העדכני</p>
-          </div>
-          <div className="site-scope-tabs" aria-label="סינון לפי אתר">
-            <button
-              className={`site-scope-tab ${!selectedSiteId ? "active" : ""}`}
-              type="button"
-              onClick={() => setSelectedSiteId(null)}
-            >
-              כל האתרים
-            </button>
-            {sites.map((site) => (
-              <button
-                className={`site-scope-tab ${selectedSiteId === site.siteId ? "active" : ""}`}
-                type="button"
-                key={site.siteId}
-                onClick={() => setSelectedSiteId(site.siteId)}
-              >
-                {site.name}
-              </button>
-            ))}
           </div>
         </div>
         <OperationalStatusOverview tiles={visibleTiles} />
       </section>
 
       <DashboardSiteAnalysis sites={visibleSites} />
+
+      <section className="panel section-spaced">
+        <PersonnelTeamDrilldown teams={visiblePersonnelTeams} />
+      </section>
     </>
   );
 }

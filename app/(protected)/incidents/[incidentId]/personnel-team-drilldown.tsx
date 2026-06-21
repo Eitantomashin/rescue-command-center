@@ -19,6 +19,7 @@ export type PersonnelTeamOperationalRow = {
   personName: string | null;
   siteName: string;
   statusLabel: string;
+  statusGroup: string | null;
   gridCell: string | null;
   latestReportedAt: string | null;
 };
@@ -37,6 +38,16 @@ export type PersonnelTeamItem = {
 
 type DrilldownMode = "personnel" | "operational";
 
+const STATUS_SEGMENTS = [
+  { key: "missing_unknown", label: "נעדר / לא ידוע", className: "missing" },
+  { key: "trapped_located_not_yet_rescued", label: "לכוד אותר וטרם חולץ", className: "in-progress" },
+  { key: "rescued", label: "מחולצים", className: "completed" },
+  { key: "evacuated", label: "פונו", className: "completed" },
+  { key: "located_outside_site", label: "אותר מחוץ לאתר", className: "completed" },
+  { key: "deceased", label: "נפטרים", className: "deceased" },
+  { key: "other", label: "אחר", className: "other" }
+] as const;
+
 function statusClass(status: PersonnelTeamRow["attendanceStatus"]) {
   if (status === "present") return "success";
   if (status === "en_route") return "warning";
@@ -44,75 +55,146 @@ function statusClass(status: PersonnelTeamRow["attendanceStatus"]) {
   return "neutral";
 }
 
+function segmentKey(row: PersonnelTeamOperationalRow) {
+  return STATUS_SEGMENTS.some((segment) => segment.key === row.statusGroup) ? row.statusGroup ?? "other" : "other";
+}
+
+function chartTeams(teams: PersonnelTeamItem[]) {
+  return teams.filter((team) => team.operationalRows.length > 0 || team.id === "other");
+}
+
 export function PersonnelTeamDrilldown({ teams }: { teams: PersonnelTeamItem[] }) {
+  const [expanded, setExpanded] = useState(false);
   const [openDrilldown, setOpenDrilldown] = useState<{ teamId: string; mode: DrilldownMode } | null>(null);
   const openTeam = teams.find((team) => team.id === openDrilldown?.teamId) ?? null;
+  const visibleChartTeams = chartTeams(teams);
+  const maxTeamTotal = Math.max(1, ...visibleChartTeams.map((team) => team.operationalRows.length));
 
   function toggleDrilldown(teamId: string, mode: DrilldownMode) {
+    setExpanded(true);
     setOpenDrilldown((current) => {
-      if (current?.teamId === teamId && current.mode === mode) {
-        return null;
-      }
-
+      if (current?.teamId === teamId && current.mode === mode) return null;
       return { teamId, mode };
     });
   }
 
   return (
     <div className="personnel-team-dashboard">
-      <div className="personnel-team-grid">
-        {teams.map((team) => {
-          const personnelOpen = openDrilldown?.teamId === team.id && openDrilldown.mode === "personnel";
-          const operationalOpen = openDrilldown?.teamId === team.id && openDrilldown.mode === "operational";
+      <button className="floor-toggle-row personnel-team-collapse-header" type="button" onClick={() => setExpanded((value) => !value)}>
+        <span>פירוט לפי צוותים</span>
+        <span className="floor-toggle-indicator">{expanded ? "סגור" : "פתח"}</span>
+      </button>
 
-          return (
-            <article className={`personnel-team-card ${personnelOpen || operationalOpen ? "selected" : ""}`} key={team.id}>
-              <div className="section-title-row">
-                <h3>{team.label}</h3>
-                <span className="status-pill neutral">סה״כ {formatNumber(team.total)}</span>
-              </div>
-              <dl className="personnel-team-counts">
-                <div>
-                  <dt>נוכחים</dt>
-                  <dd>{formatNumber(team.present)}</dd>
-                </div>
-                <div>
-                  <dt>בדרך</dt>
-                  <dd>{formatNumber(team.enRoute)}</dd>
-                </div>
-                <div>
-                  <dt>לא זמין</dt>
-                  <dd>{formatNumber(team.unavailable)}</dd>
-                </div>
-                <div>
-                  <dt>לא פעיל</dt>
-                  <dd>{formatNumber(team.inactive)}</dd>
-                </div>
-              </dl>
-              <div className="personnel-team-actions" aria-label={`פעולות ${team.label}`}>
-                <button
-                  className={`button compact ${personnelOpen ? "" : "secondary"}`}
-                  type="button"
-                  aria-expanded={personnelOpen}
-                  onClick={() => toggleDrilldown(team.id, "personnel")}
-                >
-                  כ״א
-                </button>
-                <button
-                  className={`button compact ${operationalOpen ? "" : "secondary"}`}
-                  type="button"
-                  aria-expanded={operationalOpen}
-                  onClick={() => toggleDrilldown(team.id, "operational")}
-                >
-                  מספרים מבצעיים
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </div>
+      {expanded ? (
+        <>
+          <section className="team-activity-chart" aria-label="פעילות מבצעית לפי צוות">
+            <div className="command-section-heading compact-heading">
+              <h3>פעילות מבצעית לפי צוות</h3>
+            </div>
+            {visibleChartTeams.length === 0 ? (
+              <p className="muted">אין מספרים מבצעיים להצגה בתרשים.</p>
+            ) : (
+              <div className="team-stacked-chart">
+                {visibleChartTeams.map((team) => {
+                  const counts = new Map<string, number>();
+                  for (const row of team.operationalRows) {
+                    const key = segmentKey(row);
+                    counts.set(key, (counts.get(key) ?? 0) + 1);
+                  }
+                  const total = team.operationalRows.length;
+                  const height = Math.max(12, Math.round((total / maxTeamTotal) * 100));
 
-      {openTeam && openDrilldown?.mode === "personnel" ? (
+                  return (
+                    <div className="team-chart-column" key={team.id}>
+                      <button
+                        className="team-chart-stack"
+                        type="button"
+                        style={{ height: `${height}%` }}
+                        onClick={() => toggleDrilldown(team.id, "operational")}
+                        aria-label={`מספרים מבצעיים ${team.label}`}
+                      >
+                        {STATUS_SEGMENTS.map((segment) => {
+                          const value = counts.get(segment.key) ?? 0;
+                          if (value === 0) return null;
+                          return (
+                            <span
+                              className={`team-chart-segment segment-${segment.className}`}
+                              key={segment.key}
+                              style={{ flexGrow: value }}
+                              title={`${segment.label}: ${value}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleDrilldown(team.id, "operational");
+                              }}
+                            >
+                              {formatNumber(value)}
+                            </span>
+                          );
+                        })}
+                      </button>
+                      <span className="team-chart-label">{team.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <div className="personnel-team-grid">
+            {teams.map((team) => {
+              const personnelOpen = openDrilldown?.teamId === team.id && openDrilldown.mode === "personnel";
+              const operationalOpen = openDrilldown?.teamId === team.id && openDrilldown.mode === "operational";
+
+              return (
+                <article className={`personnel-team-card ${personnelOpen || operationalOpen ? "selected" : ""}`} key={team.id}>
+                  <div className="section-title-row">
+                    <h3>{team.label}</h3>
+                    <span className="status-pill neutral">סה״כ {formatNumber(team.total)}</span>
+                  </div>
+                  <dl className="personnel-team-counts">
+                    <div>
+                      <dt>נוכחים</dt>
+                      <dd>{formatNumber(team.present)}</dd>
+                    </div>
+                    <div>
+                      <dt>בדרך</dt>
+                      <dd>{formatNumber(team.enRoute)}</dd>
+                    </div>
+                    <div>
+                      <dt>לא זמין</dt>
+                      <dd>{formatNumber(team.unavailable)}</dd>
+                    </div>
+                    <div>
+                      <dt>לא פעיל</dt>
+                      <dd>{formatNumber(team.inactive)}</dd>
+                    </div>
+                  </dl>
+                  <div className="personnel-team-actions" aria-label={`פעולות ${team.label}`}>
+                    <button
+                      className={`button compact ${personnelOpen ? "" : "secondary"}`}
+                      type="button"
+                      aria-expanded={personnelOpen}
+                      onClick={() => toggleDrilldown(team.id, "personnel")}
+                    >
+                      כ״א
+                    </button>
+                    <button
+                      className={`button compact ${operationalOpen ? "" : "secondary"}`}
+                      type="button"
+                      aria-expanded={operationalOpen}
+                      onClick={() => toggleDrilldown(team.id, "operational")}
+                    >
+                      מספרים מבצעיים
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+
+      {expanded && openTeam && openDrilldown?.mode === "personnel" ? (
         <div className="team-drilldown-panel personnel-dashboard-drilldown">
           <div className="command-section-heading compact-heading">
             <h3>כ״א - {openTeam.label}</h3>
@@ -150,7 +232,7 @@ export function PersonnelTeamDrilldown({ teams }: { teams: PersonnelTeamItem[] }
         </div>
       ) : null}
 
-      {openTeam && openDrilldown?.mode === "operational" ? (
+      {expanded && openTeam && openDrilldown?.mode === "operational" ? (
         <div className="team-drilldown-panel personnel-dashboard-drilldown">
           <div className="command-section-heading compact-heading">
             <h3>מספרים מבצעיים - {openTeam.label}</h3>
