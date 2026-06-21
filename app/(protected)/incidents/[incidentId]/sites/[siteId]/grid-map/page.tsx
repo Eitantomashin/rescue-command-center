@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ScreenPresenceIndicator } from "../../../incident-presence";
 import { uploadSiteGridImage } from "./actions";
 import { SiteGridMap, type GridMarker, type MapObject, type MapTeam } from "./site-grid-map";
 
@@ -176,6 +177,7 @@ export default async function SiteGridMapPage({
           <p className="muted">תמונת אתר עם גריד פעילות וסמנים מתוך המספרים המבצעיים הקיימים.</p>
         </div>
       </div>
+      <ScreenPresenceIndicator />
 
       <section className="panel site-grid-upload-panel">
         <div>

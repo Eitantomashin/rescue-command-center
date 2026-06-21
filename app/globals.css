@@ -1625,6 +1625,133 @@ textarea {
   opacity: 1;
 }
 
+.presence-widget {
+  min-width: 250px;
+  max-width: 320px;
+  border: 1px solid rgba(22, 50, 79, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-md);
+  padding: 14px;
+}
+
+.presence-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--brand-primary);
+  font-weight: 950;
+}
+
+.presence-widget-header strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--brand-primary);
+  color: #fff;
+  font-size: 14px;
+}
+
+.presence-user-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.presence-user-list.compact {
+  margin-top: 0;
+}
+
+.presence-user-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.presence-user-list div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.presence-user-list strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--brand-primary);
+  font-size: 14px;
+}
+
+.presence-user-list span,
+.presence-user-list small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.presence-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #eef4fb;
+  color: var(--brand-primary);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.presence-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.presence-dot.online {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.13);
+}
+
+.screen-presence {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 14px;
+  z-index: 5;
+}
+
+.screen-presence-button {
+  border: 1px solid rgba(22, 50, 79, 0.16);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--brand-primary);
+  box-shadow: var(--shadow-sm);
+  padding: 8px 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.screen-presence-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(280px, 86vw);
+  border: 1px solid rgba(22, 50, 79, 0.14);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-lg);
+  padding: 12px;
+}
+
 @media (max-width: 900px) {
   .site-scope-tabs {
     max-width: 100%;
@@ -4241,6 +4368,25 @@ textarea {
   .incident-nav-tree {
     position: static;
     max-height: none;
+  }
+
+  .presence-widget {
+    width: 100%;
+    max-width: none;
+  }
+
+  .screen-presence {
+    justify-content: stretch;
+  }
+
+  .screen-presence-button {
+    width: 100%;
+  }
+
+  .screen-presence-popover {
+    right: 0;
+    left: auto;
+    width: 100%;
   }
 
   .resident-row,

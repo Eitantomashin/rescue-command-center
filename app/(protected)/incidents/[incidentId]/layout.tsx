@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { IncidentCommandShell } from "./incident-command-shell";
+import { IncidentPresenceProvider } from "./incident-presence";
 import { RealtimeRefresh } from "./realtime-refresh";
 
 type IncidentRow = {
@@ -43,7 +44,15 @@ export default async function IncidentLayout({
   params: { incidentId: string };
 }) {
   const supabase = createClient();
-  const [{ data: incident, error: incidentError }, { data: sites }, { data: summary }] = await Promise.all([
+  const [
+    {
+      data: { user }
+    },
+    { data: incident, error: incidentError },
+    { data: sites },
+    { data: summary }
+  ] = await Promise.all([
+    supabase.auth.getUser(),
     supabase.from("incidents").select("id,name,is_closed").eq("id", params.incidentId).maybeSingle(),
     supabase
       .from("site_dashboard_summary")
@@ -62,26 +71,36 @@ export default async function IncidentLayout({
   }
 
   return (
-    <IncidentCommandShell
-      incident={incident as IncidentRow}
+    <IncidentPresenceProvider
+      incidentId={params.incidentId}
+      user={{
+        id: user?.id ?? "unknown",
+        email: user?.email ?? null,
+        user_metadata: user?.user_metadata
+      }}
       sites={(sites ?? []) as SiteRow[]}
-      summary={
-        (summary as SummaryRow | null) ?? {
-          updated_potential: 0,
-          active_operational_numbers_count: 0,
-          gap_resolved_count: 0,
-          operational_gap: 0,
-          total_sites: 0,
-          active_teams: 0,
-          operational_numbers_rescued_count: 0,
-          operational_numbers_evacuated_count: 0,
-          operational_numbers_located_outside_site_count: 0,
-          operational_numbers_deceased_count: 0
-        }
-      }
     >
-      <RealtimeRefresh incidentId={params.incidentId} />
-      {children}
-    </IncidentCommandShell>
+      <IncidentCommandShell
+        incident={incident as IncidentRow}
+        sites={(sites ?? []) as SiteRow[]}
+        summary={
+          (summary as SummaryRow | null) ?? {
+            updated_potential: 0,
+            active_operational_numbers_count: 0,
+            gap_resolved_count: 0,
+            operational_gap: 0,
+            total_sites: 0,
+            active_teams: 0,
+            operational_numbers_rescued_count: 0,
+            operational_numbers_evacuated_count: 0,
+            operational_numbers_located_outside_site_count: 0,
+            operational_numbers_deceased_count: 0
+          }
+        }
+      >
+        <RealtimeRefresh incidentId={params.incidentId} />
+        {children}
+      </IncidentCommandShell>
+    </IncidentPresenceProvider>
   );
 }

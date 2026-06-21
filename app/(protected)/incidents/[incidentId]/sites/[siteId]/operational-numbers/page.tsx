@@ -2,6 +2,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { ScreenPresenceIndicator } from "../../../incident-presence";
 import {
   createOperationalNumber,
   createOperationalReport,
@@ -265,6 +266,7 @@ export default async function OperationalNumbersPage({
           </Link>
         </div>
       </div>
+      <ScreenPresenceIndicator />
 
       <section className="grid" aria-label="מדדי מספרים מבצעיים">
         <div className="metric">

@@ -5,6 +5,7 @@ import { formatDateTime, formatNumber } from "@/lib/format";
 import { DashboardCollapsibleSection } from "./dashboard-collapsible-section";
 import type { SiteAnalysisRow, SiteStatusSegments, SiteUnitAnalysisRow } from "./dashboard-site-analysis";
 import { DashboardSiteScope, type DashboardScopeOperationalNumber } from "./dashboard-site-scope";
+import { ConnectedUsersWidget } from "./incident-presence";
 import type { KpiDrilldownItem, KpiDrilldownRow } from "./kpi-drilldown";
 import type { PersonnelTeamItem } from "./personnel-team-drilldown";
 import {
@@ -718,6 +719,7 @@ export default async function IncidentDashboardPage({
             פתח יומן מבצעי מלא
           </Link>
         </div>
+        <ConnectedUsersWidget />
       </div>
 
       {searchParams?.created === "1" ? (
