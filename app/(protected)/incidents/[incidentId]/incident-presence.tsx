@@ -40,6 +40,9 @@ type PresenceContextValue = {
   };
 };
 
+const HEARTBEAT_MS = 20000;
+const STALE_PRESENCE_MS = 90000;
+
 const text = {
   site: "\u05d0\u05ea\u05e8",
   user: "\u05de\u05e9\u05ea\u05de\u05e9",
@@ -183,6 +186,10 @@ function compactPresenceState(rawState: Record<string, PresenceUser[]>) {
   return [...byUser.values()].sort((a, b) => a.displayName.localeCompare(b.displayName, "he"));
 }
 
+function activePresenceUsers(users: PresenceUser[], now: number) {
+  return users.filter((presence) => now - new Date(presence.lastSeenAt).getTime() <= STALE_PRESENCE_MS);
+}
+
 export function IncidentPresenceProvider({
   incidentId,
   user,
@@ -201,6 +208,7 @@ export function IncidentPresenceProvider({
   const pathname = usePathname();
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [users, setUsers] = useState<PresenceUser[]>([]);
+  const [now, setNow] = useState(Date.now());
   const displayName = displayNameFromUser(user);
   const currentLocation = useMemo(() => locationForPath(incidentId, pathname, sites), [incidentId, pathname, sites]);
 
@@ -227,26 +235,8 @@ export function IncidentPresenceProvider({
     });
     channelRef.current = channel;
 
-    channel.on("presence", { event: "sync" }, () => {
-      setUsers(compactPresenceState(channel.presenceState() as Record<string, PresenceUser[]>));
-    });
-
-    channel.subscribe((status) => {
-      if (status === "SUBSCRIBED") {
-        void channel.track({
-          ...currentUser,
-          pathname,
-          screenKey: currentLocation.screenKey,
-          siteId: currentLocation.siteId,
-          siteName: currentLocation.siteName,
-          locationLabel: currentLocation.label,
-          lastSeenAt: new Date().toISOString()
-        });
-      }
-    });
-
-    const heartbeat = setInterval(() => {
-      void channel.track({
+    function trackCurrentPresence() {
+      return channel.track({
         ...currentUser,
         pathname,
         screenKey: currentLocation.screenKey,
@@ -255,15 +245,50 @@ export function IncidentPresenceProvider({
         locationLabel: currentLocation.label,
         lastSeenAt: new Date().toISOString()
       });
-    }, 25000);
+    }
+
+    function cleanupPresence() {
+      void channel.untrack();
+    }
+
+    channel.on("presence", { event: "sync" }, () => {
+      setUsers(compactPresenceState(channel.presenceState() as Record<string, PresenceUser[]>));
+    });
+
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        void trackCurrentPresence();
+      }
+    });
+
+    const heartbeat = setInterval(() => {
+      void trackCurrentPresence();
+    }, HEARTBEAT_MS);
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        cleanupPresence();
+      }
+    });
+
+    window.addEventListener("pagehide", cleanupPresence);
+    window.addEventListener("beforeunload", cleanupPresence);
 
     return () => {
       clearInterval(heartbeat);
-      void channel.untrack();
+      window.removeEventListener("pagehide", cleanupPresence);
+      window.removeEventListener("beforeunload", cleanupPresence);
+      authListener.subscription.unsubscribe();
+      cleanupPresence();
       void supabase.removeChannel(channel);
       channelRef.current = null;
     };
   }, [currentLocation.label, currentLocation.screenKey, currentLocation.siteId, currentLocation.siteName, currentUser, incidentId, pathname, user.id]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const channel = channelRef.current;
@@ -282,12 +307,13 @@ export function IncidentPresenceProvider({
     });
   }, [currentLocation, currentUser, pathname]);
 
-  const currentScreenUsers = users.filter(
+  const activeUsers = activePresenceUsers(users, now);
+  const currentScreenUsers = activeUsers.filter(
     (presence) => presence.screenKey === currentLocation.screenKey && presence.siteId === currentLocation.siteId
   );
 
   return (
-    <PresenceContext.Provider value={{ users, currentScreenUsers, currentLocation }}>
+    <PresenceContext.Provider value={{ users: activeUsers, currentScreenUsers, currentLocation }}>
       {children}
     </PresenceContext.Provider>
   );
