@@ -741,6 +741,8 @@ export default async function IncidentDashboardPage({
       ) : null}
 
       <DashboardSiteScope
+        incidentId={summary.incident_id}
+        canCreateSitrep={Boolean(canManageIncidents)}
         kpiItems={kpiItems}
         sites={siteAnalysisRows}
         operationalNumbers={dashboardScopeOperationalNumbers}

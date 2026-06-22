@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CreateSitrepButton } from "./sitreps/create-sitrep-button";
 import { DashboardSiteAnalysis, type SiteAnalysisRow } from "./dashboard-site-analysis";
 import { KpiDrilldown, type KpiDrilldownItem } from "./kpi-drilldown";
 import { OperationalStatusOverview, type OperationalStatusSiteBreakdown, type OperationalStatusTile } from "./operational-status-overview";
@@ -130,11 +131,15 @@ function scopedKpis(allKpis: KpiDrilldownItem[], selectedSite: SiteAnalysisRow |
 }
 
 export function DashboardSiteScope({
+  incidentId,
+  canCreateSitrep,
   kpiItems,
   sites,
   operationalNumbers,
   personnelTeams
 }: {
+  incidentId: string;
+  canCreateSitrep: boolean;
   kpiItems: KpiDrilldownItem[];
   sites: SiteAnalysisRow[];
   operationalNumbers: DashboardScopeOperationalNumber[];
@@ -175,6 +180,9 @@ export function DashboardSiteScope({
             </button>
           ))}
         </div>
+        {canCreateSitrep ? (
+          <CreateSitrepButton incidentId={incidentId} className="button dashboard-sitrep-action" />
+        ) : null}
       </section>
 
       <KpiDrilldown items={visibleKpis} />
