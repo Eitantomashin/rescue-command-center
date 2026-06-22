@@ -46,6 +46,7 @@ export default async function IncidentsPage({
   const supabase = createClient();
   const { data: systemRole } = await supabase.rpc("current_user_role");
   const isAdmin = systemRole === "admin";
+  const canManageIncidents = isAdmin || systemRole === "commander";
   const archiveView = isAdmin && searchParams?.view === "archived";
 
   let query = supabase
@@ -76,9 +77,11 @@ export default async function IncidentsPage({
               </Link>
             </div>
           ) : null}
-          <Link className="button" href="/incidents/new">
-            {text.newIncident}
-          </Link>
+          {canManageIncidents ? (
+            <Link className="button" href="/incidents/new">
+              {text.newIncident}
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -92,7 +95,7 @@ export default async function IncidentsPage({
         {incidents.length === 0 ? (
           <div className="empty-state">
             <h2>{text.noIncidents}</h2>
-            {!archiveView ? <Link className="button" href="/incidents/new">{text.newIncident}</Link> : null}
+            {!archiveView && canManageIncidents ? <Link className="button" href="/incidents/new">{text.newIncident}</Link> : null}
           </div>
         ) : (
           <table className="table">

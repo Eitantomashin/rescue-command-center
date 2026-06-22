@@ -193,7 +193,8 @@ export default async function OperationalNumbersPage({
   const [
     { data: siteSummary, error: siteError },
     { data: numberRows, error: numbersError },
-    { data: statusRows, error: statusesError }
+    { data: statusRows, error: statusesError },
+    { data: canEditOperational }
   ] = await Promise.all([
     supabase
       .from("site_dashboard_summary")
@@ -217,7 +218,8 @@ export default async function OperationalNumbersPage({
       .eq("category", "person")
       .eq("is_active", true)
       .or(`incident_id.is.null,incident_id.eq.${params.incidentId}`)
-      .order("sort_order", { ascending: true })
+      .order("sort_order", { ascending: true }),
+    supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId })
   ]);
 
   if (siteError || !siteSummary) {
@@ -248,7 +250,7 @@ export default async function OperationalNumbersPage({
   const defaultStatusId = personStatuses.find((status) => status.status_key === "missing")?.id ?? "";
 
   return (
-    <main className="page operational-page">
+    <main className={`page operational-page${canEditOperational ? "" : " permission-readonly"}`}>
       <div className="header">
         <div>
           <h1>מספרים מבצעיים</h1>

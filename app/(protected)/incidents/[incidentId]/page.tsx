@@ -364,7 +364,9 @@ export default async function IncidentDashboardPage({
     { data: residentRows },
     { data: statusRows },
     { data: personnelRows },
-    { data: personnelAttendanceRows }
+    { data: personnelAttendanceRows },
+    { data: canManageIncidents },
+    { data: canManageSites }
   ] = await Promise.all([
     supabase
       .from("site_dashboard_summary")
@@ -428,7 +430,9 @@ export default async function IncidentDashboardPage({
     supabase
       .from("event_personnel_status")
       .select("personnel_id,attendance_status,updated_at")
-      .eq("incident_id", params.incidentId)
+      .eq("incident_id", params.incidentId),
+    supabase.rpc("can_manage_incidents"),
+    supabase.rpc("can_manage_sites", { p_incident_id: params.incidentId })
   ]);
 
   const sites = (siteRows ?? []) as SiteSummaryRow[];
@@ -709,9 +713,11 @@ export default async function IncidentDashboardPage({
           <Link className="button secondary" href="/incidents">
             חזרה לאירועים
           </Link>
+          {canManageIncidents ? (
           <Link className="button secondary" href="/incidents/new">
             פתיחת אירוע חדש
           </Link>
+          ) : null}
           <Link className="button secondary" href={`/incidents/${summary.incident_id}/sites`}>
             אתרים
           </Link>
@@ -722,7 +728,7 @@ export default async function IncidentDashboardPage({
         <ConnectedUsersWidget />
       </div>
 
-      {searchParams?.created === "1" ? (
+      {searchParams?.created === "1" && canManageSites ? (
         <section className="panel success-panel">
           <div>
             <h2>האירוע נפתח בהצלחה</h2>

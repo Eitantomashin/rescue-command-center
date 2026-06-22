@@ -105,7 +105,13 @@ export default async function SiteGridMapPage({
 
   const site = siteData as SiteRow;
   const imageUrl = await imageUrlFromReference(site.image_data_url, supabase);
-  const [{ data: operationalRows }, { data: mapObjectRows }, { data: teamRows }] = await Promise.all([
+  const [
+    { data: operationalRows },
+    { data: mapObjectRows },
+    { data: teamRows },
+    { data: canEditOperational },
+    { data: canManageSites }
+  ] = await Promise.all([
     supabase
       .from("operational_numbers_dashboard")
       .select(
@@ -127,7 +133,9 @@ export default async function SiteGridMapPage({
       .select("team_number,name")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true)
-      .order("team_number", { ascending: true })
+      .order("team_number", { ascending: true }),
+    supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId }),
+    supabase.rpc("can_manage_sites", { p_incident_id: params.incidentId })
   ]);
 
   const markers: GridMarker[] = ((operationalRows ?? []) as OperationalNumberRow[]).map((row) => ({
@@ -186,14 +194,14 @@ export default async function SiteGridMapPage({
             {site.image_name ? `תמונה פעילה: ${site.image_name}` : "העלה תמונת רחפן, אוויר או סקירת אתר."}
           </p>
         </div>
-        <form action={uploadSiteGridImage} className="site-grid-upload-form">
+        {canManageSites ? <form action={uploadSiteGridImage} className="site-grid-upload-form">
           <input type="hidden" name="incidentId" value={params.incidentId} />
           <input type="hidden" name="siteId" value={params.siteId} />
           <input className="input" type="file" name="siteImage" accept="image/png,image/jpeg,image/webp" required />
           <button className="button" type="submit">
             העלה תמונה
           </button>
-        </form>
+        </form> : null}
       </section>
 
       <SiteGridMap
@@ -204,6 +212,7 @@ export default async function SiteGridMapPage({
         markers={markers}
         mapObjects={mapObjects}
         teams={teams}
+        canEdit={Boolean(canEditOperational)}
       />
     </main>
   );

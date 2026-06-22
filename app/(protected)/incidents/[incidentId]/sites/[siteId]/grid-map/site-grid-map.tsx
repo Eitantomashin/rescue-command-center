@@ -354,7 +354,8 @@ export function SiteGridMap({
   imageUrl,
   markers,
   mapObjects,
-  teams
+  teams,
+  canEdit
 }: {
   incidentId: string;
   siteId: string;
@@ -363,6 +364,7 @@ export function SiteGridMap({
   markers: GridMarker[];
   mapObjects: MapObject[];
   teams: MapTeam[];
+  canEdit: boolean;
 }) {
   const [filter, setFilter] = useState("all");
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
@@ -430,6 +432,10 @@ export function SiteGridMap({
   }
 
   function openExistingObject(object: MapObject) {
+    if (!canEdit) {
+      return;
+    }
+
     if (editingObject?.id === object.id && !draftObject) {
       setEditingObject(null);
       return;
@@ -476,9 +482,11 @@ export function SiteGridMap({
         <button className="button secondary" type="button" onClick={() => setLayers((value) => ({ ...value, grid: !value.grid }))}>
           {layers.grid ? "הסתר גריד" : "הצג גריד"}
         </button>
+        {canEdit ? (
         <button className={`button ${sectorMode ? "" : "secondary"}`} type="button" onClick={() => setSectorMode((value) => !value)}>
           ניהול גזרות
         </button>
+        ) : null}
         <button className="button secondary" type="button" onClick={() => window.print()}>
           הדפס מפת גזרות
         </button>

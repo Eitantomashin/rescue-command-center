@@ -1,0 +1,9 @@
+@echo off
+
+cd /d "C:\Projects\Rescue Command Center"
+
+start "YANSHUF DEV" powershell -NoExit -Command "npm run dev -- -H 0.0.0.0"
+
+timeout /t 5 >nul
+
+start "NGROK" powershell -NoExit -Command "C:\Tools\ngrok\ngrok.exe http 3000"

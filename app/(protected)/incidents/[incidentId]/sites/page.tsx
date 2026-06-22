@@ -29,17 +29,11 @@ export default async function SitesPage({
 }) {
   const supabase = createClient();
 
-  const { data: incident } = await supabase
-    .from("incidents")
-    .select("id,name")
-    .eq("id", params.incidentId)
-    .maybeSingle();
-
-  const { data, error } = await supabase
-    .from("site_dashboard_summary")
-    .select("*")
-    .eq("incident_id", params.incidentId)
-    .order("site_number", { ascending: true });
+  const [{ data: incident }, { data, error }, { data: canManageSites }] = await Promise.all([
+    supabase.from("incidents").select("id,name").eq("id", params.incidentId).maybeSingle(),
+    supabase.from("site_dashboard_summary").select("*").eq("incident_id", params.incidentId).order("site_number", { ascending: true }),
+    supabase.rpc("can_manage_sites", { p_incident_id: params.incidentId })
+  ]);
 
   const sites = (data ?? []) as SiteRow[];
 
@@ -52,9 +46,11 @@ export default async function SitesPage({
         </div>
 
         <div className="actions">
+          {canManageSites ? (
           <Link className="button" href={`/incidents/${params.incidentId}/sites/new`}>
             הקמת אתר חדש
           </Link>
+          ) : null}
           <Link className="button secondary" href={`/incidents/${params.incidentId}`}>
             חזרה לדשבורד
           </Link>

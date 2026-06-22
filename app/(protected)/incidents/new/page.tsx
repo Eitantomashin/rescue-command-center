@@ -1,7 +1,16 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { IncidentCreationWizard } from "./incident-creation-wizard";
 
-export default function NewIncidentPage() {
+export default async function NewIncidentPage() {
+  const supabase = createClient();
+  const { data: canManage } = await supabase.rpc("can_manage_incidents");
+
+  if (!canManage) {
+    notFound();
+  }
+
   return (
     <main className="page wizard-page">
       <div className="header">

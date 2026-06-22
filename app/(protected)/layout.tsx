@@ -67,7 +67,7 @@ export default async function ProtectedLayout({
         </form>
       </header>
 
-      <CommandActionPanel />
+      <CommandActionPanel systemRole={typeof systemRole === "string" ? systemRole : null} />
       {children}
     </>
   );

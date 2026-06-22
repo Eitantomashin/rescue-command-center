@@ -68,7 +68,7 @@ export default async function IncidentPersonnelPage({
   params: { incidentId: string };
 }) {
   const supabase = createClient();
-  const [{ data: incident }, { data: personnelRows, error }, { data: statusRows }] = await Promise.all([
+  const [{ data: incident }, { data: personnelRows, error }, { data: statusRows }, { data: canEditPersonnel }] = await Promise.all([
     supabase.from("incidents").select("id,name").eq("id", params.incidentId).maybeSingle(),
     supabase
       .from("unit_personnel")
@@ -78,7 +78,8 @@ export default async function IncidentPersonnelPage({
     supabase
       .from("event_personnel_status")
       .select("personnel_id,attendance_status,updated_at")
-      .eq("incident_id", params.incidentId)
+      .eq("incident_id", params.incidentId),
+    supabase.rpc("can_edit_personnel", { p_incident_id: params.incidentId })
   ]);
 
   const statusesByPerson = new Map(
@@ -101,7 +102,7 @@ export default async function IncidentPersonnelPage({
     });
 
   return (
-    <main className="page personnel-page">
+    <main className={`page personnel-page${canEditPersonnel ? "" : " permission-readonly"}`}>
       <div className="header">
         <div>
           <p className="eyebrow">כח אדם באירוע</p>

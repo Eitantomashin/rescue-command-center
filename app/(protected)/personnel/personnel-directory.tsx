@@ -75,10 +75,12 @@ function personnelMatches(row: PersonnelDirectoryRow, query: string, department:
 
 export function PersonnelDirectory({
   personnel,
-  updateAction
+  updateAction,
+  canEdit
 }: {
   personnel: PersonnelDirectoryRow[];
   updateAction: FormAction;
+  canEdit: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState("");
@@ -102,12 +104,19 @@ export function PersonnelDirectory({
       <div className="personnel-roster-list">
         {rows.map((person) => (
           <div className="personnel-roster-entry" key={person.id}>
-            <PersonnelEditForm action={updateAction} person={person} />
+            {canEdit ? (
+              <PersonnelEditForm action={updateAction} person={person} />
+            ) : (
+              <div className="personnel-readonly-row">
+                <strong>{person.first_name} {person.last_name}</strong>
+                <span>{person.mobile_phone ?? "-"}</span>
+              </div>
+            )}
             <div className="personnel-roster-meta">
               <span className="muted">
                 {personnelDepartmentLabel(person.department, person.department_other)} · {personnelRoleLabel(person.role, person.role_other)}
               </span>
-              <PersonnelActivityForm action={updateAction} person={person} />
+              {canEdit ? <PersonnelActivityForm action={updateAction} person={person} /> : null}
             </div>
           </div>
         ))}

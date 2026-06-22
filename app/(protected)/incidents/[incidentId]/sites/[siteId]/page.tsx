@@ -350,7 +350,8 @@ export default async function SiteDetailsPage({
   const [
     { data: floorRows, error: floorsError },
     { data: unitRows, error: unitsError },
-    { data: allStatusRows, error: statusesError }
+    { data: allStatusRows, error: statusesError },
+    { data: canEditOperational }
   ] = await Promise.all([
     supabase
       .from("floors")
@@ -372,7 +373,8 @@ export default async function SiteDetailsPage({
       .in("category", ["unit", "resident", "person"])
       .eq("is_active", true)
       .or(`incident_id.is.null,incident_id.eq.${params.incidentId}`)
-      .order("sort_order", { ascending: true })
+      .order("sort_order", { ascending: true }),
+    supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId })
   ]);
 
   const floors = (floorRows ?? []) as FloorRow[];
@@ -458,7 +460,7 @@ export default async function SiteDetailsPage({
   const activeGeneralResidents = generalResidents.filter((resident) => resident.is_active);
 
   return (
-    <main className="page">
+    <main className={`page site-detail-page${canEditOperational ? "" : " permission-readonly"}`}>
       <div className="header">
         <div>
           <h1>תמונת מבנה - אתר {site.site_number}</h1>

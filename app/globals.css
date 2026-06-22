@@ -1824,6 +1824,23 @@ textarea {
   gap: 8px;
 }
 
+.admin-create-user-panel {
+  margin-bottom: 18px;
+}
+
+.admin-create-user-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .admin-create-user-form {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-role-form .input {
   min-width: 150px;
 }
@@ -1854,6 +1871,28 @@ textarea {
   border-color: var(--border);
   background: #f8fafc;
   color: var(--muted);
+}
+
+.operational-page.permission-readonly .operational-toolbar-actions,
+.operational-page.permission-readonly .detail-actions-stack,
+.site-detail-page.permission-readonly .resident-edit,
+.site-detail-page.permission-readonly .resident-row-actions,
+.site-detail-page.permission-readonly .unit-actions,
+.personnel-page.permission-readonly .inline-status-form {
+  display: none;
+}
+
+.operational-log-page.permission-readonly .general-note-panel,
+.operational-log-page.permission-readonly .note-status-form {
+  display: none;
+}
+
+.personnel-readonly-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
 }
 
 @media (max-width: 900px) {

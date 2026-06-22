@@ -26,12 +26,15 @@ export default async function PersonnelPage({
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("unit_personnel")
-    .select("id,first_name,last_name,role,role_other,department,department_other,mobile_phone,is_active")
-    .order("is_active", { ascending: false })
-    .order("department", { ascending: true })
-    .order("last_name", { ascending: true });
+  const [{ data, error }, { data: canManagePersonnel }] = await Promise.all([
+    supabase
+      .from("unit_personnel")
+      .select("id,first_name,last_name,role,role_other,department,department_other,mobile_phone,is_active")
+      .order("is_active", { ascending: false })
+      .order("department", { ascending: true })
+      .order("last_name", { ascending: true }),
+    supabase.rpc("can_manage_unit_personnel")
+  ]);
 
   const personnel = (data ?? []) as PersonnelRow[];
 
@@ -76,11 +79,14 @@ export default async function PersonnelPage({
         </section>
       ) : null}
 
+      {canManagePersonnel ? (
       <section className="panel">
         <h2>הוספת איש צוות</h2>
         <PersonnelCreateForm action={createUnitPersonnel} />
       </section>
+      ) : null}
 
+      {canManagePersonnel ? (
       <section className="panel">
         <div className="section-title-row">
           <div>
@@ -90,8 +96,9 @@ export default async function PersonnelPage({
         </div>
         <PersonnelImportForm action={importUnitPersonnel} />
       </section>
+      ) : null}
 
-      <PersonnelDirectory personnel={personnel} updateAction={updateUnitPersonnel} />
+      <PersonnelDirectory personnel={personnel} updateAction={updateUnitPersonnel} canEdit={Boolean(canManagePersonnel)} />
     </main>
   );
 }

@@ -9,13 +9,16 @@ export default async function NewSitePage({
   params: { incidentId: string };
 }) {
   const supabase = createClient();
-  const { data: incident, error } = await supabase
-    .from("incidents")
-    .select("id,name")
-    .eq("id", params.incidentId)
-    .maybeSingle();
+  const [{ data: incident, error }, { data: canManageSites }] = await Promise.all([
+    supabase
+      .from("incidents")
+      .select("id,name")
+      .eq("id", params.incidentId)
+      .maybeSingle(),
+    supabase.rpc("can_manage_sites", { p_incident_id: params.incidentId })
+  ]);
 
-  if (error || !incident) {
+  if (error || !incident || !canManageSites) {
     notFound();
   }
 

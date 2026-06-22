@@ -577,6 +577,10 @@ export async function OperationalLogView({
     notFound();
   }
 
+  const { data: canEditOperational } = await supabase.rpc("can_edit_operational_data", {
+    p_incident_id: incidentId
+  });
+
   const { data: siteRows } = await supabase
     .from("sites")
     .select("id,site_number,name,city,street,house_number")
@@ -766,7 +770,7 @@ export async function OperationalLogView({
   const timelineGroups = groupedByDate(filteredLogs);
 
   return (
-    <main className="page operational-log-page">
+    <main className={`page operational-log-page${canEditOperational ? "" : " permission-readonly"}`}>
       <div className="header">
         <div>
           <h1>{pageTitle}</h1>
