@@ -1845,6 +1845,81 @@ textarea {
   min-width: 150px;
 }
 
+.admin-incident-assignment {
+  margin-top: 8px;
+}
+
+.admin-incident-assignment > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.admin-incident-assignment > summary::-webkit-details-marker {
+  display: none;
+}
+
+.assignment-count-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 10px;
+  padding: 4px 9px;
+  border: 1px solid rgba(22, 50, 79, 0.2);
+  border-radius: 999px;
+  background: #f5f7fa;
+  color: #16324f;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.admin-assignment-form {
+  display: grid;
+  gap: 12px;
+  width: min(390px, 82vw);
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(22, 50, 79, 0.16);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(22, 50, 79, 0.12);
+}
+
+.admin-assignment-list {
+  display: grid;
+  gap: 7px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.admin-assignment-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px;
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 6px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.admin-assignment-row:hover {
+  border-color: #f58220;
+  background: #fff8f2;
+}
+
+.admin-assignment-row input {
+  margin-top: 3px;
+  accent-color: #f58220;
+}
+
+.admin-assignment-row > span {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-assignment-row small {
+  color: #59697a;
+}
+
 .role-badge {
   font-weight: 900;
 }

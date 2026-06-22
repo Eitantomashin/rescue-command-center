@@ -130,3 +130,28 @@ export async function createAdminUser(formData: FormData) {
   revalidatePath("/admin/users");
   redirect("/admin/users?userCreate=success");
 }
+
+export async function updateUserIncidentAssignments(formData: FormData) {
+  const userId = String(formData.get("userId") ?? "");
+  const incidentIds = formData
+    .getAll("incidentIds")
+    .map((value) => String(value))
+    .filter(Boolean);
+
+  if (!userId) {
+    throw new Error("Missing user id");
+  }
+
+  const supabase = await assertServerAdmin();
+  const { error } = await supabase.rpc("set_user_incident_assignments", {
+    p_user_id: userId,
+    p_incident_ids: incidentIds
+  });
+
+  if (error) {
+    redirect(`/admin/users?assignment=error&message=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin/users");
+  redirect("/admin/users?assignment=success");
+}
