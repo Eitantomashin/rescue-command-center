@@ -47,7 +47,8 @@ export default async function IncidentsPage({
   const { data: systemRole } = await supabase.rpc("current_user_role");
   const isAdmin = systemRole === "admin";
   const canManageIncidents = isAdmin || systemRole === "commander";
-  const archiveView = isAdmin && searchParams?.view === "archived";
+  const canViewAssignedArchive = isAdmin || systemRole === "commander";
+  const archiveView = canViewAssignedArchive && searchParams?.view === "archived";
 
   let query = supabase
     .from("incidents")
@@ -67,7 +68,7 @@ export default async function IncidentsPage({
           <p className="muted">{text.subtitle}</p>
         </div>
         <div className="actions">
-          {isAdmin ? (
+          {canViewAssignedArchive ? (
             <div className="admin-archive-tabs">
               <Link className={archiveView ? "button secondary" : "button"} href="/incidents">
                 {text.activeIncidents}
