@@ -118,6 +118,11 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
     return items;
   }
 
+  if (pathname === `${base}/investigation-assistant`) {
+    items.push({ label: "עוזר תחקור", href: pathname });
+    return items;
+  }
+
   if (pathname === `${base}/sites/new`) {
     items.push({ label: "הקמת אתר", href: pathname });
     return items;
@@ -195,6 +200,10 @@ export function IncidentCommandShell({
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/timeline`)}`} href={`${base}/timeline`}>
             <span className="nav-icon" aria-hidden="true">ז</span>
             ציר זמן מבצעי
+          </Link>
+          <Link className={`incident-nav-item${activeClass(pathname, `${base}/investigation-assistant`)}`} href={`${base}/investigation-assistant`}>
+            <span className="nav-icon" aria-hidden="true">ת</span>
+            עוזר תחקור
           </Link>
 
           <div className="incident-site-tree">
