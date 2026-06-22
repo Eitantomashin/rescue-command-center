@@ -319,6 +319,44 @@ function operationalNumberLabel(log: EventLogRow, persons: Map<string, PersonRow
   return number ? `#${number}` : null;
 }
 
+function eventOperationalNumbers(log: EventLogRow, persons: Map<string, PersonRow>) {
+  const numbers = new Set<number>();
+  const person = log.person_id ? persons.get(log.person_id) : null;
+  const metadataKeys = [
+    "operational_number",
+    "primary_operational_number",
+    "merged_operational_number",
+    "source_operational_number",
+    "target_operational_number"
+  ];
+
+  if (person?.operational_number) {
+    numbers.add(person.operational_number);
+  }
+
+  metadataKeys.forEach((key) => {
+    const value = log.metadata?.[key];
+    const parsed = typeof value === "number" ? value : typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value) : null;
+    if (parsed !== null && Number.isFinite(parsed)) {
+      numbers.add(parsed);
+    }
+  });
+
+  const explicitText = [log.title, log.description].filter(Boolean).join(" ");
+  const explicitPatterns = [
+    /#\s*(\d+)/g,
+    /מספר\s+מבצעי\s*[:=]?\s*#?\s*(\d+)/g,
+    /operational\s+number\s*[:=]?\s*#?\s*(\d+)/gi
+  ];
+  explicitPatterns.forEach((pattern) => {
+    for (const match of explicitText.matchAll(pattern)) {
+      numbers.add(Number(match[1]));
+    }
+  });
+
+  return numbers;
+}
+
 function residentName(log: EventLogRow, linkedResidents: Map<string, ResidentRow>, persons: Map<string, PersonRow>) {
   const metadataResident = metadataText(log.metadata, "resident_name");
 
@@ -566,6 +604,10 @@ export async function OperationalLogView({
   const noteStatus = searchParams.noteStatus ?? "all";
   const siteId = fixedSiteId ?? searchParams.siteId ?? "all";
   const search = (searchParams.q ?? "").trim().toLowerCase();
+  const numericSearch = /^\d+$/.test(search) ? Number(search) : null;
+  const clearFiltersHref = fixedSiteId
+    ? `/incidents/${incidentId}/sites/${fixedSiteId}/operational-log`
+    : `/incidents/${incidentId}/operational-log`;
 
   const { data: incident, error: incidentError } = await supabase
     .from("incidents")
@@ -759,12 +801,18 @@ export async function OperationalLogView({
     }
 
     if (search) {
+      if (numericSearch !== null) {
+        return eventOperationalNumbers(log, personMap).has(numericSearch);
+      }
+
       return eventSearchText(log, siteMap, floorMap, unitMap, personMap, linkedResidentMap).includes(search);
     }
 
     return true;
   });
-  const selectedLog = filteredLogs.find((log) => log.id === searchParams.eventId) ?? filteredLogs[0] ?? null;
+  const selectedLog = searchParams.eventId
+    ? filteredLogs.find((log) => log.id === searchParams.eventId) ?? null
+    : null;
   const canLoadMore = (totalMatchingCount ?? 0) > limit;
   const defaultReceivedAt = datetimeLocalValue();
   const timelineGroups = groupedByDate(filteredLogs);
@@ -938,7 +986,10 @@ export async function OperationalLogView({
           </Link>
         </div>
 
-      <form className="operational-log-filters">
+      <form
+        className="operational-log-filters"
+        key={[searchParams.q ?? "", eventType, siteId, importance, noteStatus, searchParams.eventId ?? ""].join("|")}
+      >
         <label className="field">
           <span>חיפוש</span>
           <input className="input" name="q" defaultValue={searchParams.q ?? ""} placeholder="כותרת, תיאור, מספר מבצעי או שם" />
@@ -990,7 +1041,7 @@ export async function OperationalLogView({
         <button className="button" type="submit">
           סנן
         </button>
-        <Link className="button secondary" href={queryWith({}, {})}>
+        <Link className="button secondary" href={clearFiltersHref}>
           נקה סינון
         </Link>
       </form>
