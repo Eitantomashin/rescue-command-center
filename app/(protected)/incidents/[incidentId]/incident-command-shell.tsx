@@ -113,6 +113,11 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
     return items;
   }
 
+  if (pathname === `${base}/timeline`) {
+    items.push({ label: "ציר זמן מבצעי", href: pathname });
+    return items;
+  }
+
   if (pathname === `${base}/sites/new`) {
     items.push({ label: "הקמת אתר", href: pathname });
     return items;
@@ -186,6 +191,10 @@ export function IncidentCommandShell({
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/sitreps`, false)}`} href={`${base}/sitreps`}>
             <span className="nav-icon" aria-hidden="true">ח</span>
             חיתוכי מצב
+          </Link>
+          <Link className={`incident-nav-item${activeClass(pathname, `${base}/timeline`)}`} href={`${base}/timeline`}>
+            <span className="nav-icon" aria-hidden="true">ז</span>
+            ציר זמן מבצעי
           </Link>
 
           <div className="incident-site-tree">

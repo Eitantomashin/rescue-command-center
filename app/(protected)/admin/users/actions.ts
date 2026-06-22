@@ -31,6 +31,7 @@ export async function updateUserRole(formData: FormData) {
   }
 
   const supabase = await assertServerAdmin();
+  const { data: existingProfile } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
   const { error } = await supabase.rpc("update_profile_role", {
     p_user_id: userId,
     p_role: role
@@ -39,6 +40,17 @@ export async function updateUserRole(formData: FormData) {
   if (error) {
     throw new Error(error.message);
   }
+
+  await supabase.rpc("create_system_audit_event", {
+    p_log_type: "user_role_changed",
+    p_title: "שינוי תפקיד משתמש",
+    p_description: `תפקיד המשתמש עודכן ל-${role}`,
+    p_entity_type: "user",
+    p_entity_id: userId,
+    p_before_state: { role: existingProfile?.role ?? null },
+    p_after_state: { role },
+    p_metadata: { target_user_id: userId }
+  });
 
   revalidatePath("/admin/users");
 }
@@ -60,7 +72,7 @@ export async function resetUserPassword(formData: FormData) {
     redirect("/admin/users?passwordReset=mismatch");
   }
 
-  await assertServerAdmin();
+  const supabase = await assertServerAdmin();
 
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.updateUserById(userId, {
@@ -70,6 +82,17 @@ export async function resetUserPassword(formData: FormData) {
   if (error) {
     redirect(`/admin/users?passwordReset=error&message=${encodeURIComponent(error.message)}`);
   }
+
+  await supabase.rpc("create_system_audit_event", {
+    p_log_type: "user_password_reset",
+    p_title: "איפוס סיסמת משתמש",
+    p_description: "סיסמת משתמש אופסה על ידי מנהל מערכת",
+    p_entity_type: "user",
+    p_entity_id: userId,
+    p_before_state: null,
+    p_after_state: null,
+    p_metadata: { target_user_id: userId }
+  });
 
   revalidatePath("/admin/users");
   redirect("/admin/users?passwordReset=success");
@@ -126,6 +149,17 @@ export async function createAdminUser(formData: FormData) {
   if (profileError) {
     redirect(`/admin/users?userCreate=profile-error&message=${encodeURIComponent(profileError.message)}`);
   }
+
+  await supabase.rpc("create_system_audit_event", {
+    p_log_type: "user_created",
+    p_title: "יצירת משתמש",
+    p_description: `נוצר משתמש ${displayName}`,
+    p_entity_type: "user",
+    p_entity_id: data.user.id,
+    p_before_state: null,
+    p_after_state: { display_name: displayName, email, role },
+    p_metadata: { target_user_id: data.user.id, email }
+  });
 
   revalidatePath("/admin/users");
   redirect("/admin/users?userCreate=success");

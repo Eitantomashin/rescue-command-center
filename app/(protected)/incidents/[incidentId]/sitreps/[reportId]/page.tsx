@@ -37,6 +37,10 @@ export default async function SituationReportDetailPage({
   const canCompleteMeeting = role === "admin" || role === "commander";
   const delta = buildSitrepDelta(report.snapshot, previous?.snapshot);
   const completionAction = completeSituationReportMeeting.bind(null, params.incidentId, params.reportId);
+  const timelineParams = new URLSearchParams({
+    from: previous?.created_at ?? report.snapshot.incident.opened_at,
+    to: report.created_at
+  });
 
   return (
     <main className="page sitrep-detail-page">
@@ -49,6 +53,7 @@ export default async function SituationReportDetailPage({
         </div>
         <div className="actions">
           <Link className="button secondary" href={`/incidents/${params.incidentId}/sitreps`}>לכל הדוחות</Link>
+          <Link className="button secondary" href={`/incidents/${params.incidentId}/timeline?${timelineParams.toString()}`}>הצג פעילות מאז חיתוך מצב קודם</Link>
           <SitrepPrintActions />
         </div>
       </div>
