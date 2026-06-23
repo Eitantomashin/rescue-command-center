@@ -515,6 +515,10 @@ textarea {
   align-items: stretch;
 }
 
+.commander-dashboard-content > .operational-status-strip {
+  display: none !important;
+}
+
 .operational-status-strip .status-strip-item {
   position: relative;
   overflow: hidden;
@@ -1387,25 +1391,27 @@ textarea {
 
 .team-activity-chart {
   display: grid;
-  gap: 12px;
-  border: 1px solid rgba(22, 50, 79, 0.12);
+  gap: 18px;
+  border: 1px solid rgba(22, 50, 79, 0.18);
   border-radius: 8px;
-  background: #fbfcfe;
-  padding: 14px;
+  background:
+    repeating-linear-gradient(to top, rgba(22, 50, 79, 0.08) 0 1px, transparent 1px 44px),
+    #fbfcfe;
+  padding: 18px;
 }
 
 .team-stacked-chart {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: 18px;
   align-items: end;
-  min-height: 230px;
+  min-height: 260px;
 }
 
 .team-chart-column {
   display: grid;
-  grid-template-rows: 180px auto;
-  gap: 8px;
+  grid-template-rows: 210px auto;
+  gap: 10px;
   align-items: end;
   justify-items: center;
 }
@@ -1413,11 +1419,11 @@ textarea {
 .team-chart-stack {
   display: flex;
   flex-direction: column-reverse;
-  width: min(54px, 100%);
+  width: min(64px, 100%);
   min-height: 18px;
   overflow: hidden;
   border: 1px solid rgba(22, 50, 79, 0.16);
-  border-radius: 8px 8px 4px 4px;
+  border-radius: 14px 14px 6px 6px;
   background: #eef4f9;
   padding: 0;
   cursor: pointer;
@@ -1427,9 +1433,9 @@ textarea {
 .team-chart-segment {
   display: grid;
   place-items: center;
-  min-height: 22px;
+  min-height: 26px;
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 950;
 }
 
@@ -1456,7 +1462,7 @@ textarea {
 
 .team-chart-label {
   color: var(--brand-primary);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 900;
   text-align: center;
 }
@@ -1588,6 +1594,244 @@ textarea {
 
 .dashboard-sitrep-action {
   white-space: nowrap;
+}
+
+.command-kpi-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0 28px;
+}
+
+.command-kpi-card {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  border: 1px solid rgba(22, 50, 79, 0.2);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f8fc 100%);
+  box-shadow: var(--shadow-md);
+  padding: 20px;
+}
+
+.command-kpi-card span {
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.command-kpi-card strong {
+  color: var(--brand-primary);
+  font-size: 34px;
+  font-weight: 950;
+  line-height: 1.05;
+}
+
+.command-kpi-card small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.command-kpi-card.tone-warning {
+  border-color: var(--warning);
+  background: #fff9e8;
+}
+
+.command-kpi-card.tone-danger {
+  border-color: var(--danger);
+  background: #fff2f2;
+}
+
+.command-kpi-card.tone-danger strong {
+  color: var(--danger);
+}
+
+.site-command-summary-list {
+  display: grid;
+  gap: 18px;
+}
+
+.site-command-summary-card {
+  border: 1px solid rgba(22, 50, 79, 0.16);
+  border-right: 7px solid var(--brand-primary);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-md);
+  padding: 20px;
+}
+
+.site-command-summary-card.coverage-high {
+  border-right-color: var(--danger);
+}
+
+.site-command-summary-card.coverage-medium {
+  border-right-color: var(--warning);
+}
+
+.site-command-summary-card.coverage-low {
+  border-right-color: var(--success);
+}
+
+.site-command-summary-top,
+.site-command-facts {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.site-command-summary-top h3 {
+  margin: 0 0 4px;
+  color: var(--brand-primary);
+  font-size: 26px;
+  font-weight: 950;
+}
+
+.site-command-summary-top p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.site-command-facts {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f7fafc;
+}
+
+.site-command-facts div {
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.site-command-facts span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.site-command-facts strong {
+  color: var(--brand-primary);
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.site-anchor-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.site-anchor-status-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(22, 50, 79, 0.16);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+  color: inherit;
+  text-align: right;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.site-anchor-status-card:hover,
+.site-anchor-status-card.active {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.site-anchor-status-card.tone-blue {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.site-anchor-status-card.tone-orange {
+  border-color: var(--warning);
+  background: #fff8df;
+}
+
+.site-anchor-status-card.tone-green {
+  border-color: var(--success);
+  background: #edf7ee;
+}
+
+.site-anchor-status-card.tone-red {
+  border-color: var(--danger);
+  background: #fdecec;
+}
+
+.site-anchor-status-card.tone-neutral {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.site-anchor-status-card span:first-child {
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.site-anchor-status-card strong {
+  color: var(--brand-primary);
+  font-size: 32px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.site-status-detail-panel {
+  margin-top: 16px;
+  border: 1px solid rgba(22, 50, 79, 0.14);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 16px;
+}
+
+.site-status-delta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.site-status-delta.up {
+  color: var(--danger);
+  background: #fdecec;
+}
+
+.site-status-delta.down {
+  color: var(--success);
+  background: #edf7ee;
+}
+
+.site-status-delta.neutral {
+  color: var(--muted);
+  background: #eef2f6;
+}
+
+@media (max-width: 900px) {
+  .command-kpi-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-command-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .command-kpi-bar,
+  .site-command-facts {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sitreps-page,

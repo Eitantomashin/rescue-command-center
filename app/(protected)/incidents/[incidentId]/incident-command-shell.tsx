@@ -157,6 +157,7 @@ export function IncidentCommandShell({
 }) {
   const pathname = usePathname();
   const base = `/incidents/${incident.id}`;
+  const isCommanderDashboard = pathname === base;
   const activeOperationalNumbers = summary.active_operational_numbers_count ?? summary.gap_resolved_count ?? 0;
   const completedOperationalNumbers =
     (summary.operational_numbers_rescued_count ?? 0) +
@@ -274,7 +275,7 @@ export function IncidentCommandShell({
         </div>
       </aside>
 
-      <div className="incident-command-content">
+      <div className={`incident-command-content${isCommanderDashboard ? " commander-dashboard-content" : ""}`}>
         <section className="incident-ops-strip operational-status-strip" aria-label="סיכום מבצעי">
           <div className="status-strip-item status-strip-critical">
             <span>🔴 פער מבצעי</span>
