@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { operationalTeamLabel } from "@/lib/operational-teams";
 import { createGeneralOperationalNote, updateGeneralOperationalNoteStatus } from "./actions";
 
 export type SearchParams = {
@@ -475,7 +476,7 @@ function detailFields(
   if (sourceName) fields.push(["שם מוסר המידע", sourceName]);
   if (gridCell) fields.push(["תא שטח", gridCell]);
   if (siteDisplay) fields.push(["אתר", siteDisplay]);
-  if (team) fields.push(["צוות", team.name ?? `צוות ${team.team_number}`]);
+  if (team) fields.push(["צוות", operationalTeamLabel(team.team_number, team.name)]);
 
   if (log.log_type === "general_operational_note" || log.log_type === "general_operational_note_status_changed") {
     if (noteTitle) fields.unshift(["כותרת", noteTitle]);

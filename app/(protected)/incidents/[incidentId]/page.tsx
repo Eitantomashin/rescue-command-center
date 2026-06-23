@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { operationalTeamLabel } from "@/lib/operational-teams";
 import { DashboardCollapsibleSection } from "./dashboard-collapsible-section";
 import type { SiteAnalysisRow, SiteStatusSegments, SiteUnitAnalysisRow } from "./dashboard-site-command-summary-v2";
 import { DashboardCommandScope, type DashboardScopeOperationalNumber } from "./dashboard-command-scope-v2";
@@ -231,11 +232,7 @@ function siteAddress(site: SiteSummaryRow) {
 }
 
 function teamName(teamNumber: number, name?: string | null) {
-  if (teamNumber === 9) {
-    return name?.trim() || "\u05e6\u05d5\u05d5\u05ea \u05d0\u05d5\u05db\u05dc\u05d5\u05e1\u05d9\u05d9\u05d4";
-  }
-
-  return name?.trim() || `\u05e6\u05d5\u05d5\u05ea ${teamNumber}`;
+  return operationalTeamLabel(teamNumber, name);
 }
 
 function operationalPersonName(person: OperationalNumberRow) {
@@ -483,6 +480,7 @@ export default async function IncidentDashboardPage({
     return map;
   }, new Map<string, string[]>());
   const teamsById = new Map(teams.map((team) => [team.id, team]));
+  const teamNamesByNumber = new Map(teams.map((team) => [team.team_number, team.name]));
   const sitesById = new Map(sites.map((site) => [site.site_id, site]));
   const activeOperationalPersonIds = new Set(operationalNumbers.map((person) => person.person_id));
   const floorsById = new Map(floors.map((floor) => [floor.id, floor]));
@@ -542,7 +540,7 @@ export default async function IncidentDashboardPage({
             operationalNumber: person.operational_number,
             fullName: operationalPersonName(person),
             statusLabel: operationalStatusLabel(person),
-            teamLabel: teamName(person.team_number),
+            teamLabel: teamName(person.team_number, teamNamesByNumber.get(person.team_number)),
             gridCell: person.latest_grid_cell,
             latestReportedAt: person.latest_reported_at,
             latestNotes: person.latest_notes
@@ -678,7 +676,7 @@ export default async function IncidentDashboardPage({
     .sort((a, b) => a - b)
     .map((teamNumber) => ({
       id: `operational_team_${teamNumber}`,
-      label: teamName(teamNumber),
+      label: teamName(teamNumber, teamNamesByNumber.get(teamNumber)),
       present: 0,
       enRoute: 0,
       unavailable: 0,

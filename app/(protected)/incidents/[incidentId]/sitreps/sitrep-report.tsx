@@ -1,4 +1,5 @@
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { operationalTeamLabel } from "@/lib/operational-teams";
 import { numberValue, textValue, type SituationReportRow, type SitrepSnapshot } from "./sitrep-types";
 
 const INCIDENT_TYPES: Record<string, string> = {
@@ -38,7 +39,7 @@ function personName(person: Record<string, unknown>) {
 
 function teamLabel(team: Record<string, unknown>) {
   const number = numberValue(team.team_number);
-  return textValue(team.name, number === 9 ? "צוות אוכלוסייה" : `צוות ${number}`);
+  return operationalTeamLabel(number, textValue(team.name, ""));
 }
 
 function statusCounts(snapshot: SitrepSnapshot) {
@@ -181,7 +182,7 @@ export function SitrepReport({ report, changes }: { report: SituationReportRow; 
                   <td><strong>#{numberValue(person.operational_number)}</strong></td>
                   <td>{personName(person)}</td>
                   <td>{textValue(person.latest_report_status_label, textValue(person.current_status_label, "לא ידוע"))}</td>
-                  <td>{numberValue(person.team_number)}</td>
+                  <td>{operationalTeamLabel(numberValue(person.team_number))}</td>
                   <td>{textValue(person.site_name, "ללא אתר")}</td>
                   <td>{textValue(person.latest_notes)}</td>
                 </tr>

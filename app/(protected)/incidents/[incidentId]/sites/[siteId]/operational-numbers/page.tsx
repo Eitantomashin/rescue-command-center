@@ -2,6 +2,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { operationalTeamLabel, operationalTeamRange } from "@/lib/operational-teams";
 import { CollaborativeLockSection } from "../../../collaborative-lock";
 import { ScreenPresenceIndicator } from "../../../incident-presence";
 import {
@@ -12,11 +13,10 @@ import {
 } from "./actions";
 
 const defaultTeams = [
-  { number: 1, label: "צוות 1" },
-  { number: 2, label: "צוות 2" },
-  { number: 3, label: "צוות 3" },
-  { number: 4, label: "צוות 4" },
-  { number: 9, label: "צוות 9 אוכלוסייה" }
+  { number: 1, label: operationalTeamLabel(1) },
+  { number: 2, label: operationalTeamLabel(2) },
+  { number: 3, label: operationalTeamLabel(3) },
+  { number: 9, label: operationalTeamLabel(9) }
 ];
 
 const sourceTypes = ["חפ\"ק", "אוכלוסיה", "משטרה", "מד\"א", "כב\"ה", "פיקוד העורף", "עירייה", "מחלצים", "אחר"];
@@ -94,6 +94,11 @@ type StatusRow = {
   display_order: number | null;
 };
 
+type TeamRow = {
+  team_number: number;
+  name: string | null;
+};
+
 function hiddenContext(incidentId: string, siteId: string) {
   return (
     <>
@@ -134,12 +139,13 @@ function unitLabel(row: Pick<OperationalNumberRow, "floor_number" | "unit_number
 }
 
 function nextNumberForTeam(rows: OperationalNumberRow[], teamNumber: number) {
+  const range = operationalTeamRange(teamNumber);
   const maxNumber = rows
     .filter((row) => row.team_number === teamNumber)
-    .reduce((max, row) => Math.max(max, row.operational_number), teamNumber * 100);
+    .reduce((max, row) => Math.max(max, row.operational_number), range.min - 1);
 
   const next = maxNumber + 1;
-  return next <= teamNumber * 100 + 99 ? next : null;
+  return next <= range.max ? next : null;
 }
 
 function parseActiveTeam(team: string | undefined) {
@@ -151,14 +157,12 @@ function parseActiveTeam(team: string | undefined) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function teamLabel(teamNumber: number) {
-  return teamNumber === 9 ? "צוות 9 אוכלוסייה" : `צוות ${teamNumber}`;
-}
-
-function teamOptions(rows: OperationalNumberRow[], activeTeam: number | null) {
+function teamOptions(rows: OperationalNumberRow[], activeTeam: number | null, teamRows: TeamRow[]) {
   const teamNumbers = new Set(defaultTeams.map((team) => team.number));
+  const teamNames = new Map(teamRows.map((team) => [team.team_number, team.name]));
 
   rows.forEach((row) => teamNumbers.add(row.team_number));
+  teamRows.forEach((team) => teamNumbers.add(team.team_number));
 
   if (activeTeam) {
     teamNumbers.add(activeTeam);
@@ -168,7 +172,7 @@ function teamOptions(rows: OperationalNumberRow[], activeTeam: number | null) {
     .sort((a, b) => a - b)
     .map((number) => ({
       number,
-      label: teamLabel(number)
+      label: operationalTeamLabel(number, teamNames.get(number))
     }));
 }
 
@@ -194,6 +198,7 @@ export default async function OperationalNumbersPage({
     { data: siteSummary, error: siteError },
     { data: numberRows, error: numbersError },
     { data: statusRows, error: statusesError },
+    { data: teamRows, error: teamsError },
     { data: canEditOperational }
   ] = await Promise.all([
     supabase
@@ -219,6 +224,12 @@ export default async function OperationalNumbersPage({
       .eq("is_active", true)
       .or(`incident_id.is.null,incident_id.eq.${params.incidentId}`)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("teams")
+      .select("team_number,name")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true)
+      .order("team_number", { ascending: true }),
     supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId })
   ]);
 
@@ -229,7 +240,9 @@ export default async function OperationalNumbersPage({
   const site = siteSummary as SiteSummaryRow;
   const numbers = (numberRows ?? []) as OperationalNumberRow[];
   const personStatuses = statusOptions((statusRows ?? []) as StatusRow[]);
-  const teams = teamOptions(numbers, activeTeam);
+  const teamNames = new Map(((teamRows ?? []) as TeamRow[]).map((team) => [team.team_number, team.name]));
+  const teams = teamOptions(numbers, activeTeam, (teamRows ?? []) as TeamRow[]);
+  const displayTeamLabel = (teamNumber: number) => operationalTeamLabel(teamNumber, teamNames.get(teamNumber));
   const selectedPerson =
     searchParams.personId ? numbers.find((row) => row.person_id === searchParams.personId) ?? null : null;
   const selectedPersonTeam = selectedPerson?.team_number ?? activeTeam;
@@ -322,7 +335,7 @@ export default async function OperationalNumbersPage({
                   {activeTeam ? (
                     <>
                       <input type="hidden" name="teamNumber" value={activeTeam} />
-                      <div className="readonly-value">צוות: {teamLabel(activeTeam)}</div>
+                      <div className="readonly-value">צוות: {displayTeamLabel(activeTeam)}</div>
                     </>
                   ) : (
                     <select className="input" name="teamNumber" required>
@@ -352,7 +365,20 @@ export default async function OperationalNumbersPage({
               <form action={openOperationalTeam} className="action-form">
                 {hiddenContext(params.incidentId, params.siteId)}
                 <strong>פתיחת צוות נוסף</strong>
-                <input className="input" name="teamNumber" type="number" min="1" placeholder="מספר צוות" required />
+                <label>
+                  סוג צוות
+                  <select className="input" name="teamChoice" defaultValue="11" required>
+                    <option value="11">צוות 1ב'</option>
+                    <option value="12">צוות 2ב'</option>
+                    <option value="13">צוות 3ב'</option>
+                    <option value="other">אחר</option>
+                  </select>
+                </label>
+                <label>
+                  צוות אחר
+                  <input className="input" name="customTeam" placeholder="לדוגמה: צוות 4 או צוות חילוץ חיצוני" />
+                </label>
+                <p className="muted">צוותים נוספים נפתחים רק מבחירה מפורשת. צוותי ב׳ מקבלים טווחים 1101, 1201, 1301.</p>
                 <button className="button secondary" type="submit">
                   פתח צוות
                 </button>
@@ -362,6 +388,7 @@ export default async function OperationalNumbersPage({
         </div>
 
         {numbersError ? <p className="error">{numbersError.message}</p> : null}
+        {teamsError ? <p className="error">{teamsError.message}</p> : null}
 
         {filteredNumbers.length === 0 ? (
           <p className="muted">{activeTeam ? "אין עדיין מספרים מבצעיים לצוות זה." : "אין עדיין מספרים מבצעיים באתר זה."}</p>

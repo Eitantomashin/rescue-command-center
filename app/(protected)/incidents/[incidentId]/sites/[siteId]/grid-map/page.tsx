@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { operationalTeamLabel } from "@/lib/operational-teams";
 import { ScreenPresenceIndicator } from "../../../incident-presence";
 import { uploadSiteGridImage } from "./actions";
 import { SiteGridMap, type GridMarker, type MapObject, type MapTeam } from "./site-grid-map";
@@ -160,17 +161,17 @@ export default async function SiteGridMapPage({
     geometry: row.geometry
   }));
   const teamsByNumber = new Map<number, MapTeam>();
-  for (const teamNumber of [1, 2, 3, 4, 9]) {
+  for (const teamNumber of [1, 2, 3, 11, 12, 13, 9]) {
     teamsByNumber.set(teamNumber, {
       teamNumber,
-      label: teamNumber === 9 ? "צוות אוכלוסייה" : `צוות ${teamNumber}`
+      label: operationalTeamLabel(teamNumber)
     });
   }
 
   for (const team of (teamRows ?? []) as TeamRow[]) {
     teamsByNumber.set(team.team_number, {
       teamNumber: team.team_number,
-      label: team.name?.trim() || (team.team_number === 9 ? "צוות אוכלוסייה" : `צוות ${team.team_number}`)
+      label: operationalTeamLabel(team.team_number, team.name)
     });
   }
 

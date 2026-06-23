@@ -3,9 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { operationalTeamLabel, operationalTeamRange, parseOperationalTeamNumber } from "@/lib/operational-teams";
 
 const DEFAULT_SOURCE_TYPE = "חפ\"ק";
 const DEFAULT_CONFIDENCE = "לא ידוע";
+const RESERVED_TEAM_NUMBERS = new Set([1, 2, 3, 9, 11, 12, 13]);
+
+type ExistingTeamRow = {
+  id: string;
+  team_number: number;
+  name: string | null;
+};
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -51,8 +59,7 @@ function pagePath(incidentId: string, siteId: string, personId?: string | null, 
 
 async function nextOperationalNumber(incidentId: string, teamNumber: number) {
   const supabase = createClient();
-  const minNumber = teamNumber * 100 + 1;
-  const maxNumber = teamNumber * 100 + 99;
+  const { min: minNumber, max: maxNumber } = operationalTeamRange(teamNumber);
 
   const { data, error } = await supabase
     .from("persons")
@@ -71,7 +78,7 @@ async function nextOperationalNumber(incidentId: string, teamNumber: number) {
   const next = latest ? latest + 1 : minNumber;
 
   if (next > maxNumber) {
-    throw new Error(`אין מספרים פנויים לצוות ${teamNumber}`);
+    throw new Error(`אין מספרים פנויים ל${operationalTeamLabel(teamNumber)}`);
   }
 
   return next;
@@ -99,6 +106,18 @@ async function defaultPersonStatusId(incidentId: string) {
   }
 
   return data.id as string;
+}
+
+function nextCustomTeamNumber(existingTeams: ExistingTeamRow[]) {
+  const used = new Set(existingTeams.map((team) => team.team_number));
+
+  for (let teamNumber = 4; teamNumber < 100; teamNumber += 1) {
+    if (!RESERVED_TEAM_NUMBERS.has(teamNumber) && !used.has(teamNumber)) {
+      return teamNumber;
+    }
+  }
+
+  throw new Error("לא נמצא מספר פנוי לצוות מותאם אישית");
 }
 
 export async function createOperationalNumber(formData: FormData) {
@@ -210,7 +229,55 @@ export async function mergeOperationalNumbers(formData: FormData) {
 export async function openOperationalTeam(formData: FormData) {
   const incidentId = requiredValue(formData, "incidentId", "אירוע");
   const siteId = requiredValue(formData, "siteId", "אתר");
-  const teamNumber = positiveInteger(formData, "teamNumber", "צוות");
+  const teamChoice = requiredValue(formData, "teamChoice", "צוות");
+  const customTeam = nullableValue(formData, "customTeam");
+  const supabase = createClient();
+  const { data: existingTeamsData, error: existingTeamsError } = await supabase
+    .from("teams")
+    .select("id,team_number,name")
+    .eq("incident_id", incidentId)
+    .eq("is_active", true);
+
+  if (existingTeamsError) {
+    throw new Error(existingTeamsError.message);
+  }
+
+  const existingTeams = (existingTeamsData ?? []) as ExistingTeamRow[];
+  const customTeamName = customTeam?.trim() ?? "";
+  let teamNumber = teamChoice === "other" ? parseOperationalTeamNumber(customTeamName) : Number.parseInt(teamChoice, 10);
+
+  if (teamChoice === "other" && teamNumber && RESERVED_TEAM_NUMBERS.has(teamNumber)) {
+    throw new Error("צוות זה שמור. יש לבחור אותו מהרשימה במקום דרך אחר.");
+  }
+
+  if (teamChoice === "other" && !teamNumber) {
+    if (!customTeamName) {
+      throw new Error("יש להזין שם או מספר לצוות אחר");
+    }
+
+    teamNumber =
+      existingTeams.find((team) => team.name?.trim() === customTeamName)?.team_number ?? nextCustomTeamNumber(existingTeams);
+  }
+
+  if (!Number.isInteger(teamNumber) || teamNumber <= 0) {
+    throw new Error("יש להזין מספר צוות תקין");
+  }
+
+  const teamName = teamChoice === "other" ? customTeamName : operationalTeamLabel(teamNumber);
+  const existingTeam = existingTeams.find((team) => team.team_number === teamNumber);
+
+  if (!existingTeam) {
+    const { error: teamError } = await supabase.from("teams").insert({
+      incident_id: incidentId,
+      team_number: teamNumber,
+      name: teamName,
+      is_active: true
+    });
+
+    if (teamError) {
+      throw new Error(teamError.message);
+    }
+  }
 
   redirect(pagePath(incidentId, siteId, null, teamNumber));
 }

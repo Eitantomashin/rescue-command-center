@@ -1,4 +1,5 @@
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { operationalTeamLabel } from "@/lib/operational-teams";
 import { STATUS_GROUP_LABELS, type NumericDelta, type SitrepDelta } from "./sitrep-delta";
 import { numberValue, textValue, type SituationReportRow } from "./sitrep-types";
 
@@ -21,7 +22,7 @@ function personName(person: Record<string, unknown>) {
 }
 function teamLabel(team: Record<string, unknown>) {
   const number = numberValue(team.team_number);
-  return textValue(team.name, number === 9 ? "צוות אוכלוסייה" : `צוות ${number}`);
+  return operationalTeamLabel(number, textValue(team.name, ""));
 }
 function ValueWithDelta({ delta, showDelta, inverse = false }: { delta: NumericDelta; showDelta: boolean; inverse?: boolean }) {
   return <strong>{showDelta ? <span className="sitrep-value-transition" dir="ltr"><bdi>{formatNumber(delta.before)}</bdi> → <bdi>{formatNumber(delta.after)}</bdi></span> : formatNumber(delta.after)} {showDelta ? <DeltaIndicator delta={delta} inverse={inverse} /> : null}</strong>;
@@ -99,7 +100,7 @@ export function SitrepOperationalReport({ report, delta, canEditMeeting = false 
 
     <section className="sitrep-section"><h2>מספרים מבצעיים</h2><div className="table-wrap"><table className="table sitrep-table">
       <thead><tr><th>מספר</th><th>שם</th><th>סטטוס</th><th>צוות</th><th>אתר</th><th>הערות</th></tr></thead>
-      <tbody>{snapshot.operational_numbers.map((person) => <tr key={textValue(person.person_id, String(person.operational_number))}><td><strong>#{numberValue(person.operational_number)}</strong></td><td>{personName(person)}</td><td>{textValue(person.latest_report_status_label, textValue(person.current_status_label, "לא ידוע"))}</td><td>{numberValue(person.team_number)}</td><td>{textValue(person.site_name, "ללא אתר")}</td><td>{textValue(person.latest_notes)}</td></tr>)}</tbody>
+      <tbody>{snapshot.operational_numbers.map((person) => <tr key={textValue(person.person_id, String(person.operational_number))}><td><strong>#{numberValue(person.operational_number)}</strong></td><td>{personName(person)}</td><td>{textValue(person.latest_report_status_label, textValue(person.current_status_label, "לא ידוע"))}</td><td>{operationalTeamLabel(numberValue(person.team_number))}</td><td>{textValue(person.site_name, "ללא אתר")}</td><td>{textValue(person.latest_notes)}</td></tr>)}</tbody>
     </table></div></section>
 
     <section className="sitrep-section sitrep-delta-intelligence"><h2>שינויים מאז חיתוך מצב קודם</h2>

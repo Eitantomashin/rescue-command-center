@@ -1,4 +1,5 @@
 import { numberValue, textValue, type SitrepSnapshot } from "./sitrep-types";
+import { operationalTeamLabel } from "@/lib/operational-teams";
 
 export type NumericDelta = { before: number; after: number; difference: number };
 export type OperationalStatusChange = {
@@ -81,7 +82,7 @@ function statusLabel(person: Record<string, unknown>) {
 }
 
 function teamLabel(teamNumber: number) {
-  return teamNumber === 9 ? "צוות אוכלוסייה" : `צוות ${teamNumber}`;
+  return operationalTeamLabel(teamNumber);
 }
 
 function statusCounts(snapshot?: SitrepSnapshot | null) {

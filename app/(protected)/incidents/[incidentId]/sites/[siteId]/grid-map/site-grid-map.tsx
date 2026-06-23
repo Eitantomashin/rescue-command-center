@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { operationalTeamLabel } from "@/lib/operational-teams";
 import { CollaborativeLockBanner, useCollaborativeLock } from "../../../collaborative-lock";
 import { createSiteMapObject, deleteSiteMapObject, updateSiteMapObject } from "./actions";
 
@@ -289,7 +290,7 @@ function teamLabel(teams: MapTeam[], teamNumber: number | null) {
     return "לא משויך";
   }
 
-  return teams.find((team) => team.teamNumber === teamNumber)?.label ?? (teamNumber === 9 ? "צוות אוכלוסייה" : `צוות ${teamNumber}`);
+  return teams.find((team) => team.teamNumber === teamNumber)?.label ?? operationalTeamLabel(teamNumber);
 }
 
 function statusLabel(status: string | null) {
@@ -728,7 +729,7 @@ export function SiteGridMap({
                 {selectedMarkerSector ? <span>גזרה: {selectedMarkerSector.name}</span> : null}
                 <span>{selectedMarker.personName ?? "שם לא ידוע"}</span>
                 <span>{selectedMarker.statusLabel ?? "סטטוס לא ידוע"}</span>
-                {selectedMarker.teamNumber ? <span>צוות {selectedMarker.teamNumber}</span> : null}
+                {selectedMarker.teamNumber ? <span>{teamLabel(teams, selectedMarker.teamNumber)}</span> : null}
                 <time>{formatDateTime(selectedMarker.latestReportedAt)}</time>
               </aside>
             ) : null}

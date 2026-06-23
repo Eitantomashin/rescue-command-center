@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { operationalTeamLabel } from "@/lib/operational-teams";
 import { TimelinePrintButton } from "./print-button";
 
 type TimelineSearchParams = {
@@ -88,8 +89,9 @@ function objectLabel(row: TimelineRow) {
   return row.description || row.title;
 }
 
-function valueLabel(value: unknown) {
+function valueLabel(value: unknown, fieldKey?: string) {
   if (value === null || value === undefined || value === "") return "-";
+  if (fieldKey === "team_number") return operationalTeamLabel(Number(value));
   if (typeof value === "boolean") return value ? "כן" : "לא";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
@@ -119,7 +121,7 @@ function changeRows(row: TimelineRow) {
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   return Array.from(keys)
     .filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]))
-    .map((key) => ({ key, label: FIELD_LABELS[key] ?? key.replaceAll("_", " "), before: valueLabel(before[key]), after: valueLabel(after[key]) }));
+    .map((key) => ({ key, label: FIELD_LABELS[key] ?? key.replaceAll("_", " "), before: valueLabel(before[key], key), after: valueLabel(after[key], key) }));
 }
 
 function queryString(params: TimelineSearchParams, patch: Record<string, string | null>) {
