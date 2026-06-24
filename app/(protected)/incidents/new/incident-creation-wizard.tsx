@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react";
 import { createIncidentFromWizard } from "./actions";
 import { formatNumber } from "@/lib/format";
+import { operationalTeamLabel, parseOperationalTeamNumber } from "@/lib/operational-teams";
 
 type WizardTeam = {
   id: string;
   teamNumber: number;
+  name: string;
   leader: string;
   phone: string;
   rescuers: number | "";
@@ -29,29 +31,45 @@ function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function nextRescueTeamNumber(teams: WizardTeam[]) {
+const reservedSetupTeamNumbers = new Set([1, 2, 3, 9, 11, 12, 13, 91, 92, 93]);
+
+const setupTeamOptions = [
+  { teamNumber: 1, name: operationalTeamLabel(1), rescuers: 4 },
+  { teamNumber: 11, name: operationalTeamLabel(11), rescuers: 4 },
+  { teamNumber: 2, name: operationalTeamLabel(2), rescuers: 4 },
+  { teamNumber: 12, name: operationalTeamLabel(12), rescuers: 4 },
+  { teamNumber: 3, name: operationalTeamLabel(3), rescuers: 4 },
+  { teamNumber: 13, name: operationalTeamLabel(13), rescuers: 4 },
+  { teamNumber: 9, name: "אוכלוסיה", rescuers: "" },
+  { teamNumber: 91, name: "רפואה", rescuers: "" },
+  { teamNumber: 92, name: "לוגיסטיקה", rescuers: "" },
+  { teamNumber: 93, name: "חפ\"ק", rescuers: "" }
+] as const;
+
+function nextCustomTeamNumber(teams: WizardTeam[]) {
   const usedTeamNumbers = new Set(teams.map((team) => team.teamNumber));
 
-  for (let teamNumber = 5; teamNumber < 100; teamNumber += 1) {
-    if (teamNumber !== 9 && !usedTeamNumbers.has(teamNumber)) {
+  for (let teamNumber = 20; teamNumber < 100; teamNumber += 1) {
+    if (!reservedSetupTeamNumbers.has(teamNumber) && !usedTeamNumbers.has(teamNumber)) {
       return teamNumber;
     }
   }
 
-  return 10;
+  return 20;
 }
 
-const defaultTeams: WizardTeam[] = [1, 2, 3, 4, 9].map((teamNumber) => ({
-  id: `team-${teamNumber}`,
-  teamNumber,
+const defaultTeams: WizardTeam[] = setupTeamOptions.map((team) => ({
+  id: `team-${team.teamNumber}`,
+  teamNumber: team.teamNumber,
+  name: team.name,
   leader: "",
   phone: "",
-  rescuers: teamNumber === 9 ? "" : 4,
+  rescuers: team.rescuers,
   selected: false
 }));
 
-function teamLabel(teamNumber: number) {
-  return teamNumber === 9 ? "צוות 9 אוכלוסייה" : `צוות ${teamNumber}`;
+function teamLabel(team: WizardTeam) {
+  return operationalTeamLabel(team.teamNumber, team.name);
 }
 
 export function IncidentCreationWizard() {
@@ -68,9 +86,10 @@ export function IncidentCreationWizard() {
   const [populationOfficer, setPopulationOfficer] = useState("");
   const [commandNotes, setCommandNotes] = useState("");
   const [teams, setTeams] = useState<WizardTeam[]>(defaultTeams);
+  const [customTeamInput, setCustomTeamInput] = useState("");
 
   const selectedTeams = useMemo(() => teams.filter((team) => team.selected), [teams]);
-  const selectedTeamLabels = selectedTeams.map((team) => teamLabel(team.teamNumber)).join(", ");
+  const selectedTeamLabels = selectedTeams.map(teamLabel).join(", ");
   const canCreateIncident = Boolean(incidentName.trim() && incidentType.trim() && city.trim());
   const selectedIncidentTypeLabel =
     incidentTypes.find(([value]) => value === incidentType)?.[1] ?? "אחר";
@@ -79,6 +98,33 @@ export function IncidentCreationWizard() {
     setTeams((current) =>
       current.map((team) => (team.id === id ? { ...team, ...patch } : team))
     );
+  }
+
+  function addCustomTeam() {
+    const customName = customTeamInput.trim();
+    if (!customName) {
+      return;
+    }
+
+    const parsedTeamNumber = parseOperationalTeamNumber(customName);
+    if (parsedTeamNumber && reservedSetupTeamNumbers.has(parsedTeamNumber)) {
+      return;
+    }
+
+    const teamNumber = parsedTeamNumber ?? nextCustomTeamNumber(teams);
+    const name = customName;
+
+    setTeams((current) => {
+      if (current.some((team) => team.teamNumber === teamNumber)) {
+        return current;
+      }
+
+      return [
+        ...current,
+        { id: uid("team"), teamNumber, name, leader: "", phone: "", rescuers: 4, selected: true }
+      ];
+    });
+    setCustomTeamInput("");
   }
 
   return (
@@ -254,21 +300,20 @@ export function IncidentCreationWizard() {
               <h2>משאבים ראשוניים</h2>
               <p className="muted">נבחרו {formatNumber(selectedTeams.length)} צוותים</p>
             </div>
-            <button
-              className="button secondary"
-              type="button"
-              onClick={() =>
-                setTeams((current) => {
-                  const teamNumber = nextRescueTeamNumber(current);
+          </div>
 
-                  return [
-                    ...current,
-                    { id: uid("team"), teamNumber, leader: "", phone: "", rescuers: 4, selected: true }
-                  ];
-                })
-              }
-            >
-              הוסף צוות
+          <div className="inline-action-panel">
+            <label className="field">
+              <span>אחר</span>
+              <input
+                className="input"
+                value={customTeamInput}
+                onChange={(event) => setCustomTeamInput(event.target.value)}
+                placeholder="לדוגמה: צוות 4 או צוות חילוץ חיצוני"
+              />
+            </label>
+            <button className="button secondary" type="button" onClick={addCustomTeam}>
+              הוסף צוות אחר
             </button>
           </div>
 
@@ -281,17 +326,9 @@ export function IncidentCreationWizard() {
                     checked={team.selected}
                     onChange={(event) => updateTeam(team.id, { selected: event.target.checked })}
                   />
-                  <span>{teamLabel(team.teamNumber)}</span>
+                  <span>{teamLabel(team)}</span>
                 </label>
-                <input
-                  className="input"
-                  type="number"
-                  min="1"
-                  value={team.teamNumber}
-                  onChange={(event) => updateTeam(team.id, { teamNumber: Number(event.target.value) })}
-                  aria-label="מספר צוות"
-                  readOnly={team.id.startsWith("team-")}
-                />
+                <input className="input" value={team.name} readOnly aria-label="שם צוות" />
                 <input
                   className="input"
                   value={team.leader}

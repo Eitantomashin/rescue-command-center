@@ -7,6 +7,7 @@ import { DashboardCollapsibleSection } from "./dashboard-collapsible-section";
 import type { SiteAnalysisRow, SiteStatusSegments, SiteUnitAnalysisRow } from "./dashboard-site-command-summary-v2";
 import { DashboardCommandScope, type DashboardScopeOperationalNumber } from "./dashboard-command-scope-v2";
 import { ConnectedUsersWidget } from "./incident-presence";
+import { closeIncident, pauseIncident, renameIncident, reopenIncident } from "./lifecycle-actions";
 import type { PersonnelTeamItem } from "./personnel-team-drilldown";
 import {
   ATTENDANCE_STATUSES,
@@ -169,6 +170,13 @@ type SituationReportRow = {
   snapshot: {
     operational_numbers?: Array<Record<string, unknown>>;
   };
+};
+
+type IncidentLifecycleRow = {
+  lifecycle_status: "active" | "paused" | "closed";
+  archived_at: string | null;
+  closed_at: string | null;
+  paused_at: string | null;
 };
 
 function metadataText(metadata: Record<string, unknown>, key: string) {
@@ -365,6 +373,8 @@ export default async function IncidentDashboardPage({
     { data: personnelRows },
     { data: personnelAttendanceRows },
     { data: sitrepRows },
+    { data: lifecycleRow },
+    { data: currentRole },
     { data: canManageIncidents }
   ] = await Promise.all([
     supabase
@@ -429,6 +439,12 @@ export default async function IncidentDashboardPage({
       .eq("incident_id", params.incidentId)
       .order("report_number", { ascending: false })
       .limit(1),
+    supabase
+      .from("incidents")
+      .select("lifecycle_status,archived_at,closed_at,paused_at")
+      .eq("id", params.incidentId)
+      .maybeSingle(),
+    supabase.rpc("current_user_role"),
     supabase.rpc("can_manage_incidents")
   ]);
 
@@ -438,6 +454,10 @@ export default async function IncidentDashboardPage({
   const assignments = (assignmentRows ?? []) as TeamAssignmentRow[];
   const noteRows = (openNoteRows ?? []) as EventLogRow[];
   const latestSitrep = ((sitrepRows ?? []) as SituationReportRow[])[0] ?? null;
+  const lifecycle = lifecycleRow as IncidentLifecycleRow | null;
+  const isAdmin = currentRole === "admin";
+  const canControlLifecycle = Boolean(canManageIncidents && !lifecycle?.archived_at);
+  const isLifecycleClosed = lifecycle?.lifecycle_status === "closed" || summary.is_closed;
   const floors = (floorRows ?? []) as FloorRow[];
   const units = (unitRows ?? []) as UnitRow[];
   const residents = (residentRows ?? []) as ResidentRow[];
@@ -712,6 +732,7 @@ export default async function IncidentDashboardPage({
           </p>
           <div className="command-hero-badges">
             <span className="command-badge">{summary.incident_status_label ?? (summary.is_closed ? "\u05e1\u05d2\u05d5\u05e8" : "\u05e4\u05e2\u05d9\u05dc")}</span>
+            {lifecycle?.lifecycle_status === "paused" ? <span className="command-badge coverage-medium">מושהה</span> : null}
             <span className={`command-badge coverage-${incidentGapLevel}`}>{gapLabel(incidentGapLevel)}</span>
             <span className="command-badge">{formatNumber(summary.total_sites)} {"\u05d0\u05ea\u05e8\u05d9\u05dd"}</span>
           </div>
@@ -719,6 +740,61 @@ export default async function IncidentDashboardPage({
 
         <ConnectedUsersWidget />
       </div>
+
+      {canControlLifecycle ? (
+        <section className="panel lifecycle-control-panel no-print">
+          <div>
+            <h2>ניהול מחזור חיים</h2>
+            <p className="muted">
+              {isLifecycleClosed
+                ? "האירוע סגור לקריאה בלבד. ניתן להחזיר אותו לפעילות, אך אתרים סגורים לא ייפתחו אוטומטית."
+                : lifecycle?.lifecycle_status === "paused"
+                  ? "האירוע מושהה. ניתן להחזיר לפעילות או לסגור את הפעילות."
+                  : "האירוע פעיל. סגירה תיצור דוח סגירת אירוע ותסגור את כל האתרים."}
+            </p>
+          </div>
+          <div className="actions">
+            {isAdmin ? (
+              <details className="archive-confirm-panel">
+                <summary className="button secondary">עריכת שם אירוע</summary>
+                <form action={renameIncident} className="action-form">
+                  <input type="hidden" name="incidentId" value={summary.incident_id} />
+                  <label>
+                    שם אירוע
+                    <input className="input" name="newName" defaultValue={summary.name} required />
+                  </label>
+                  <button className="button" type="submit">שמור שם</button>
+                </form>
+              </details>
+            ) : null}
+
+            {isLifecycleClosed || lifecycle?.lifecycle_status === "paused" ? (
+              <form action={reopenIncident}>
+                <input type="hidden" name="incidentId" value={summary.incident_id} />
+                <button className="button" type="submit">החזר אירוע לפעילות</button>
+              </form>
+            ) : (
+              <>
+                {lifecycle?.lifecycle_status !== "paused" ? (
+                  <form action={pauseIncident}>
+                    <input type="hidden" name="incidentId" value={summary.incident_id} />
+                    <button className="button secondary" type="submit">השהה אירוע</button>
+                  </form>
+                ) : null}
+                <details className="archive-confirm-panel">
+                  <summary className="button danger">סגירת פעילות באירוע</summary>
+                  <form action={closeIncident} className="action-form">
+                    <input type="hidden" name="incidentId" value={summary.incident_id} />
+                    <strong>{summary.name}</strong>
+                    <p className="muted">האם לסגור את פעילות האירוע? כל האתרים הפעילים יסומנו כסגורים ודוח סגירה ייווצר אוטומטית.</p>
+                    <button className="button danger" type="submit">סגירת פעילות באירוע</button>
+                  </form>
+                </details>
+              </>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       <DashboardCommandScope
         incidentId={summary.incident_id}

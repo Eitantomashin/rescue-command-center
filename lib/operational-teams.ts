@@ -11,9 +11,12 @@ const SECONDARY_TEAM_LABELS = new Map<number, string>([
 
 export function operationalTeamLabel(teamNumber: number | null | undefined, customName?: string | null) {
   if (!teamNumber) return "ללא צוות";
-  if (customName?.trim()) return customName.trim();
   if (SECONDARY_TEAM_LABELS.has(teamNumber)) return SECONDARY_TEAM_LABELS.get(teamNumber)!;
   if (teamNumber === 9) return "צוות 9 אוכלוסייה";
+  if (teamNumber === 91) return "רפואה";
+  if (teamNumber === 92) return "לוגיסטיקה";
+  if (teamNumber === 93) return "חפ\"ק";
+  if (customName?.trim()) return customName.trim();
   return `צוות ${teamNumber}`;
 }
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatNumber } from "@/lib/format";
 import { CollaborativeLockSection } from "../../collaborative-lock";
+import { closeSite, reopenSite } from "../../lifecycle-actions";
 import {
   clearUnit,
   createGeneralAreaResident,
@@ -32,6 +33,10 @@ type SiteSummaryRow = {
   resolved_persons: number;
   gap_resolved_count: number;
   operational_gap: number;
+};
+
+type SiteLifecycleRow = {
+  lifecycle_status: "open" | "paused" | "closed";
 };
 
 type FloorRow = {
@@ -351,6 +356,8 @@ export default async function SiteDetailsPage({
     { data: floorRows, error: floorsError },
     { data: unitRows, error: unitsError },
     { data: allStatusRows, error: statusesError },
+    { data: siteLifecycle },
+    { data: canControlLifecycle },
     { data: canEditOperational }
   ] = await Promise.all([
     supabase
@@ -374,11 +381,19 @@ export default async function SiteDetailsPage({
       .eq("is_active", true)
       .or(`incident_id.is.null,incident_id.eq.${params.incidentId}`)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("sites")
+      .select("lifecycle_status")
+      .eq("id", params.siteId)
+      .maybeSingle(),
+    supabase.rpc("can_control_incident_lifecycle", { p_incident_id: params.incidentId }),
     supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId })
   ]);
 
   const floors = (floorRows ?? []) as FloorRow[];
   const units = (unitRows ?? []) as UnitRow[];
+  const siteLifecycleStatus = (siteLifecycle as SiteLifecycleRow | null)?.lifecycle_status ?? "open";
+  const canEditThisSite = Boolean(canEditOperational && siteLifecycleStatus !== "closed");
   const unitIds = units.map((unit) => unit.id);
 
   const [
@@ -460,7 +475,7 @@ export default async function SiteDetailsPage({
   const activeGeneralResidents = generalResidents.filter((resident) => resident.is_active);
 
   return (
-    <main className={`page site-detail-page${canEditOperational ? "" : " permission-readonly"}`}>
+    <main className={`page site-detail-page${canEditThisSite ? "" : " permission-readonly"}`}>
       <div className="header">
         <div>
           <h1>תמונת מבנה - אתר {site.site_number}</h1>
@@ -473,6 +488,21 @@ export default async function SiteDetailsPage({
         </div>
 
         <div className="actions">
+          {canControlLifecycle ? (
+            siteLifecycleStatus === "closed" ? (
+              <form action={reopenSite}>
+                <input type="hidden" name="incidentId" value={params.incidentId} />
+                <input type="hidden" name="siteId" value={params.siteId} />
+                <button className="button secondary" type="submit">פתח אתר מחדש</button>
+              </form>
+            ) : (
+              <form action={closeSite}>
+                <input type="hidden" name="incidentId" value={params.incidentId} />
+                <input type="hidden" name="siteId" value={params.siteId} />
+                <button className="button danger" type="submit">סגור אתר</button>
+              </form>
+            )
+          ) : null}
           <Link className="button" href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers`}>
             מספרים מבצעיים
           </Link>

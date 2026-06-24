@@ -5580,6 +5580,24 @@ textarea {
   }
 }
 
+.lifecycle-control-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-inline-start: 4px solid #F58220;
+}
+
+.lifecycle-control-panel .actions {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.table-total-row {
+  background: rgba(22, 50, 79, 0.08);
+  font-weight: 800;
+}
+
 @media (max-width: 640px) {
   .building-panel {
     padding: 14px;

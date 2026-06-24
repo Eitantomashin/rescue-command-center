@@ -109,7 +109,14 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
   }
 
   if (pathname.startsWith(`${base}/sitreps`)) {
+    items.push({ label: "דוחות", href: `${base}/sitreps` });
     items.push({ label: "חיתוכי מצב", href: `${base}/sitreps` });
+    return items;
+  }
+
+  if (pathname.startsWith(`${base}/reports/closure`)) {
+    items.push({ label: "דוחות", href: `${base}/sitreps` });
+    items.push({ label: "דוח סגירת אירוע", href: `${base}/reports/closure` });
     return items;
   }
 
@@ -194,10 +201,19 @@ export function IncidentCommandShell({
             <span className="nav-icon" aria-hidden="true">כ</span>
             כח אדם באירוע
           </Link>
-          <Link className={`incident-nav-item${activeClass(pathname, `${base}/sitreps`, false)}`} href={`${base}/sitreps`}>
-            <span className="nav-icon" aria-hidden="true">ח</span>
-            חיתוכי מצב
-          </Link>
+          <div className="incident-site-node incident-report-node">
+            <div className="incident-nav-section-title">דוחות</div>
+            <div className="incident-site-links">
+              <Link className={`incident-nav-item${activeClass(pathname, `${base}/sitreps`, false)}`} href={`${base}/sitreps`}>
+                <span className="nav-icon" aria-hidden="true">ח</span>
+                חיתוכי מצב
+              </Link>
+              <Link className={`incident-nav-item${activeClass(pathname, `${base}/reports/closure`, false)}`} href={`${base}/reports/closure`}>
+                <span className="nav-icon" aria-hidden="true">ס</span>
+                דוח סגירת אירוע
+              </Link>
+            </div>
+          </div>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/timeline`)}`} href={`${base}/timeline`}>
             <span className="nav-icon" aria-hidden="true">ז</span>
             ציר זמן מבצעי

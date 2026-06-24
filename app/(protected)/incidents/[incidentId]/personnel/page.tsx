@@ -100,6 +100,13 @@ export default async function IncidentPersonnelPage({
       if (byStatus !== 0) return byStatus;
       return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`, "he");
     });
+  const personnelTotals = {
+    present: personnel.filter((row) => row.attendanceStatus === "present").length,
+    enRoute: personnel.filter((row) => row.attendanceStatus === "en_route").length,
+    unavailable: personnel.filter((row) => row.attendanceStatus === "unavailable").length,
+    inactive: personnel.filter((row) => row.attendanceStatus === "inactive").length,
+    total: personnel.length
+  };
 
   return (
     <main className={`page personnel-page${canEditPersonnel ? "" : " permission-readonly"}`}>
@@ -145,6 +152,14 @@ export default async function IncidentPersonnelPage({
                   </tr>
                 );
               })}
+              <tr className="table-total-row">
+                <td>סה״כ</td>
+                <td>{formatNumber(personnelTotals.present)}</td>
+                <td>{formatNumber(personnelTotals.enRoute)}</td>
+                <td>{formatNumber(personnelTotals.unavailable)}</td>
+                <td>{formatNumber(personnelTotals.inactive)}</td>
+                <td className="table-emphasis">{formatNumber(personnelTotals.total)}</td>
+              </tr>
             </tbody>
           </table>
         </div>

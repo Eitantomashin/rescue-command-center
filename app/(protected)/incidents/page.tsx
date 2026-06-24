@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
-import { archiveIncident, restoreIncident } from "./actions";
+import { archiveIncident, permanentlyDeleteIncident, restoreIncident } from "./actions";
 
 type IncidentRow = {
   id: string;
@@ -12,6 +12,7 @@ type IncidentRow = {
   ended_at: string | null;
   status_id: string;
   is_closed: boolean;
+  lifecycle_status: "active" | "paused" | "closed";
   archived_at: string | null;
   archived_by: string | null;
 };
@@ -34,9 +35,18 @@ const text = {
   closed: "\u05e1\u05d2\u05d5\u05e8",
   archive: "\u05d4\u05e2\u05d1\u05e8 \u05dc\u05d0\u05e8\u05db\u05d9\u05d5\u05df",
   restore: "\u05e9\u05d7\u05d6\u05d5\u05e8 \u05de\u05d0\u05e8\u05db\u05d9\u05d5\u05df",
+  paused: "מושהה",
+  permanentDelete: "מחיקה לצמיתות",
+  permanentDeleteWarning: "פעולה זו תמחק את האירוע לצמיתות ולא ניתן יהיה לשחזר.",
   archiveConfirm: "\u05dc\u05d0\u05d9\u05e9\u05d5\u05e8 \u05d4\u05e2\u05d1\u05e8\u05d4 \u05dc\u05d0\u05e8\u05db\u05d9\u05d5\u05df, \u05d4\u05e7\u05dc\u05d3 \u05d0\u05ea \u05e9\u05dd \u05d4\u05d0\u05d9\u05e8\u05d5\u05e2 \u05d1\u05de\u05d3\u05d5\u05d9\u05e7.",
   confirmPlaceholder: "\u05d4\u05e7\u05dc\u05d3 \u05e9\u05dd \u05d0\u05d9\u05e8\u05d5\u05e2"
 };
+
+function lifecycleLabel(incident: IncidentRow) {
+  if (incident.lifecycle_status === "closed" || incident.is_closed) return text.closed;
+  if (incident.lifecycle_status === "paused") return text.paused;
+  return text.active;
+}
 
 export default async function IncidentsPage({
   searchParams
@@ -52,7 +62,7 @@ export default async function IncidentsPage({
 
   let query = supabase
     .from("incidents")
-    .select("id,name,city,address,opened_at,ended_at,status_id,is_closed,archived_at,archived_by")
+    .select("id,name,city,address,opened_at,ended_at,status_id,is_closed,lifecycle_status,archived_at,archived_by")
     .order("opened_at", { ascending: false });
 
   query = archiveView ? query.not("archived_at", "is", null) : query.is("archived_at", null);
@@ -120,7 +130,7 @@ export default async function IncidentsPage({
                   <td>{incident.address}</td>
                   <td>
                     <span className={`command-badge ${incident.is_closed ? "coverage-low" : "coverage-medium"}`}>
-                      {incident.is_closed ? text.closed : text.active}
+                      {lifecycleLabel(incident)}
                     </span>
                     <div className="muted">{incident.status_id}</div>
                   </td>
@@ -146,12 +156,28 @@ export default async function IncidentsPage({
                         </details>
                       ) : null}
                       {isAdmin && archiveView ? (
-                        <form action={restoreIncident}>
-                          <input type="hidden" name="incidentId" value={incident.id} />
-                          <button className="button secondary" type="submit">
-                            {text.restore}
-                          </button>
-                        </form>
+                        <>
+                          <form action={restoreIncident}>
+                            <input type="hidden" name="incidentId" value={incident.id} />
+                            <button className="button secondary" type="submit">
+                              {text.restore}
+                            </button>
+                          </form>
+                          <details className="archive-confirm-panel">
+                            <summary className="button danger">{text.permanentDelete}</summary>
+                            <form action={permanentlyDeleteIncident} className="action-form">
+                              <input type="hidden" name="incidentId" value={incident.id} />
+                              <input type="hidden" name="incidentName" value={incident.name} />
+                              <strong>{incident.name}</strong>
+                              <p className="error">{text.permanentDeleteWarning}</p>
+                              <p className="muted">{text.archiveConfirm}</p>
+                              <input className="input" name="confirmationName" placeholder={text.confirmPlaceholder} required />
+                              <button className="button danger" type="submit">
+                                {text.permanentDelete}
+                              </button>
+                            </form>
+                          </details>
+                        </>
                       ) : null}
                     </div>
                   </td>

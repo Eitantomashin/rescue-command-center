@@ -46,3 +46,25 @@ export async function restoreIncident(formData: FormData) {
 
   revalidatePath("/incidents");
 }
+
+export async function permanentlyDeleteIncident(formData: FormData) {
+  const incidentId = requiredValue(formData, "incidentId");
+  const incidentName = requiredValue(formData, "incidentName");
+  const confirmationName = requiredValue(formData, "confirmationName");
+
+  if (confirmationName !== incidentName) {
+    throw new Error("Incident name confirmation does not match");
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("permanently_delete_archived_incident", {
+    p_incident_id: incidentId,
+    p_confirmation_name: confirmationName
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/incidents");
+}
