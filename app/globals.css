@@ -321,17 +321,19 @@ textarea {
   gap: 14px;
   max-height: calc(100vh - 32px);
   overflow: auto;
-  border: 1px solid rgba(22, 50, 79, 0.22);
-  border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
-  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(22, 50, 79, 0.2);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 247, 250, 0.98) 100%),
+    linear-gradient(90deg, rgba(22, 50, 79, 0.08), rgba(245, 130, 32, 0.08));
+  box-shadow: 0 18px 42px rgba(22, 50, 79, 0.14);
   padding: 16px;
 }
 
 .incident-nav-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   border-bottom: 1px solid rgba(22, 50, 79, 0.16);
   padding-bottom: 14px;
 }
@@ -343,32 +345,45 @@ textarea {
 
 .incident-nav-tree nav {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .incident-nav-item,
 .incident-site-node summary {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 10px 11px;
-  color: #243447;
-  font-weight: 700;
+  border: 1px solid rgba(22, 50, 79, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.68);
+  padding: 10px 12px;
+  color: #1d2d3f;
+  font-weight: 800;
+  text-decoration: none;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
 
 .nav-icon {
   display: inline-grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
-  border-radius: 7px;
-  background: rgba(22, 50, 79, 0.08);
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border: 1px solid rgba(22, 50, 79, 0.1);
+  border-radius: 9px;
+  background: linear-gradient(180deg, #ffffff, #eef3f8);
   color: var(--brand-primary);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 900;
+  box-shadow: inset 0 -1px 0 rgba(22, 50, 79, 0.06);
+}
+
+.nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-icon-incident {
@@ -376,18 +391,45 @@ textarea {
   color: #fff;
 }
 
+.nav-badge {
+  justify-self: end;
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 999px;
+  background: #eef3f8;
+  color: var(--brand-primary);
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.nav-badge.danger {
+  border-color: rgba(211, 47, 47, 0.18);
+  background: #fff0f0;
+  color: var(--critical);
+}
+
 .incident-nav-item:hover,
 .incident-site-node summary:hover {
-  border-color: rgba(245, 130, 32, 0.32);
+  transform: translateY(-1px);
+  border-color: rgba(245, 130, 32, 0.38);
   background: #fff7ef;
+  box-shadow: 0 8px 18px rgba(22, 50, 79, 0.08);
 }
 
 .incident-nav-item.active,
 .incident-site-node summary.active {
-  border-color: var(--brand-primary);
-  background: rgba(22, 50, 79, 0.1);
+  border-color: rgba(245, 130, 32, 0.72);
+  background: linear-gradient(90deg, rgba(245, 130, 32, 0.14), rgba(255, 255, 255, 0.94));
   color: var(--primary);
-  box-shadow: inset -5px 0 0 var(--brand-secondary), 0 8px 18px rgba(22, 50, 79, 0.08);
+  box-shadow: inset -5px 0 0 var(--brand-secondary), 0 10px 22px rgba(22, 50, 79, 0.12);
+}
+
+.incident-nav-item.active .nav-icon {
+  border-color: rgba(245, 130, 32, 0.42);
+  background: #fff3e7;
+  color: var(--brand-secondary);
 }
 
 .incident-site-tree {
@@ -398,10 +440,19 @@ textarea {
   padding-top: 10px;
 }
 
+.incident-nav-section-title {
+  padding: 9px 12px 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
 .incident-site-node {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fbfcfe;
+  border: 1px solid rgba(22, 50, 79, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.66);
+  overflow: hidden;
 }
 
 .incident-site-node summary {
@@ -415,14 +466,15 @@ textarea {
 
 .incident-site-links {
   display: grid;
-  gap: 4px;
-  border-top: 1px solid #ececea;
+  gap: 6px;
+  border-top: 1px solid rgba(22, 50, 79, 0.08);
   padding: 8px;
 }
 
 .incident-site-links .incident-nav-item {
   font-size: 14px;
   padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.74);
 }
 
 .incident-mini-panel {

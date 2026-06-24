@@ -186,41 +186,42 @@ export function IncidentCommandShell({
 
         <nav>
           <Link className={`incident-nav-item${activeClass(pathname, base)}`} href={base}>
-            <span className="nav-icon" aria-hidden="true">ד</span>
-            דשבורד מפקד
+            <span className="nav-icon" aria-hidden="true">📊</span>
+            <span className="nav-label">דשבורד מפקד</span>
           </Link>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/operational-log`)}`} href={`${base}/operational-log`}>
-            <span className="nav-icon" aria-hidden="true">י</span>
-            יומן מבצעי כללי
+            <span className="nav-icon" aria-hidden="true">📝</span>
+            <span className="nav-label">יומן מבצעי כללי</span>
           </Link>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/sites`)}`} href={`${base}/sites`}>
-            <span className="nav-icon" aria-hidden="true">א</span>
-            כל האתרים
+            <span className="nav-icon" aria-hidden="true">🏢</span>
+            <span className="nav-label">כל האתרים</span>
+            <span className="nav-badge">{formatNumber(summary.total_sites ?? sites.length)}</span>
           </Link>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/personnel`)}`} href={`${base}/personnel`}>
-            <span className="nav-icon" aria-hidden="true">כ</span>
-            כח אדם באירוע
+            <span className="nav-icon" aria-hidden="true">👥</span>
+            <span className="nav-label">כח אדם באירוע</span>
           </Link>
           <div className="incident-site-node incident-report-node">
             <div className="incident-nav-section-title">דוחות</div>
             <div className="incident-site-links">
               <Link className={`incident-nav-item${activeClass(pathname, `${base}/sitreps`, false)}`} href={`${base}/sitreps`}>
-                <span className="nav-icon" aria-hidden="true">ח</span>
-                חיתוכי מצב
+                <span className="nav-icon" aria-hidden="true">📋</span>
+                <span className="nav-label">חיתוכי מצב</span>
               </Link>
               <Link className={`incident-nav-item${activeClass(pathname, `${base}/reports/closure`, false)}`} href={`${base}/reports/closure`}>
-                <span className="nav-icon" aria-hidden="true">ס</span>
-                דוח סגירת אירוע
+                <span className="nav-icon" aria-hidden="true">🏁</span>
+                <span className="nav-label">דוח סגירת אירוע</span>
               </Link>
             </div>
           </div>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/timeline`)}`} href={`${base}/timeline`}>
-            <span className="nav-icon" aria-hidden="true">ז</span>
-            ציר זמן מבצעי
+            <span className="nav-icon" aria-hidden="true">🕒</span>
+            <span className="nav-label">ציר זמן מבצעי</span>
           </Link>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/investigation-assistant`)}`} href={`${base}/investigation-assistant`}>
-            <span className="nav-icon" aria-hidden="true">ת</span>
-            עוזר תחקור
+            <span className="nav-icon" aria-hidden="true">🦉</span>
+            <span className="nav-label">עוזר תחקור</span>
           </Link>
 
           <div className="incident-site-tree">
@@ -233,33 +234,34 @@ export function IncidentCommandShell({
                 <details className="incident-site-node" key={site.site_id} open={isCurrentSite}>
                   <summary className={isCurrentSite ? "active" : ""}>
                     <span className={`site-status-dot coverage-${level}`} aria-label={`פער ${level}`} />
-                    {siteLabel(site)}
+                    <span className="nav-label">{siteLabel(site)}</span>
+                    {site.operational_gap > 0 ? <span className="nav-badge danger">פער {formatNumber(site.operational_gap)}</span> : null}
                   </summary>
                   <div className="incident-site-links">
                     <Link className={`incident-nav-item${activeClass(pathname, rootHref)}`} href={rootHref}>
-                      <span className="nav-icon" aria-hidden="true">מ</span>
-                      תמונת מבנה
+                      <span className="nav-icon" aria-hidden="true">📊</span>
+                      <span className="nav-label">תמונת מבנה</span>
                     </Link>
                     <Link
                       className={`incident-nav-item${activeClass(pathname, `${rootHref}/operational-numbers`)}`}
                       href={`${rootHref}/operational-numbers`}
                     >
-                      <span className="nav-icon" aria-hidden="true">#</span>
-                      מספרים מבצעיים
+                      <span className="nav-icon" aria-hidden="true">👤</span>
+                      <span className="nav-label">מספרים מבצעיים</span>
                     </Link>
                     <Link
                       className={`incident-nav-item${activeClass(pathname, `${rootHref}/grid-map`)}`}
                       href={`${rootHref}/grid-map`}
                     >
-                      <span className="nav-icon" aria-hidden="true">▦</span>
-                      ריכוז פעילות מול תא שטח
+                      <span className="nav-icon" aria-hidden="true">🗺️</span>
+                      <span className="nav-label">ריכוז פעילות מול תא שטח</span>
                     </Link>
                     <Link
                       className={`incident-nav-item${activeClass(pathname, `${rootHref}/operational-log`)}`}
                       href={`${rootHref}/operational-log`}
                     >
-                      <span className="nav-icon" aria-hidden="true">י</span>
-                      יומן מבצעי אתר
+                      <span className="nav-icon" aria-hidden="true">📝</span>
+                      <span className="nav-label">יומן מבצעי אתר</span>
                     </Link>
                   </div>
                 </details>
@@ -267,7 +269,6 @@ export function IncidentCommandShell({
             })}
           </div>
         </nav>
-
         <div className="incident-mini-panel">
           <strong>תמונת מצב</strong>
           <dl>
