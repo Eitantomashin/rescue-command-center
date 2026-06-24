@@ -70,6 +70,7 @@ type ResidentRow = {
   unit_id: string | null;
   first_name: string | null;
   last_name: string | null;
+  gender: "male" | "female" | "unknown";
   age: number | null;
   phone: string | null;
   status_id: string | null;
@@ -231,11 +232,24 @@ function editableResidentNotes(notes: string | null) {
   return notes?.trim() === "placeholder" ? "" : notes ?? "";
 }
 
+function genderLabel(gender: ResidentRow["gender"] | null | undefined) {
+  if (gender === "male") {
+    return "זכר";
+  }
+
+  if (gender === "female") {
+    return "נקבה";
+  }
+
+  return "לא ידוע";
+}
+
 function residentEditVersion(resident: ResidentRow) {
   return [
     resident.id,
     resident.first_name ?? "",
     resident.last_name ?? "",
+    resident.gender ?? "unknown",
     resident.linked_person_id ?? "",
     resident.status_id ?? "",
     resident.age ?? "",
@@ -283,6 +297,7 @@ function isEmptyPlaceholderResident(statuses: Map<string, StatusRow>, resident: 
     resident.linked_person_id === null &&
     /^דייר [0-9]+$/.test(resident.first_name ?? "") &&
     !resident.last_name &&
+    (resident.gender ?? "unknown") === "unknown" &&
     resident.age === null &&
     !resident.phone &&
     (notes === "" || notes === "placeholder") &&
@@ -333,11 +348,14 @@ function hiddenContext(incidentId: string, siteId: string, unitId?: string) {
 }
 
 export default async function SiteDetailsPage({
-  params
+  params,
+  searchParams
 }: {
   params: { incidentId: string; siteId: string };
+  searchParams?: { q?: string };
 }) {
   const supabase = createClient();
+  const residentSearchQuery = String(searchParams?.q ?? "").trim().toLowerCase();
 
   const { data: summary, error: summaryError } = await supabase
     .from("site_dashboard_summary")
@@ -406,14 +424,14 @@ export default async function SiteDetailsPage({
       unitIds.length > 0
         ? supabase
             .from("unit_residents")
-            .select("id,site_id,unit_id,first_name,last_name,age,phone,status_id,linked_person_id,is_active,notes")
+            .select("id,site_id,unit_id,first_name,last_name,gender,age,phone,status_id,linked_person_id,is_active,notes")
             .eq("incident_id", params.incidentId)
             .in("unit_id", unitIds)
             .order("last_name", { ascending: true })
         : Promise.resolve({ data: [] }),
       supabase
         .from("unit_residents")
-        .select("id,site_id,unit_id,first_name,last_name,age,phone,status_id,linked_person_id,is_active,notes")
+        .select("id,site_id,unit_id,first_name,last_name,gender,age,phone,status_id,linked_person_id,is_active,notes")
         .eq("incident_id", params.incidentId)
         .eq("site_id", params.siteId)
         .is("unit_id", null)
@@ -427,7 +445,7 @@ export default async function SiteDetailsPage({
         .order("operational_number", { ascending: true }),
       supabase
         .from("unit_residents")
-        .select("id,site_id,unit_id,first_name,last_name,age,phone,status_id,linked_person_id,is_active,notes")
+        .select("id,site_id,unit_id,first_name,last_name,gender,age,phone,status_id,linked_person_id,is_active,notes")
         .eq("incident_id", params.incidentId)
         .not("linked_person_id", "is", null)
         .order("last_name", { ascending: true })
@@ -473,6 +491,25 @@ export default async function SiteDetailsPage({
     (person) => !person.unit_id && !linkedResidentsByPerson.has(person.id)
   );
   const activeGeneralResidents = generalResidents.filter((resident) => resident.is_active);
+  const residentMatchesSearch = (resident: ResidentRow) => {
+    if (!residentSearchQuery) {
+      return true;
+    }
+
+    return [
+      resident.first_name,
+      resident.last_name,
+      displayName(resident),
+      editableResidentNotes(resident.notes)
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(residentSearchQuery);
+  };
+  const visibleGeneralResidents = residentSearchQuery
+    ? activeGeneralResidents.filter(residentMatchesSearch)
+    : activeGeneralResidents;
 
   return (
     <main className={`page site-detail-page${canEditThisSite ? "" : " permission-readonly"}`}>
@@ -550,6 +587,20 @@ export default async function SiteDetailsPage({
           <div>
             <h2>תמונת מבנה</h2>
             <p className="muted">תצוגת פיקוד ידידותית: הדירות מציגות דיירים רשומים בלבד.</p>
+            <form className="resident-search-form" action={`/incidents/${params.incidentId}/sites/${params.siteId}`}>
+              <input
+                className="input"
+                name="q"
+                defaultValue={searchParams?.q ?? ""}
+                placeholder="חיפוש דייר לפי שם פרטי או שם משפחה"
+              />
+              <button className="button secondary compact" type="submit">חיפוש</button>
+              {residentSearchQuery ? (
+                <Link className="button neutral compact" href={`/incidents/${params.incidentId}/sites/${params.siteId}`}>
+                  נקה
+                </Link>
+              ) : null}
+            </form>
           </div>
           <div className="building-legend" aria-label="מקרא">
             <span className="legend-item">
@@ -589,7 +640,14 @@ export default async function SiteDetailsPage({
           <div className="building-stack">
             {floors.map((floor) => {
               const floorUnits = sortUnits(unitsByFloor.get(floor.id) ?? []);
-              const floorSummary = floorUnits.reduce(
+              const visibleFloorUnits = residentSearchQuery
+                ? floorUnits.filter((unit) =>
+                    (residentsByUnit.get(unit.id) ?? [])
+                      .filter((resident) => resident.is_active)
+                      .some(residentMatchesSearch)
+                  )
+                : floorUnits;
+              const floorSummary = visibleFloorUnits.reduce(
                 (summary, unit) => {
                   const activeResidents = (residentsByUnit.get(unit.id) ?? []).filter(
                     (resident) => resident.is_active
@@ -629,7 +687,7 @@ export default async function SiteDetailsPage({
                     <div className="floor-summary-title">
                       <span className="floor-tone-dot" />
                       <h3>קומה {floor.floor_number}</h3>
-                      <span className="muted">{formatNumber(floorUnits.length)} יחידות</span>
+                      <span className="muted">{formatNumber(visibleFloorUnits.length)} יחידות</span>
                     </div>
                     <div className="floor-summary-metrics">
                       <span>דיירים <strong>{formatNumber(floorSummary.totalResidents)}</strong></span>
@@ -640,11 +698,11 @@ export default async function SiteDetailsPage({
                     </div>
                   </summary>
 
-                  {floorUnits.length === 0 ? (
+                  {visibleFloorUnits.length === 0 ? (
                     <p className="muted">אין דירות רשומות בקומה זו.</p>
                   ) : (
                     <div className="apartment-grid">
-                      {floorUnits.map((unit) => {
+                      {visibleFloorUnits.map((unit) => {
                         const activeResidents = (residentsByUnit.get(unit.id) ?? []).filter(
                           (resident) => resident.is_active
                         );
@@ -693,10 +751,6 @@ export default async function SiteDetailsPage({
 
                             <dl className="apartment-details">
                               <div>
-                                <dt>שם משפחה</dt>
-                                <dd>{unit.family_name ?? "-"}</dd>
-                              </div>
-                              <div>
                                 <dt>סה"כ דיירים</dt>
                                 <dd>{formatNumber(activeResidents.length)}</dd>
                               </div>
@@ -713,6 +767,27 @@ export default async function SiteDetailsPage({
                                 <dd>{formatNumber(unknownResidents)}</dd>
                               </div>
                             </dl>
+
+                            <div className="apartment-resident-summary">
+                              {activeResidents.length === 0 ? (
+                                <span className="muted">אין דיירים רשומים</span>
+                              ) : (
+                                activeResidents.slice(0, 5).map((resident) => (
+                                  <div className="apartment-resident-summary-row" key={`summary-${resident.id}`}>
+                                    <strong>{resident.first_name || "שם פרטי לא ידוע"}</strong>
+                                    <span>{resident.last_name || "שם משפחה לא ידוע"}</span>
+                                    <span>{genderLabel(resident.gender)}</span>
+                                    <span>{resident.age === null ? "גיל לא ידוע" : `גיל ${resident.age}`}</span>
+                                    {editableResidentNotes(resident.notes) ? (
+                                      <em>{editableResidentNotes(resident.notes)}</em>
+                                    ) : null}
+                                  </div>
+                                ))
+                              )}
+                              {activeResidents.length > 5 ? (
+                                <span className="muted">ועוד {formatNumber(activeResidents.length - 5)} דיירים</span>
+                              ) : null}
+                            </div>
 
                             <div className="unit-operational-links">
                               <span>מספרים מבצעיים</span>
@@ -768,7 +843,9 @@ export default async function SiteDetailsPage({
                                             </div>
                                             <small>
                                               {resident.age === null ? "" : `גיל ${resident.age} · `}
+                                              {genderLabel(resident.gender)} ·{" "}
                                               טיפול: {treatmentLabel(state)}
+                                              {editableResidentNotes(resident.notes) ? ` · ${editableResidentNotes(resident.notes)}` : ""}
                                             </small>
                                           </div>
                                           <div className="resident-row-actions">
@@ -798,6 +875,11 @@ export default async function SiteDetailsPage({
                                             <input type="hidden" name="residentId" value={resident.id} />
                                             <input className="input" name="firstName" defaultValue={resident.first_name ?? ""} placeholder="שם פרטי" />
                                             <input className="input" name="lastName" defaultValue={resident.last_name ?? ""} placeholder="שם משפחה" />
+                                            <select className="input" name="gender" defaultValue={resident.gender ?? "unknown"} aria-label="מין">
+                                              <option value="unknown">מין: לא ידוע</option>
+                                              <option value="male">מין: זכר</option>
+                                              <option value="female">מין: נקבה</option>
+                                            </select>
                                             <input className="input" name="age" type="number" min="0" defaultValue={resident.age ?? ""} placeholder="גיל" />
                                             <input className="input" name="phone" defaultValue={resident.phone ?? ""} placeholder="טלפון" />
                                             <input type="hidden" name="statusId" value={resident.status_id ?? ""} />
@@ -910,14 +992,14 @@ export default async function SiteDetailsPage({
             <h2>אזור כללי / שטחים משותפים</h2>
             <p className="muted">לובי, מדרגות, חניה, אורחים או כל אדם שאינו משויך לדירה מסוימת.</p>
           </div>
-          <span className="badge">{formatNumber(activeGeneralResidents.length)} רשומות פעילות</span>
+          <span className="badge">{formatNumber(visibleGeneralResidents.length)} רשומות פעילות</span>
         </div>
 
-        {activeGeneralResidents.length === 0 ? (
+        {visibleGeneralResidents.length === 0 ? (
           <p className="muted">אין עדיין דיירים או אנשים באזור הכללי.</p>
         ) : (
           <ul className="resident-list general-resident-list">
-            {activeGeneralResidents.map((resident) => {
+            {visibleGeneralResidents.map((resident) => {
               const linkedPerson = resident.linked_person_id
                 ? personsById.get(resident.linked_person_id)
                 : null;
@@ -946,7 +1028,9 @@ export default async function SiteDetailsPage({
                     </div>
                     <small>
                       {resident.age === null ? "" : `גיל ${resident.age} · `}
+                      {genderLabel(resident.gender)} ·{" "}
                       טיפול: {treatmentLabel(state)}
+                      {editableResidentNotes(resident.notes) ? ` · ${editableResidentNotes(resident.notes)}` : ""}
                     </small>
                   </div>
                   <div className="resident-row-actions">
@@ -965,6 +1049,11 @@ export default async function SiteDetailsPage({
                       <input type="hidden" name="residentId" value={resident.id} />
                       <input className="input" name="firstName" defaultValue={resident.first_name ?? ""} placeholder="שם פרטי" />
                       <input className="input" name="lastName" defaultValue={resident.last_name ?? ""} placeholder="שם משפחה" />
+                      <select className="input" name="gender" defaultValue={resident.gender ?? "unknown"} aria-label="מין">
+                        <option value="unknown">מין: לא ידוע</option>
+                        <option value="male">מין: זכר</option>
+                        <option value="female">מין: נקבה</option>
+                      </select>
                       <input className="input" name="age" type="number" min="0" defaultValue={resident.age ?? ""} placeholder="גיל" />
                       <input className="input" name="phone" defaultValue={resident.phone ?? ""} placeholder="טלפון" />
                       <input type="hidden" name="statusId" value={resident.status_id ?? ""} />

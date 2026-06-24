@@ -267,6 +267,7 @@ export async function updateUnitResident(formData: FormData) {
   const residentId = requiredValue(formData, "residentId", "דייר");
   const firstName = nullableValue(formData, "firstName");
   const lastName = nullableValue(formData, "lastName");
+  const gender = nullableValue(formData, "gender") ?? "unknown";
   const age = optionalNonNegativeInteger(formData, "age", "גיל");
   const phone = nullableValue(formData, "phone");
   const statusId = nullableValue(formData, "statusId");
@@ -280,7 +281,8 @@ export async function updateUnitResident(formData: FormData) {
     p_age: age,
     p_phone: phone,
     p_status_id: statusId,
-    p_notes: notes
+    p_notes: notes,
+    p_gender: gender
   });
 
   if (error) {

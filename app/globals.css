@@ -3602,6 +3602,17 @@ textarea {
   font-weight: 900;
 }
 
+.resident-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.resident-search-form .input {
+  min-width: min(100%, 260px);
+}
+
 .apartment-details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3629,6 +3640,34 @@ textarea {
   font-size: 18px;
   font-weight: 900;
   text-align: right;
+}
+
+.apartment-resident-summary {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(22, 50, 79, 0.1);
+  border-radius: 8px;
+  background: #f8fbfd;
+  padding: 8px;
+}
+
+.apartment-resident-summary-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) minmax(70px, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-size: 13px;
+}
+
+.apartment-resident-summary-row strong {
+  color: var(--brand-primary);
+}
+
+.apartment-resident-summary-row em {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-style: normal;
 }
 
 .unit-gap-badge {
