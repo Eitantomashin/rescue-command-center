@@ -3346,6 +3346,15 @@ textarea {
   color: var(--danger);
 }
 
+.structure-error-message {
+  margin-top: 8px;
+  border: 1px solid rgba(211, 47, 47, 0.22);
+  border-radius: 8px;
+  background: rgba(211, 47, 47, 0.08);
+  padding: 8px 10px;
+  font-weight: 800;
+}
+
 .building-panel {
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -3474,6 +3483,45 @@ textarea {
 
 .floor-summary-bar::-webkit-details-marker {
   display: none;
+}
+
+.floor-structure-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin: -6px -6px 14px;
+  border-bottom: 1px solid rgba(22, 50, 79, 0.1);
+  background: #f8fbfd;
+  padding: 10px;
+}
+
+.structure-action-card {
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.structure-action-card > summary {
+  cursor: pointer;
+  color: var(--brand-primary);
+  font-weight: 900;
+}
+
+.structure-action-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.structure-action-card[open] > summary {
+  margin-bottom: 8px;
+}
+
+.unit-previous-label {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .floor-card:not([open]) .floor-summary-bar {

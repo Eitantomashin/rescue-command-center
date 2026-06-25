@@ -5,11 +5,14 @@ import { formatNumber } from "@/lib/format";
 import { CollaborativeLockSection } from "../../collaborative-lock";
 import { closeSite, reopenSite } from "../../lifecycle-actions";
 import {
+  addApartmentToFloor,
   clearUnit,
   createGeneralAreaResident,
   createUnitResident,
   deleteEmptyPlaceholderResident,
   linkExistingPersonToResident,
+  removeApartmentUnit,
+  splitApartmentUnit,
   updateUnitResident,
   updateUnitStatus
 } from "./actions";
@@ -62,6 +65,9 @@ type UnitRow = {
   is_active: boolean;
   inactive_reason: string | null;
   notes: string | null;
+  previous_unit_label: string | null;
+  original_unit_label: string | null;
+  structure_change_type: string | null;
 };
 
 type ResidentRow = {
@@ -277,7 +283,7 @@ function zoneTypeLabel(zoneType: string | null) {
 
 function unitDisplayLabel(unit: UnitRow) {
   if (unit.zone_type === "apartment" || !unit.zone_type) {
-    return `דירה ${unit.zone_sequence ?? unit.unit_number}`;
+    return `דירה ${unit.unit_number}`;
   }
 
   if (unit.zone_type === "other" && unit.zone_name) {
@@ -286,6 +292,18 @@ function unitDisplayLabel(unit: UnitRow) {
   }
 
   return `${zoneTypeLabel(unit.zone_type)} ${unit.zone_sequence ?? unit.unit_number}`;
+}
+
+function unitPreviousLabel(unit: UnitRow) {
+  if (unit.original_unit_label && unit.structure_change_type === "apartment_split") {
+    return `פוצלה מדירה ${unit.original_unit_label}`;
+  }
+
+  if (unit.previous_unit_label) {
+    return `היתה דירה ${unit.previous_unit_label}`;
+  }
+
+  return null;
 }
 
 function isEmptyPlaceholderResident(statuses: Map<string, StatusRow>, resident: ResidentRow) {
@@ -352,7 +370,7 @@ export default async function SiteDetailsPage({
   searchParams
 }: {
   params: { incidentId: string; siteId: string };
-  searchParams?: { q?: string };
+  searchParams?: { q?: string; structureError?: string };
 }) {
   const supabase = createClient();
   const residentSearchQuery = String(searchParams?.q ?? "").trim().toLowerCase();
@@ -387,7 +405,7 @@ export default async function SiteDetailsPage({
     supabase
       .from("units")
       .select(
-        "id,floor_id,unit_number,zone_name,zone_type,zone_sequence,expected_occupants,family_name,known_people_count,status_id,is_fully_cleared,is_active,inactive_reason,notes"
+        "id,floor_id,unit_number,zone_name,zone_type,zone_sequence,expected_occupants,family_name,known_people_count,status_id,is_fully_cleared,is_active,inactive_reason,notes,previous_unit_label,original_unit_label,structure_change_type"
       )
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId)
@@ -522,6 +540,9 @@ export default async function SiteDetailsPage({
             {site.city ? ` · ${site.city}` : ""}
           </p>
           <p className="muted">סטטוס אתר: {site.site_status_label ?? "-"}</p>
+          {searchParams?.structureError ? (
+            <p className="error structure-error-message">{searchParams.structureError}</p>
+          ) : null}
         </div>
 
         <div className="actions">
@@ -640,13 +661,14 @@ export default async function SiteDetailsPage({
           <div className="building-stack">
             {floors.map((floor) => {
               const floorUnits = sortUnits(unitsByFloor.get(floor.id) ?? []);
+              const activeFloorUnits = floorUnits.filter((unit) => unit.is_active);
               const visibleFloorUnits = residentSearchQuery
-                ? floorUnits.filter((unit) =>
+                ? activeFloorUnits.filter((unit) =>
                     (residentsByUnit.get(unit.id) ?? [])
                       .filter((resident) => resident.is_active)
                       .some(residentMatchesSearch)
                   )
-                : floorUnits;
+                : activeFloorUnits;
               const floorSummary = visibleFloorUnits.reduce(
                 (summary, unit) => {
                   const activeResidents = (residentsByUnit.get(unit.id) ?? []).filter(
@@ -673,6 +695,9 @@ export default async function SiteDetailsPage({
                   : floorSummary.knownHandled > 0
                     ? "progress"
                     : "high-gap";
+              const apartmentUnits = activeFloorUnits.filter(
+                (unit) => unit.zone_type === "apartment" || !unit.zone_type
+              );
 
               return (
                 <details
@@ -697,6 +722,58 @@ export default async function SiteDetailsPage({
                       {!floor.is_active ? <span className="badge inactive">לא פעילה</span> : null}
                     </div>
                   </summary>
+
+                  {canEditThisSite ? (
+                    <div className="floor-structure-actions">
+                      <details className="structure-action-card">
+                        <summary>הוסף דירה</summary>
+                        <form action={addApartmentToFloor} className="form-grid">
+                          {hiddenContext(params.incidentId, params.siteId)}
+                          <input type="hidden" name="floorId" value={floor.id} />
+                          <input className="input" name="position" type="number" min="1" placeholder="הוסף אחרי דירה, ריק = סוף קומה" />
+                          <input className="input wide" name="reason" placeholder="סיבה / הערה" />
+                          <button className="button secondary" type="submit">הוסף דירה</button>
+                        </form>
+                      </details>
+
+                      <details className="structure-action-card">
+                        <summary>פצל דירה</summary>
+                        <form action={splitApartmentUnit} className="form-grid">
+                          {hiddenContext(params.incidentId, params.siteId)}
+                          <select className="input" name="unitId" required>
+                            <option value="">בחר דירה לפיצול</option>
+                            {apartmentUnits.map((unit) => (
+                              <option key={`split-${unit.id}`} value={unit.id}>
+                                {unitDisplayLabel(unit)}
+                              </option>
+                            ))}
+                          </select>
+                          <input className="input" name="suffixes" defaultValue="א׳,ב׳" placeholder="סיומות, לדוגמה: א׳,ב׳" />
+                          <input className="input wide" name="reason" placeholder="סיבה / הערה" />
+                          <p className="muted wide">אם קיימים דיירים או מספרים מבצעיים, הם נשארים בדירת הפיצול הראשונה.</p>
+                          <button className="button secondary" type="submit" disabled={apartmentUnits.length === 0}>פצל דירה</button>
+                        </form>
+                      </details>
+
+                      <details className="structure-action-card">
+                        <summary>הסר דירה</summary>
+                        <form action={removeApartmentUnit} className="form-grid">
+                          {hiddenContext(params.incidentId, params.siteId)}
+                          <select className="input" name="unitId" required>
+                            <option value="">בחר דירה להסרה</option>
+                            {apartmentUnits.map((unit) => (
+                              <option key={`remove-${unit.id}`} value={unit.id}>
+                                {unitDisplayLabel(unit)}
+                              </option>
+                            ))}
+                          </select>
+                          <input className="input wide" name="reason" placeholder="סיבה להסרה" required />
+                          <p className="muted wide">הסרה תיחסם אם קיימים מספרים מבצעיים או פרטי דייר חשובים.</p>
+                          <button className="button secondary danger" type="submit" disabled={apartmentUnits.length === 0}>הסר דירה</button>
+                        </form>
+                      </details>
+                    </div>
+                  ) : null}
 
                   {visibleFloorUnits.length === 0 ? (
                     <p className="muted">אין דירות רשומות בקומה זו.</p>
@@ -738,7 +815,12 @@ export default async function SiteDetailsPage({
                             key={unit.id}
                           >
                             <div className="apartment-card-header">
-                              <h4>{unitDisplayLabel(unit)}</h4>
+                              <div>
+                                <h4>{unitDisplayLabel(unit)}</h4>
+                                {unitPreviousLabel(unit) ? (
+                                  <small className="unit-previous-label">{unitPreviousLabel(unit)}</small>
+                                ) : null}
+                              </div>
                               <div className="apartment-badges">
                                 <span className={unit.is_active ? "badge active" : "badge inactive"}>
                                   {unit.is_active ? "פעילה" : "לא פעילה"}

@@ -49,10 +49,58 @@ function optionalNonNegativeInteger(formData: FormData, key: string, label: stri
   return parsed;
 }
 
+function optionalInteger(formData: FormData, key: string, label: string) {
+  const raw = value(formData, key);
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${label} חייב להיות מספר תקין`);
+  }
+
+  return parsed;
+}
+
 function sitePath(formData: FormData) {
   const incidentId = requiredValue(formData, "incidentId", "אירוע");
   const siteId = requiredValue(formData, "siteId", "אתר");
   return `/incidents/${incidentId}/sites/${siteId}`;
+}
+
+function structureErrorPath(path: string, message: string) {
+  return `${path}?structureError=${encodeURIComponent(message)}`;
+}
+
+function structureErrorMessage(message: string) {
+  if (message.includes("Cannot remove apartment with active operational numbers")) {
+    return "לא ניתן להסיר דירה שמקושרים אליה מספרים מבצעיים פעילים.";
+  }
+
+  if (message.includes("Cannot remove apartment with important resident data")) {
+    return "לא ניתן להסיר דירה עם פרטי דייר אמיתיים. ניתן להסיר רק דירה שמכילה דיירים ריקים בלבד.";
+  }
+
+  if (message.includes("closed or archived")) {
+    return "לא ניתן לשנות מבנה באתר או אירוע סגור.";
+  }
+
+  if (message.includes("duplicate key") || message.includes("already exists")) {
+    return "כבר קיימת דירה עם סימון זה בקומה.";
+  }
+
+  return message || "לא ניתן להשלים את שינוי המבנה.";
+}
+
+function suffixList(formData: FormData) {
+  const raw = value(formData, "suffixes");
+  const suffixes = raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return suffixes.length > 0 ? suffixes : ["א׳", "ב׳"];
 }
 
 async function getUnitContext(unitId: string) {
@@ -290,6 +338,67 @@ export async function updateUnitResident(formData: FormData) {
   }
 
   revalidatePath(path);
+  redirect(path);
+}
+
+export async function addApartmentToFloor(formData: FormData) {
+  const path = sitePath(formData);
+  const floorId = requiredValue(formData, "floorId", "קומה");
+  const afterUnitNumber = optionalInteger(formData, "position", "מספר דירה");
+  const position = afterUnitNumber === null ? null : afterUnitNumber + 1;
+  const reason = nullableValue(formData, "reason");
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("add_apartment_to_floor", {
+    p_floor_id: floorId,
+    p_position: position,
+    p_reason: reason
+  });
+
+  if (error) {
+    redirect(structureErrorPath(path, structureErrorMessage(error.message)));
+  }
+
+  revalidatePath(path, "page");
+  redirect(path);
+}
+
+export async function splitApartmentUnit(formData: FormData) {
+  const path = sitePath(formData);
+  const unitId = requiredValue(formData, "unitId", "דירה");
+  const reason = nullableValue(formData, "reason");
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("split_apartment_unit", {
+    p_unit_id: unitId,
+    p_suffixes: suffixList(formData),
+    p_reason: reason
+  });
+
+  if (error) {
+    redirect(structureErrorPath(path, structureErrorMessage(error.message)));
+  }
+
+  revalidatePath(path, "page");
+  redirect(path);
+}
+
+export async function removeApartmentUnit(formData: FormData) {
+  const path = sitePath(formData);
+  const unitId = requiredValue(formData, "unitId", "דירה");
+  const reason = nullableValue(formData, "reason");
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("remove_apartment_unit", {
+    p_unit_id: unitId,
+    p_reason: reason
+  });
+
+  if (error) {
+    redirect(structureErrorPath(path, structureErrorMessage(error.message)));
+  }
+
+  revalidatePath(path, "page");
   redirect(path);
 }
 
