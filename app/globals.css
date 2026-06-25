@@ -1745,29 +1745,81 @@ textarea {
 }
 
 .site-command-facts {
-  margin-top: 18px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #f7fafc;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  margin-top: 20px;
+  gap: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
-.site-command-facts div {
+.site-command-fact {
   display: grid;
-  gap: 4px;
-  min-width: 150px;
+  align-content: center;
+  gap: 8px;
+  min-height: 132px;
+  border: 1px solid rgba(22, 50, 79, 0.16);
+  border-radius: 8px;
+  background: #f7fafc;
+  box-shadow: var(--shadow-sm);
+  padding: 18px;
 }
 
 .site-command-facts span {
-  color: var(--muted);
-  font-size: 13px;
+  color: var(--brand-primary);
+  font-size: 17px;
   font-weight: 800;
 }
 
 .site-command-facts strong {
   color: var(--brand-primary);
-  font-size: 18px;
+  font-size: clamp(42px, 5vw, 48px);
   font-weight: 950;
+  line-height: 0.95;
+}
+
+.site-command-facts small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.site-command-fact.fact-initial {
+  border-color: rgba(22, 50, 79, 0.22);
+  background: #eef4f9;
+}
+
+.site-command-fact.fact-initial strong {
+  color: var(--brand-primary);
+}
+
+.site-command-fact.fact-updated {
+  border-color: rgba(245, 130, 32, 0.34);
+  background: #fff6ed;
+}
+
+.site-command-fact.fact-updated strong {
+  color: var(--brand-secondary);
+}
+
+.site-command-fact.fact-gap {
+  border-color: rgba(211, 47, 47, 0.32);
+  background: #fff1f1;
+}
+
+.site-command-fact.fact-gap strong {
+  color: var(--danger);
+}
+
+.site-command-fact.fact-teams {
+  border-color: rgba(46, 125, 50, 0.24);
+  background: #f0f8f1;
+}
+
+.site-command-fact.fact-teams strong {
+  color: var(--success);
 }
 
 .site-anchor-status-grid {

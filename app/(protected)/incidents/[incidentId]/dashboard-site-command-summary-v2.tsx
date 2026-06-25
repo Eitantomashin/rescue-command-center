@@ -109,21 +109,22 @@ export function DashboardSiteCommandSummary({ sites }: { sites: SiteAnalysisRow[
                 </header>
 
                 <div className="site-command-facts" aria-label={`תמונת אתר ${site.name}`}>
-                  <div>
-                    <span>סטטוס</span>
-                    <strong>{site.statusLabel ?? "נפתח"}</strong>
+                  <div className="site-command-fact fact-initial">
+                    <span>פוטנציאל ראשוני</span>
+                    <strong>{formatNumber(site.initialPotential)}</strong>
                   </div>
-                  <div>
+                  <div className="site-command-fact fact-updated">
                     <span>פוטנציאל מעודכן</span>
                     <strong>{formatNumber(site.updatedPotential)}</strong>
                   </div>
-                  <div>
+                  <div className="site-command-fact fact-gap">
                     <span>פער מבצעי</span>
                     <strong>{formatNumber(site.operationalGap)}</strong>
                   </div>
-                  <div>
+                  <div className="site-command-fact fact-teams">
                     <span>צוותים פעילים</span>
-                    <strong>{site.teams.length ? site.teams.join(", ") : "ללא צוות"}</strong>
+                    <strong>{formatNumber(site.teams.length)}</strong>
+                    <small>{site.teams.length ? site.teams.join(", ") : "ללא צוות"}</small>
                   </div>
                 </div>
 
