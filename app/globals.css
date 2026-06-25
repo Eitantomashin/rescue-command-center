@@ -3618,6 +3618,13 @@ textarea {
   background: linear-gradient(180deg, #f3fbf4 0%, #ffffff 100%);
 }
 
+.apartment-card.manually-cleared {
+  border-width: 2px;
+  border-color: rgba(46, 125, 50, 0.58);
+  border-right-width: 7px;
+  background: linear-gradient(180deg, #eaf7ec 0%, #f8fff9 100%);
+}
+
 .apartment-card.partial,
 .apartment-card.open {
   border-right-color: var(--brand-secondary);
@@ -3648,6 +3655,37 @@ textarea {
   color: var(--brand-primary);
   font-size: 21px;
   font-weight: 900;
+}
+
+.unit-clearance-banner {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 14px;
+  border: 1px solid rgba(46, 125, 50, 0.24);
+  border-radius: 8px;
+  background: rgba(46, 125, 50, 0.08);
+  padding: 10px 12px;
+  color: #1b5e20;
+  font-weight: 800;
+}
+
+.unit-clearance-banner span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.clearance-dialog > summary {
+  display: inline-flex;
+  width: fit-content;
+  list-style: none;
+}
+
+.clearance-dialog > summary::-webkit-details-marker {
+  display: none;
+}
+
+.unit-reopen-form {
+  margin-top: 14px;
 }
 
 .resident-search-form {

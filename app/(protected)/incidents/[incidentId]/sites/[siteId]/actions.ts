@@ -466,17 +466,36 @@ export async function updateUnitStatus(formData: FormData) {
 export async function clearUnit(formData: FormData) {
   const path = sitePath(formData);
   const unitId = requiredValue(formData, "unitId", "דירה");
-  const overrideReason = nullableValue(formData, "overrideReason");
+  const clearanceReason = requiredValue(formData, "clearanceReason", "סיבת זיכוי");
   const supabase = createClient();
 
   const { error } = await supabase.rpc("set_unit_clearance", {
     p_unit_id: unitId,
     p_is_fully_cleared: true,
-    p_override_reason: overrideReason
+    p_override_reason: clearanceReason
   });
 
   if (error) {
-    throw new Error(error.message);
+    redirect(structureErrorPath(path, structureErrorMessage(error.message)));
+  }
+
+  revalidatePath(path);
+  redirect(path);
+}
+
+export async function reopenClearedUnit(formData: FormData) {
+  const path = sitePath(formData);
+  const unitId = requiredValue(formData, "unitId", "דירה");
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("set_unit_clearance", {
+    p_unit_id: unitId,
+    p_is_fully_cleared: false,
+    p_override_reason: null
+  });
+
+  if (error) {
+    redirect(structureErrorPath(path, structureErrorMessage(error.message)));
   }
 
   revalidatePath(path);

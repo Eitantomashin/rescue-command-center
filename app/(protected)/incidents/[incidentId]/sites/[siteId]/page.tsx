@@ -12,6 +12,7 @@ import {
   deleteEmptyPlaceholderResident,
   linkExistingPersonToResident,
   removeApartmentUnit,
+  reopenClearedUnit,
   splitApartmentUnit,
   updateUnitResident,
   updateUnitStatus
@@ -65,6 +66,13 @@ type UnitRow = {
   is_active: boolean;
   inactive_reason: string | null;
   notes: string | null;
+  cleared_at: string | null;
+  cleared_by: string | null;
+  cleared_reason: string | null;
+  cleared_potential_delta: number;
+  cleared_method: "manual" | "automatic" | null;
+  reopened_at: string | null;
+  reopened_by: string | null;
   previous_unit_label: string | null;
   original_unit_label: string | null;
   structure_change_type: string | null;
@@ -405,7 +413,7 @@ export default async function SiteDetailsPage({
     supabase
       .from("units")
       .select(
-        "id,floor_id,unit_number,zone_name,zone_type,zone_sequence,expected_occupants,family_name,known_people_count,status_id,is_fully_cleared,is_active,inactive_reason,notes,previous_unit_label,original_unit_label,structure_change_type"
+        "id,floor_id,unit_number,zone_name,zone_type,zone_sequence,expected_occupants,family_name,known_people_count,status_id,is_fully_cleared,is_active,inactive_reason,notes,cleared_at,cleared_by,cleared_reason,cleared_potential_delta,cleared_method,reopened_at,reopened_by,previous_unit_label,original_unit_label,structure_change_type"
       )
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId)
@@ -797,7 +805,9 @@ export default async function SiteDetailsPage({
                           )
                           .filter(Boolean) as PersonRow[];
                         const unitTone =
-                          unknownResidents === 0
+                          unit.is_fully_cleared
+                            ? "cleared"
+                            : unknownResidents === 0
                             ? "cleared"
                             : knownHandledResidents > 0
                               ? "partial"
@@ -808,6 +818,7 @@ export default async function SiteDetailsPage({
                             className={[
                               "apartment-card",
                               unitTone,
+                              unit.is_fully_cleared ? "manually-cleared" : "",
                               !unit.is_active ? "inactive" : ""
                             ]
                               .filter(Boolean)
@@ -825,6 +836,9 @@ export default async function SiteDetailsPage({
                                 <span className={unit.is_active ? "badge active" : "badge inactive"}>
                                   {unit.is_active ? "פעילה" : "לא פעילה"}
                                 </span>
+                                {unit.is_fully_cleared ? (
+                                  <span className="badge cleared">✓ דירה מזוכת</span>
+                                ) : null}
                                 <span className={`unit-gap-badge ${unitTone}`}>
                                   פער {formatNumber(unknownResidents)}
                                 </span>
@@ -849,6 +863,14 @@ export default async function SiteDetailsPage({
                                 <dd>{formatNumber(unknownResidents)}</dd>
                               </div>
                             </dl>
+
+                            {unit.is_fully_cleared ? (
+                              <div className="unit-clearance-banner">
+                                <strong>✓ דירה מזוכת</strong>
+                                <span>סיבה: {unit.cleared_reason ?? "לא צוינה"}</span>
+                                <span>הפחתת פוטנציאל: {formatNumber(unit.cleared_potential_delta ?? 0)}</span>
+                              </div>
+                            ) : null}
 
                             <div className="apartment-resident-summary">
                               {activeResidents.length === 0 ? (
@@ -931,7 +953,7 @@ export default async function SiteDetailsPage({
                                             </small>
                                           </div>
                                           <div className="resident-row-actions">
-                                            {canDeletePlaceholder ? (
+                                            {canDeletePlaceholder && !unit.is_fully_cleared ? (
                                               <CollaborativeLockSection objectType="resident" objectId={resident.id}>
                                               <form action={deleteEmptyPlaceholderResident} className="placeholder-delete-form inline">
                                                 {hiddenContext(params.incidentId, params.siteId)}
@@ -945,6 +967,7 @@ export default async function SiteDetailsPage({
                                           </div>
                                         </div>
 
+                                        {!unit.is_fully_cleared ? (
                                         <details className="resident-edit" key={residentEditKey}>
                                           <summary>עדכון דייר</summary>
                                           <CollaborativeLockSection objectType="resident" objectId={resident.id}>
@@ -999,6 +1022,7 @@ export default async function SiteDetailsPage({
 
                                                             </CollaborativeLockSection>
                   </details>
+                                        ) : null}
                                       </li>
                                     );
                                   })}
@@ -1006,6 +1030,7 @@ export default async function SiteDetailsPage({
                               )}
                             </div>
 
+                            {!unit.is_fully_cleared ? (
                             <details className="unit-actions">
                               <summary>פעולות יחידה / אזור</summary>
 
@@ -1043,15 +1068,37 @@ export default async function SiteDetailsPage({
                                 </button>
                               </form>
 
-                              <form action={clearUnit} className="action-form">
+                              {canEditThisSite ? (
+                                <details className="action-form clearance-dialog">
+                                  <summary className="button">סמן דירה כמזוכת</summary>
+                                  <form action={clearUnit} className="form-grid">
+                                    {hiddenContext(params.incidentId, params.siteId, unit.id)}
+                                    <strong className="wide">זיכוי דירה</strong>
+                                    <label className="wide">
+                                      סיבת זיכוי
+                                      <textarea
+                                        className="input"
+                                        name="clearanceReason"
+                                        required
+                                        rows={3}
+                                        placeholder="לדוגמה: הדירה ריקה / כל המשפחה בחו״ל / נבדקה ונמצאה ריקה"
+                                      />
+                                    </label>
+                                    <button className="button" type="submit" disabled={!unit.is_active}>
+                                      אישור
+                                    </button>
+                                  </form>
+                                </details>
+                              ) : null}
+                            </details>
+                            ) : canEditThisSite ? (
+                              <form action={reopenClearedUnit} className="action-form unit-reopen-form">
                                 {hiddenContext(params.incidentId, params.siteId, unit.id)}
-                                <strong>סימון זיכוי</strong>
-                                <input className="input" name="overrideReason" placeholder="נימוק חובה אם יש אנשים פתוחים ביחידה" />
-                                <button className="button" type="submit" disabled={unit.is_fully_cleared || !unit.is_active}>
-                                  סמן יחידה כזוכתה
+                                <button className="button secondary" type="submit">
+                                  החזר דירה לפעילות
                                 </button>
                               </form>
-                            </details>
+                            ) : null}
 
                             {!unit.is_active && unit.inactive_reason ? (
                               <p className="apartment-note">סיבת השבתה: {unit.inactive_reason}</p>
