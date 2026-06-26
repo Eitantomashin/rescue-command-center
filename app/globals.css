@@ -3594,6 +3594,17 @@ textarea {
   font-size: 21px;
 }
 
+.general-area-summary h2 {
+  margin: 0 0 4px;
+  color: var(--brand-primary);
+  font-size: 21px;
+  font-weight: 900;
+}
+
+.general-area-summary p {
+  margin: 0;
+}
+
 .floor-summary-metrics span:not(.badge) {
   display: inline-flex;
   align-items: center;

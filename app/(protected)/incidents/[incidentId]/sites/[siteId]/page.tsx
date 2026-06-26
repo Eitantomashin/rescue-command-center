@@ -536,6 +536,14 @@ export default async function SiteDetailsPage({
   const visibleGeneralResidents = residentSearchQuery
     ? activeGeneralResidents.filter(residentMatchesSearch)
     : activeGeneralResidents;
+  const visibleGeneralHandledCount = visibleGeneralResidents.filter((resident) =>
+    countsAsKnownHandledForUnitGap(
+      statuses,
+      resident,
+      resident.linked_person_id ? personsById.get(resident.linked_person_id) : null
+    )
+  ).length;
+  const visibleGeneralOpenCount = visibleGeneralResidents.length - visibleGeneralHandledCount;
 
   return (
     <main className={`page site-detail-page${canEditThisSite ? "" : " permission-readonly"}`}>
@@ -1115,14 +1123,21 @@ export default async function SiteDetailsPage({
         )}
       </section>
 
-      <section className="panel section-spaced general-area-panel">
-        <div className="building-heading">
-          <div>
-            <h2>אזור כללי / שטחים משותפים</h2>
-            <p className="muted">לובי, מדרגות, חניה, אורחים או כל אדם שאינו משויך לדירה מסוימת.</p>
+      <details className="panel section-spaced general-area-panel" open>
+        <summary className="floor-summary-bar general-area-summary">
+          <div className="floor-summary-title">
+            <span className="floor-tone-dot" />
+            <div>
+              <h2>אזור כללי / שטחים משותפים</h2>
+              <p className="muted">לובי, מדרגות, חניה, אורחים או כל אדם שאינו משויך לדירה מסוימת.</p>
+            </div>
           </div>
-          <span className="badge">{formatNumber(visibleGeneralResidents.length)} רשומות פעילות</span>
-        </div>
+          <div className="floor-summary-metrics">
+            <span><strong>{formatNumber(visibleGeneralResidents.length)}</strong> רשומות</span>
+            <span><strong>{formatNumber(visibleGeneralOpenCount)}</strong> פתוחה</span>
+            <span><strong>{formatNumber(visibleGeneralHandledCount)}</strong> טופלה</span>
+          </div>
+        </summary>
 
         {visibleGeneralResidents.length === 0 ? (
           <p className="muted">אין עדיין דיירים או אנשים באזור הכללי.</p>
@@ -1239,7 +1254,7 @@ export default async function SiteDetailsPage({
             </button>
           </form>
         </details>
-      </section>
+      </details>
 
       <section className="panel section-spaced">
         <h2>אנשים מבצעיים ללא שיוך ברור</h2>
