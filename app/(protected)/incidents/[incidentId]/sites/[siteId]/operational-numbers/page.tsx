@@ -69,13 +69,16 @@ type OperationalNumberRow = {
   merged_into_person_id: string | null;
   merged_into_operational_number: number | null;
   merged_operational_numbers: number[] | null;
+  merged_person_ids: string[] | null;
+  latest_merge_at: string | null;
+  latest_merge_reason: string | null;
 };
 
 type ReportRow = {
   report_id: string;
   person_id: string;
   operational_number: number;
-  status_id: string;
+  status_id: string | null;
   status_label: string;
   information_source_type: string;
   information_source_name: string | null;
@@ -85,6 +88,7 @@ type ReportRow = {
   notes: string | null;
   reported_at: string;
   created_at: string;
+  history_kind?: string | null;
 };
 
 type StatusRow = {
@@ -157,6 +161,25 @@ function parseActiveTeam(team: string | undefined) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function teamNumberFromOperationalNumber(operationalNumber: number) {
+  if (operationalNumber >= 1101 && operationalNumber <= 1199) return 11;
+  if (operationalNumber >= 1201 && operationalNumber <= 1299) return 12;
+  if (operationalNumber >= 1301 && operationalNumber <= 1399) return 13;
+  return Math.floor(operationalNumber / 100);
+}
+
+function numberBelongsToTeam(operationalNumber: number, teamNumber: number) {
+  return teamNumberFromOperationalNumber(operationalNumber) === teamNumber;
+}
+
+function mergedNumbers(row: Pick<OperationalNumberRow, "merged_operational_numbers">) {
+  return row.merged_operational_numbers?.filter((number) => Number.isFinite(number)) ?? [];
+}
+
+function isMergedGroup(row: OperationalNumberRow) {
+  return !row.is_merged && mergedNumbers(row).length > 0;
+}
+
 function teamOptions(rows: OperationalNumberRow[], activeTeam: number | null, teamRows: TeamRow[]) {
   const teamNumbers = new Set(defaultTeams.map((team) => team.number));
   const teamNames = new Map(teamRows.map((team) => [team.team_number, team.name]));
@@ -212,7 +235,7 @@ export default async function OperationalNumbersPage({
     supabase
       .from("operational_numbers_dashboard")
       .select(
-        "incident_id,site_id,person_id,operational_number,team_number,sequence_number,first_name,last_name,current_status_id,current_status_label,dashboard_status_label,dashboard_card_color,unit_number,floor_number,resident_id,resident_first_name,resident_last_name,latest_source_type,latest_source_name,latest_grid_cell,latest_confidence_level,latest_notes,latest_reported_at,is_merged,merged_into_person_id,merged_into_operational_number,merged_operational_numbers"
+        "incident_id,site_id,person_id,operational_number,team_number,sequence_number,first_name,last_name,current_status_id,current_status_label,dashboard_status_label,dashboard_card_color,unit_number,floor_number,resident_id,resident_first_name,resident_last_name,latest_source_type,latest_source_name,latest_grid_cell,latest_confidence_level,latest_notes,latest_reported_at,is_merged,merged_into_person_id,merged_into_operational_number,merged_operational_numbers,merged_person_ids,latest_merge_at,latest_merge_reason"
       )
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId)
@@ -243,18 +266,34 @@ export default async function OperationalNumbersPage({
   const teamNames = new Map(((teamRows ?? []) as TeamRow[]).map((team) => [team.team_number, team.name]));
   const teams = teamOptions(numbers, activeTeam, (teamRows ?? []) as TeamRow[]);
   const displayTeamLabel = (teamNumber: number) => operationalTeamLabel(teamNumber, teamNames.get(teamNumber));
+  const selectedRow = searchParams.personId ? numbers.find((row) => row.person_id === searchParams.personId) ?? null : null;
   const selectedPerson =
-    searchParams.personId ? numbers.find((row) => row.person_id === searchParams.personId) ?? null : null;
+    selectedRow?.is_merged && selectedRow.merged_into_person_id
+      ? numbers.find((row) => row.person_id === selectedRow.merged_into_person_id) ?? selectedRow
+      : selectedRow;
   const selectedPersonTeam = selectedPerson?.team_number ?? activeTeam;
-  const filteredNumbers = activeTeam ? numbers.filter((row) => row.team_number === activeTeam) : numbers;
+  const visiblePrimaryNumbers = numbers.filter((row) => !row.is_merged);
+  const filteredNumbers = activeTeam
+    ? visiblePrimaryNumbers.filter(
+        (row) =>
+          row.team_number === activeTeam ||
+          mergedNumbers(row).some((number) => numberBelongsToTeam(number, activeTeam))
+      )
+    : visiblePrimaryNumbers;
+  const countForTeam = (teamNumber: number) =>
+    visiblePrimaryNumbers.filter(
+      (row) =>
+        row.team_number === teamNumber ||
+        (!row.is_merged && mergedNumbers(row).some((number) => numberBelongsToTeam(number, teamNumber)))
+    ).length;
 
   const { data: reportRows, error: reportsError } = selectedPerson
     ? await supabase
         .from("operational_report_history")
         .select(
-          "report_id,person_id,operational_number,status_id,status_label,information_source_type,information_source_name,source_phone,grid_cell,confidence_level,notes,reported_at,created_at"
+          "report_id,person_id,operational_number,status_id,status_label,information_source_type,information_source_name,source_phone,grid_cell,confidence_level,notes,reported_at,created_at,history_kind"
         )
-        .eq("person_id", selectedPerson.person_id)
+        .in("person_id", [selectedPerson.person_id, ...(selectedPerson.merged_person_ids ?? [])])
         .order("reported_at", { ascending: false })
     : { data: [], error: null };
 
@@ -311,7 +350,7 @@ export default async function OperationalNumbersPage({
               href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers?team=all`}
             >
               כל הצוותים
-              <span>{formatNumber(numbers.length)}</span>
+              <span>{formatNumber(visiblePrimaryNumbers.length)}</span>
             </Link>
             {teams.map((team) => (
               <Link
@@ -320,7 +359,7 @@ export default async function OperationalNumbersPage({
                 href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers?team=${team.number}`}
               >
                 {team.label}
-                <span>{formatNumber(numbers.filter((row) => row.team_number === team.number).length)}</span>
+                <span>{formatNumber(countForTeam(team.number))}</span>
               </Link>
             ))}
           </nav>
@@ -398,23 +437,30 @@ export default async function OperationalNumbersPage({
               const linkedResident = residentName(row);
               const unit = unitLabel(row);
               const cardColor = row.dashboard_card_color ?? "blue";
+              const rowMergedNumbers = mergedNumbers(row);
+              const mergedGroup = isMergedGroup(row);
 
               return (
                 <Link
                   key={row.person_id}
-                  className={`operational-card operational-card-${cardColor}`}
+                  className={`operational-card operational-card-${cardColor}${mergedGroup ? " operational-card-merged" : ""}`}
                   href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers?team=${row.team_number}&personId=${row.person_id}`}
                 >
                   <div className="operational-card-header">
-                    <strong>{operationalNumberTitle(row)}</strong>
-                    <span className="badge">
-                      {row.is_merged && row.merged_into_operational_number
-                        ? `אוחד עם #${formatNumber(row.merged_into_operational_number)}`
-                        : row.current_status_label ?? row.dashboard_status_label ?? "לא ידוע"}
-                    </span>
+                    <strong>
+                      {mergedGroup
+                        ? `🔗 מספרים מאוחדים #${formatNumber(row.operational_number)} + ${rowMergedNumbers.map((number) => `#${formatNumber(number)}`).join(" + ")}`
+                        : operationalNumberTitle(row)}
+                    </strong>
+                    <span className="badge">{row.current_status_label ?? row.dashboard_status_label ?? "לא ידוע"}</span>
                   </div>
-                  {row.merged_operational_numbers?.length ? (
-                    <span className="badge">אוחדו: {row.merged_operational_numbers.map((number) => `#${formatNumber(number)}`).join(", ")}</span>
+                  {mergedGroup ? (
+                    <div className="merged-card-summary">
+                      <span className="merged-burst-badge">✦ מאוחדים ✦</span>
+                      <span>{personName(row) ?? residentName(row) ?? "שם לא ידוע"}</span>
+                      <span>מספר ראשי: #{formatNumber(row.operational_number)}</span>
+                      <span>מספר משני: {rowMergedNumbers.map((number) => `#${formatNumber(number)}`).join(", ")}</span>
+                    </div>
                   ) : null}
                   <dl className="operational-card-details">
                     <div>
@@ -482,6 +528,18 @@ export default async function OperationalNumbersPage({
                 </div>
               ) : (
                 <>
+                  {isMergedGroup(selectedPerson) ? (
+                    <details className="create-number-panel merged-history-panel" open>
+                      <summary className="button secondary">הצג היסטוריה</summary>
+                      <div className="merged-card-summary detail">
+                        <span className="merged-burst-badge">✦ מאוחדים ✦</span>
+                        <span>מספר ראשי: #{formatNumber(selectedPerson.operational_number)}</span>
+                        <span>מספרים משניים: {mergedNumbers(selectedPerson).map((number) => `#${formatNumber(number)}`).join(", ")}</span>
+                        {selectedPerson.latest_merge_at ? <span>אוחד לאחרונה: {formatDateTime(selectedPerson.latest_merge_at)}</span> : null}
+                        {selectedPerson.latest_merge_reason ? <span>סיבה: {selectedPerson.latest_merge_reason}</span> : null}
+                      </div>
+                    </details>
+                  ) : null}
 
                   <form
                     action={createOperationalReport}
@@ -568,7 +626,7 @@ export default async function OperationalNumbersPage({
                   {reports.map((report) => (
                     <li key={report.report_id}>
                       <strong>
-                        {personName(selectedPerson) ?? residentName(selectedPerson) ?? "שם לא ידוע"} · {report.information_source_type} · {report.status_label}
+                        #{formatNumber(report.operational_number)} · {personName(selectedPerson) ?? residentName(selectedPerson) ?? "שם לא ידוע"} · {report.information_source_type} · {report.status_label}
                       </strong>
                       <strong>
                         {formatDateTime(report.reported_at)} · {report.information_source_type}

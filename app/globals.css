@@ -1650,7 +1650,7 @@ textarea {
 
 .command-kpi-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px;
   margin: 18px 0 28px;
 }
@@ -1664,6 +1664,18 @@ textarea {
   background: linear-gradient(180deg, #ffffff 0%, #f4f8fc 100%);
   box-shadow: var(--shadow-md);
   padding: 20px;
+  text-align: right;
+  cursor: pointer;
+}
+
+.command-kpi-card:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.command-kpi-card.active {
+  border-color: var(--brand-secondary);
+  box-shadow: 0 16px 36px rgba(245, 130, 32, 0.22);
 }
 
 .command-kpi-card span {
@@ -1695,6 +1707,27 @@ textarea {
 
 .command-kpi-card.tone-danger strong {
   color: var(--danger);
+}
+
+.merged-kpi-panel {
+  border-color: rgba(126, 68, 190, 0.28);
+  background: #fbf7ff;
+}
+
+.merged-pair-list {
+  display: grid;
+  gap: 10px;
+}
+
+.merged-pair-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(126, 68, 190, 0.22);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px 14px;
 }
 
 .site-command-summary-list {
@@ -4377,6 +4410,15 @@ textarea {
   background: #fdecec;
 }
 
+.operational-card-merged {
+  position: relative;
+  border-color: rgba(126, 68, 190, 0.32);
+  border-right-color: #7e44be;
+  background:
+    linear-gradient(135deg, rgba(126, 68, 190, 0.12), transparent 38%),
+    #fffaf2;
+}
+
 .operational-card-header {
   display: flex;
   align-items: center;
@@ -4391,6 +4433,35 @@ textarea {
 
 .operational-card-header .badge {
   flex: 0 0 auto;
+}
+
+.merged-card-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--brand-primary);
+  font-weight: 800;
+}
+
+.merged-card-summary.detail {
+  display: grid;
+  align-items: stretch;
+}
+
+.merged-burst-badge {
+  display: inline-grid;
+  place-items: center;
+  width: max-content;
+  min-width: 92px;
+  min-height: 34px;
+  padding: 6px 14px;
+  color: #fff;
+  background: #7e44be;
+  font-size: 13px;
+  font-weight: 950;
+  clip-path: polygon(8% 0, 22% 10%, 36% 0, 50% 10%, 64% 0, 78% 10%, 92% 0, 100% 24%, 90% 40%, 100% 56%, 90% 72%, 100% 100%, 78% 90%, 64% 100%, 50% 90%, 36% 100%, 22% 90%, 8% 100%, 0 76%, 10% 58%, 0 42%, 10% 24%);
+  box-shadow: 0 10px 24px rgba(126, 68, 190, 0.28);
 }
 
 .operational-card-details {

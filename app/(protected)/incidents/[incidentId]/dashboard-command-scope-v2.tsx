@@ -21,6 +21,16 @@ export type DashboardScopeOperationalNumber = {
   latestReportStatusLabel: string | null;
   latestReportedAt: string | null;
   dashboardStatusGroup: string | null;
+  mergedOperationalNumbers?: number[] | null;
+};
+
+type CommandKpi = {
+  id: string;
+  label: string;
+  value: string;
+  detail: string;
+  tone?: string;
+  clickable?: boolean;
 };
 
 const STATUS_GROUPS = [
@@ -87,6 +97,16 @@ function operationalPersonName(person: DashboardScopeOperationalNumber) {
 
   const residentName = [person.residentFirstName, person.residentLastName].filter(Boolean).join(" ").trim();
   return residentName || null;
+}
+
+function mergedNumberGroups(operationalNumbers: DashboardScopeOperationalNumber[]) {
+  return operationalNumbers
+    .map((person) => ({
+      ...person,
+      mergedOperationalNumbers: person.mergedOperationalNumbers?.filter((number) => Number.isFinite(number)) ?? []
+    }))
+    .filter((person) => person.mergedOperationalNumbers.length > 0)
+    .sort((a, b) => a.operationalNumber - b.operationalNumber);
 }
 
 function statusBreakdown(operationalNumbers: DashboardScopeOperationalNumber[], group: string) {
@@ -160,6 +180,7 @@ export function DashboardCommandScope({
 }) {
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [anchorOpen, setAnchorOpen] = useState(true);
+  const [openKpi, setOpenKpi] = useState<string | null>(null);
   const selectedSite = sites.find((site) => site.siteId === selectedSiteId) ?? null;
   const visibleSites = selectedSite ? [selectedSite] : sites;
   const visibleOperationalNumbers = selectedSite
@@ -172,11 +193,12 @@ export function DashboardCommandScope({
   const now = useMemo(() => new Date(), []);
   const latestOperationalUpdate = latestDate(visibleOperationalNumbers.map((person) => person.latestReportedAt));
   const visiblePersonnelTeams = scopedTeams(personnelTeams, visiblePersonIds);
+  const visibleMergedGroups = mergedNumberGroups(visibleOperationalNumbers);
   const sitesById = useMemo(() => new Map(sites.map((site) => [site.siteId, site])), [sites]);
   const visibleTiles = STATUS_GROUPS.map((status) =>
     statusTile(visibleOperationalNumbers, sitesById, status.group, status.label, status.tone)
   );
-  const kpis = [
+  const kpis: CommandKpi[] = [
     {
       id: "duration",
       label: "משך האירוע",
@@ -204,6 +226,17 @@ export function DashboardCommandScope({
       tone: exceptionCount(visibleSites) > 0 ? "danger" : "default"
     }
   ];
+  const commandKpis: CommandKpi[] = [
+    ...kpis,
+    {
+      id: "merged",
+      label: "\u05de\u05e1\u05e4\u05e8\u05d9\u05dd \u05de\u05d0\u05d5\u05d7\u05d3\u05d9\u05dd",
+      value: formatNumber(visibleMergedGroups.length),
+      detail: "\u05e7\u05d1\u05d5\u05e6\u05d5\u05ea \u05de\u05d9\u05d6\u05d5\u05d2 \u05e4\u05e2\u05d9\u05dc\u05d5\u05ea",
+      tone: visibleMergedGroups.length > 0 ? "warning" : "default",
+      clickable: true
+    }
+  ];
 
   return (
     <>
@@ -227,14 +260,46 @@ export function DashboardCommandScope({
       </section>
 
       <section className="command-kpi-bar" aria-label="מדדי פיקוד">
-        {kpis.map((item) => (
-          <article className={`command-kpi-card tone-${item.tone ?? "default"}`} key={item.id}>
+        {commandKpis.map((item) => (
+          <button
+            className={`command-kpi-card tone-${item.tone ?? "default"} ${openKpi === item.id ? "active" : ""}`}
+            key={item.id}
+            type="button"
+            disabled={!item.clickable}
+            onClick={() => item.clickable && setOpenKpi(openKpi === item.id ? null : item.id)}
+          >
             <span>{item.label}</span>
             <strong>{item.value}</strong>
             <small>{item.detail}</small>
-          </article>
+          </button>
         ))}
       </section>
+
+      {openKpi === "merged" ? (
+        <section className="panel section-spaced merged-kpi-panel">
+          <div className="command-section-heading compact-heading">
+            <h2>מספרים מאוחדים</h2>
+            <button className="button compact secondary" type="button" onClick={() => setOpenKpi(null)}>
+              סגור
+            </button>
+          </div>
+          {visibleMergedGroups.length === 0 ? (
+            <p className="muted">אין מספרים מאוחדים בתחום הנבחר.</p>
+          ) : (
+            <div className="merged-pair-list">
+              {visibleMergedGroups.map((person) => (
+                <article className="merged-pair-row" key={person.personId}>
+                  <strong>
+                    #{formatNumber(person.operationalNumber)} ←{" "}
+                    {person.mergedOperationalNumbers?.map((number) => `#${formatNumber(number)}`).join(", ")}
+                  </strong>
+                  <span>{operationalPersonName(person) ?? "שם לא ידוע"}</span>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
 
       <section className="panel section-spaced">
         <div className="command-section-heading">

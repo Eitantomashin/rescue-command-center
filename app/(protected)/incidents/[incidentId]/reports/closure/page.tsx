@@ -32,6 +32,10 @@ function numberValue(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function booleanValue(value: unknown) {
+  return value === true || value === "true";
+}
+
 function personName(person: Record<string, unknown>) {
   return [person.first_name, person.last_name].map((value) => textValue(value)).filter(Boolean).join(" ") ||
     [person.resident_first_name, person.resident_last_name].map((value) => textValue(value)).filter(Boolean).join(" ") ||
@@ -85,7 +89,7 @@ export default async function ClosureReportPage({
   const latestSitrep = objectValue(snapshot.latest_sitrep);
   const sites = arrayValue(snapshot.sites);
   const teams = arrayValue(snapshot.teams);
-  const operationalNumbers = arrayValue(snapshot.operational_numbers);
+  const operationalNumbers = arrayValue(snapshot.operational_numbers).filter((person) => !booleanValue(person.is_merged));
   const personnel = arrayValue(snapshot.personnel);
   const personnelCounts = personnel.reduce(
     (counts, row) => {

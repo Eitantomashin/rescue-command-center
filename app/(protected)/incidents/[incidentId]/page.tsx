@@ -81,6 +81,7 @@ type OperationalNumberRow = {
   latest_notes: string | null;
   dashboard_status_group: string | null;
   is_merged: boolean;
+  merged_operational_numbers: number[] | null;
 };
 
 type TeamRow = {
@@ -385,7 +386,7 @@ export default async function IncidentDashboardPage({
     supabase
       .from("operational_numbers_dashboard")
       .select(
-        "person_id,site_id,operational_number,team_number,first_name,last_name,resident_first_name,resident_last_name,current_status_key,current_status_label,latest_report_status_label,latest_grid_cell,latest_reported_at,latest_notes,dashboard_status_group,is_merged"
+        "person_id,site_id,operational_number,team_number,first_name,last_name,resident_first_name,resident_last_name,current_status_key,current_status_label,latest_report_status_label,latest_grid_cell,latest_reported_at,latest_notes,dashboard_status_group,is_merged,merged_operational_numbers"
       )
       .eq("incident_id", params.incidentId),
     supabase
@@ -718,7 +719,8 @@ export default async function IncidentDashboardPage({
     currentStatusLabel: person.current_status_label,
     latestReportStatusLabel: person.latest_report_status_label,
     latestReportedAt: person.latest_reported_at,
-    dashboardStatusGroup: person.dashboard_status_group
+    dashboardStatusGroup: person.dashboard_status_group,
+    mergedOperationalNumbers: person.merged_operational_numbers ?? []
   }));
   return (
     <main className="page commander-dashboard-page">
