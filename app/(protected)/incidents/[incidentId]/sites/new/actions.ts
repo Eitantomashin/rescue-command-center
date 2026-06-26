@@ -61,6 +61,16 @@ function selectedTeamsValue(formData: FormData) {
   );
 }
 
+function siteTypeValue(formData: FormData) {
+  const siteType = value(formData, "siteType") || "rescue_site";
+
+  if (!["rescue_site", "search_site"].includes(siteType)) {
+    throw new Error("סוג האתר אינו תקין");
+  }
+
+  return siteType;
+}
+
 export async function createSiteFromWizard(formData: FormData) {
   const incidentId = requiredValue(formData, "incidentId", "אירוע");
   const street = requiredValue(formData, "street", "כתובת האתר");
@@ -70,6 +80,7 @@ export async function createSiteFromWizard(formData: FormData) {
   const lowestLevel = integerValue(formData, "lowestLevel", "מפלס תחתון");
   const highestLevel = integerValue(formData, "highestLevel", "מפלס עליון");
   const imageDataUrl = nullableValue(formData, "imageDataUrl");
+  const siteType = siteTypeValue(formData);
 
   if (lowestLevel > highestLevel) {
     throw new Error("מפלס תחתון חייב להיות קטן או שווה למפלס עליון");
@@ -92,7 +103,7 @@ export async function createSiteFromWizard(formData: FormData) {
 
   const supabase = createClient();
 
-  const { data: siteId, error } = await supabase.rpc("create_site_from_wizard", {
+  const createSitePayload = {
     p_incident_id: incidentId,
     p_site_name: siteName,
     p_street: street,
@@ -107,7 +118,17 @@ export async function createSiteFromWizard(formData: FormData) {
     p_highest_level: highestLevel,
     p_zones: zones,
     p_teams: teams
-  });
+  };
+
+  const { data: siteId, error } =
+    siteType === "search_site"
+      ? await supabase.rpc("create_search_site_from_wizard", {
+          ...createSitePayload,
+          p_parent_site_id: nullableValue(formData, "parentSiteId"),
+          p_search_reason: nullableValue(formData, "searchReason"),
+          p_search_priority: nullableValue(formData, "searchPriority")
+        })
+      : await supabase.rpc("create_site_from_wizard", createSitePayload);
 
   if (error) {
     throw new Error(error.message);

@@ -36,6 +36,15 @@ type WizardTeam = {
   selected: boolean;
 };
 
+type ParentSiteOption = {
+  site_id: string;
+  site_number: number;
+  name: string | null;
+  street: string | null;
+  house_number: string | null;
+  city: string | null;
+};
+
 const structureTypes = [
   ["residential", "מגורים"],
   ["office", "משרדים"],
@@ -130,8 +139,27 @@ function teamLabel(team: WizardTeam) {
   return operationalTeamLabel(team.teamNumber, team.name);
 }
 
-export function SiteCreationWizard({ incidentId, incidentName }: { incidentId: string; incidentName: string }) {
+function parentSiteLabel(site: ParentSiteOption) {
+  const name = site.name?.trim();
+  const address = [site.street, site.house_number].filter(Boolean).join(" ").trim();
+  const city = site.city?.trim();
+  return [name || `אתר ${site.site_number}`, address, city].filter(Boolean).join(" - ");
+}
+
+export function SiteCreationWizard({
+  incidentId,
+  incidentName,
+  parentSites = []
+}: {
+  incidentId: string;
+  incidentName: string;
+  parentSites?: ParentSiteOption[];
+}) {
   const [step, setStep] = useState(1);
+  const [siteType, setSiteType] = useState<"rescue_site" | "search_site">("rescue_site");
+  const [parentSiteId, setParentSiteId] = useState("");
+  const [searchReason, setSearchReason] = useState("");
+  const [searchPriority, setSearchPriority] = useState("");
   const [siteName, setSiteName] = useState("");
   const [city, setCity] = useState("");
   const [street, setStreet] = useState("");
@@ -266,6 +294,10 @@ export function SiteCreationWizard({ incidentId, incidentName }: { incidentId: s
   return (
     <form action={createSiteFromWizard} className="wizard-form">
       <input type="hidden" name="incidentId" value={incidentId} />
+      <input type="hidden" name="siteType" value={siteType} />
+      <input type="hidden" name="parentSiteId" value={siteType === "search_site" ? parentSiteId : ""} />
+      <input type="hidden" name="searchReason" value={siteType === "search_site" ? searchReason : ""} />
+      <input type="hidden" name="searchPriority" value={siteType === "search_site" ? searchPriority : ""} />
       <input type="hidden" name="siteName" value={siteName} />
       <input type="hidden" name="city" value={city} />
       <input type="hidden" name="street" value={street} />
