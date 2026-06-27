@@ -3059,6 +3059,12 @@ textarea {
   color: var(--muted);
 }
 
+.role-search_user {
+  border-color: rgba(21, 101, 192, 0.24);
+  background: #eaf3ff;
+  color: #1565c0;
+}
+
 .operational-page.permission-readonly .operational-toolbar-actions,
 .operational-page.permission-readonly .detail-actions-stack,
 .site-detail-page.permission-readonly .resident-edit,

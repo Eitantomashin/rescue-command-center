@@ -7,7 +7,7 @@ type UserProfileRow = {
   id: string;
   display_name: string | null;
   email: string | null;
-  role: "admin" | "commander" | "editor" | "viewer";
+  role: "admin" | "commander" | "editor" | "viewer" | "search_user";
   created_at: string;
   last_sign_in_at: string | null;
 };
@@ -28,7 +28,8 @@ const roleLabels = {
   admin: "\u05de\u05e0\u05d4\u05dc \u05de\u05e2\u05e8\u05db\u05ea",
   commander: "\u05de\u05e4\u05e7\u05d3",
   editor: "\u05e2\u05d5\u05e8\u05da",
-  viewer: "\u05e6\u05d5\u05e4\u05d4"
+  viewer: "\u05e6\u05d5\u05e4\u05d4",
+  search_user: "\u05de\u05e9\u05ea\u05de\u05e9 \u05e1\u05e8\u05d9\u05e7\u05d4"
 };
 
 const pageText = {
@@ -207,7 +208,7 @@ export default async function AdminUsersPage({
             {users.map((user) => {
               const userMemberships = membershipsByUser.get(user.id) ?? [];
               const membershipsByIncident = new Map(userMemberships.map((membership) => [membership.incident_id, membership]));
-              const canAssignIncidents = user.role === "editor" || user.role === "viewer" || user.role === "commander";
+              const canAssignIncidents = user.role === "editor" || user.role === "viewer" || user.role === "commander" || user.role === "search_user";
 
               return (
               <tr key={user.id}>

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-const allowedRoles = new Set(["admin", "commander", "editor", "viewer"]);
+const allowedRoles = new Set(["admin", "commander", "editor", "viewer", "search_user"]);
 
 async function assertServerAdmin() {
   const supabase = createClient();
