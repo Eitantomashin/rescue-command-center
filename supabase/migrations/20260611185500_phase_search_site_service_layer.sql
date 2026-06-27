@@ -15,16 +15,16 @@ as $$
       else 'search_unit_apartment_searched'
     end,
     case
-      when p_status = 'no_answer' then '׳׳™׳ ׳׳¢׳ ׳” ׳‘׳“׳™׳¨׳× ׳¡׳¨׳™׳§׳”'
-      when p_status = 'casualties' then '׳ ׳׳¦׳׳• ׳ ׳₪׳’׳¢׳™׳ ׳‘׳“׳™׳¨׳× ׳¡׳¨׳™׳§׳”'
-      when p_status = 'completed' then '׳“׳™׳¨׳× ׳¡׳¨׳™׳§׳” ׳”׳•׳©׳׳׳”'
-      else '׳“׳™׳¨׳× ׳¡׳¨׳™׳§׳” ׳ ׳‘׳“׳§׳”'
+      when p_status = 'no_answer' then '׳³ֲ׳³ג„¢׳³ֲ ׳³ֲ׳³ֲ¢׳³ֲ ׳³ג€ ׳³ג€˜׳³ג€׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€'
+      when p_status = 'casualties' then '׳³ֲ ׳³ֲ׳³ֲ¦׳³ֲ׳³ג€¢ ׳³ֲ ׳³ג‚×׳³ג€™׳³ֲ¢׳³ג„¢׳³ֲ ׳³ג€˜׳³ג€׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€'
+      when p_status = 'completed' then '׳³ג€׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€ ׳³ג€׳³ג€¢׳³ֲ©׳³ֲ׳³ֲ׳³ג€'
+      else '׳³ג€׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€ ׳³ֲ ׳³ג€˜׳³ג€׳³ֲ§׳³ג€'
     end,
     case
-      when p_status = 'no_answer' then '׳“׳™׳¨׳× ׳¡׳¨׳™׳§׳” ׳¡׳•׳׳ ׳” ׳׳׳ ׳׳¢׳ ׳”'
-      when p_status = 'casualties' then '׳“׳™׳¨׳× ׳¡׳¨׳™׳§׳” ׳¡׳•׳׳ ׳” ׳¢׳ ׳ ׳₪׳’׳¢׳™׳'
-      when p_status = 'completed' then '׳“׳™׳¨׳× ׳¡׳¨׳™׳§׳” ׳¡׳•׳׳ ׳” ׳›׳”׳•׳©׳׳׳”'
-      else '׳¢׳•׳“׳›׳ ׳• ׳₪׳¨׳˜׳™ ׳¡׳¨׳™׳§׳” ׳׳“׳™׳¨׳”'
+      when p_status = 'no_answer' then '׳³ג€׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€ ׳³ֲ¡׳³ג€¢׳³ֲ׳³ֲ ׳³ג€ ׳³ֲ׳³ֲ׳³ֲ ׳³ֲ׳³ֲ¢׳³ֲ ׳³ג€'
+      when p_status = 'casualties' then '׳³ג€׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€ ׳³ֲ¡׳³ג€¢׳³ֲ׳³ֲ ׳³ג€ ׳³ֲ¢׳³ֲ ׳³ֲ ׳³ג‚×׳³ג€™׳³ֲ¢׳³ג„¢׳³ֲ'
+      when p_status = 'completed' then '׳³ג€׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€ ׳³ֲ¡׳³ג€¢׳³ֲ׳³ֲ ׳³ג€ ׳³ג€÷׳³ג€׳³ג€¢׳³ֲ©׳³ֲ׳³ֲ׳³ג€'
+      else '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ג€¢ ׳³ג‚×׳³ֲ¨׳³ֻ׳³ג„¢ ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€ ׳³ֲ׳³ג€׳³ג„¢׳³ֲ¨׳³ג€'
     end,
     case
       when p_status = 'casualties' then 'important'
@@ -154,7 +154,7 @@ begin
     v_unit.id,
     null,
     null,
-    '׳׳¢׳¨׳›׳×',
+    '׳³ֲ׳³ֲ¢׳³ֲ¨׳³ג€÷׳³ֳ—',
     null,
     jsonb_build_object(
       'search_unit_id', v_id,
@@ -242,8 +242,8 @@ begin
   perform public.create_event_log(
     v_site.incident_id,
     'search_unit_completed',
-    '׳“׳™׳¨׳× ׳¡׳¨׳™׳§׳” ׳”׳•׳©׳׳׳”',
-    '׳“׳™׳¨׳× ׳¡׳¨׳™׳§׳” ׳¡׳•׳׳ ׳” ׳›׳”׳•׳©׳׳׳”',
+    '׳³ג€׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€ ׳³ג€׳³ג€¢׳³ֲ©׳³ֲ׳³ֲ׳³ג€',
+    '׳³ג€׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¡׳³ֲ¨׳³ג„¢׳³ֲ§׳³ג€ ׳³ֲ¡׳³ג€¢׳³ֲ׳³ֲ ׳³ג€ ׳³ג€÷׳³ג€׳³ג€¢׳³ֲ©׳³ֲ׳³ֲ׳³ג€',
     'operational',
     'normal',
     now(),
@@ -252,7 +252,7 @@ begin
     v_unit.id,
     null,
     null,
-    '׳׳¢׳¨׳›׳×',
+    '׳³ֲ׳³ֲ¢׳³ֲ¨׳³ג€÷׳³ֳ—',
     null,
     jsonb_build_object(
       'search_unit_id', v_id,
@@ -269,11 +269,12 @@ $$;
 
 create or replace function public.get_search_site_summary(p_site_id uuid)
 returns table(
-  total_units integer,
-  not_visited integer,
-  no_answer integer,
-  casualties integer,
-  completed integer
+  clear_count integer,
+  completed_count integer,
+  no_answer_count integer,
+  casualties_count integer,
+  not_visited_count integer,
+  total_units integer
 )
 language plpgsql
 security definer
@@ -297,11 +298,12 @@ begin
 
   return query
   select
-    count(u.id)::integer as total_units,
-    count(u.id) filter (where coalesce(ssu.search_status, 'not_visited') = 'not_visited')::integer as not_visited,
-    count(u.id) filter (where ssu.search_status = 'no_answer')::integer as no_answer,
-    count(u.id) filter (where ssu.search_status = 'casualties')::integer as casualties,
-    count(u.id) filter (where ssu.search_status = 'completed')::integer as completed
+    count(u.id) filter (where ssu.search_status = 'clear')::integer as clear_count,
+    count(u.id) filter (where ssu.search_status = 'completed')::integer as completed_count,
+    count(u.id) filter (where ssu.search_status = 'no_answer')::integer as no_answer_count,
+    count(u.id) filter (where ssu.search_status = 'casualties')::integer as casualties_count,
+    count(u.id) filter (where coalesce(ssu.search_status, 'not_visited') = 'not_visited')::integer as not_visited_count,
+    count(u.id)::integer as total_units
   from public.units u
   left join public.site_search_units ssu
     on ssu.site_id = u.site_id
