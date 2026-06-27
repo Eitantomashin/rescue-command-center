@@ -6,7 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 const MAX_IMAGE_DATA_URL_LENGTH = 1_400_000;
 
 function value(formData: FormData, key: string) {
-  return String(formData.get(key) ?? "").trim();
+  const values = formData
+    .getAll(key)
+    .map((entry) => String(entry ?? "").trim())
+    .filter((entry) => entry.length > 0);
+
+  return values[values.length - 1] ?? "";
 }
 
 function nullableValue(formData: FormData, key: string) {

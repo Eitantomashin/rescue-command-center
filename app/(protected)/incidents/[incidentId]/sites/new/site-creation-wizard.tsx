@@ -331,6 +331,63 @@ export function SiteCreationWizard({
           <p className="muted">{incidentName}</p>
           <div className="form-grid">
             <label className="field">
+              <span>{"סוג אתר"}</span>
+              <select
+                className="input"
+                value={siteType}
+                onChange={(event) => {
+                  const nextSiteType = event.target.value === "search_site" ? "search_site" : "rescue_site";
+                  setSiteType(nextSiteType);
+                  if (nextSiteType === "rescue_site") {
+                    setParentSiteId("");
+                    setSearchReason("");
+                    setSearchPriority("");
+                  }
+                }}
+              >
+                <option value="rescue_site">{"אתר חילוץ"}</option>
+                <option value="search_site">{"אתר סריקה"}</option>
+              </select>
+            </label>
+            {siteType === "search_site" ? (
+              <>
+                <label className="field">
+                  <span>{"אתר אב"}</span>
+                  <select
+                    className="input"
+                    value={parentSiteId}
+                    onChange={(event) => setParentSiteId(event.target.value)}
+                  >
+                    <option value="">{"ללא אתר אב"}</option>
+                    {parentSites.map((site) => (
+                      <option key={site.site_id} value={site.site_id}>
+                        {parentSiteLabel(site)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>{"עדיפות סריקה"}</span>
+                  <input
+                    className="input"
+                    value={searchPriority}
+                    onChange={(event) => setSearchPriority(event.target.value)}
+                    placeholder={"לדוגמה: גבוהה"}
+                  />
+                </label>
+                <label className="field wide">
+                  <span>{"סיבת סריקה"}</span>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={searchReason}
+                    onChange={(event) => setSearchReason(event.target.value)}
+                    placeholder={"לדוגמה: בניין סמוך שדורש סריקה"}
+                  />
+                </label>
+              </>
+            ) : null}
+            <label className="field">
               <span>שם האתר</span>
               <input
                 className="input"
