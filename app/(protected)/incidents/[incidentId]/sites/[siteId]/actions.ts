@@ -501,3 +501,60 @@ export async function reopenClearedUnit(formData: FormData) {
   revalidatePath(path);
   redirect(path);
 }
+
+const SEARCH_UNIT_STATUSES = new Set(["not_visited", "no_answer", "clear", "casualties", "completed"]);
+
+function optionalSearchStatus(formData: FormData) {
+  const status = value(formData, "searchStatus") || "not_visited";
+  if (!SEARCH_UNIT_STATUSES.has(status)) {
+    throw new Error("סטטוס סריקה לא תקין");
+  }
+  return status;
+}
+
+export async function saveSearchUnit(formData: FormData) {
+  const path = sitePath(formData);
+  const siteId = requiredValue(formData, "siteId", "אתר");
+  const unitId = requiredValue(formData, "unitId", "דירה");
+  const occupantsCount = optionalNonNegativeInteger(formData, "occupantsCount", "מספר דיירים");
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("create_or_update_search_unit", {
+    p_site_id: siteId,
+    p_unit_id: unitId,
+    p_family_name: nullableValue(formData, "familyName"),
+    p_occupants_count: occupantsCount,
+    p_contact_phone: nullableValue(formData, "contactPhone"),
+    p_search_status: optionalSearchStatus(formData),
+    p_casualty_psych: formData.get("casualtyPsych") === "on",
+    p_casualty_body: formData.get("casualtyBody") === "on",
+    p_medical_evacuation: formData.get("medicalEvacuation") === "on",
+    p_notes: nullableValue(formData, "notes")
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(path, "page");
+  redirect(path);
+}
+
+export async function completeSearchUnitAction(formData: FormData) {
+  const path = sitePath(formData);
+  const siteId = requiredValue(formData, "siteId", "אתר");
+  const unitId = requiredValue(formData, "unitId", "דירה");
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("complete_search_unit", {
+    p_site_id: siteId,
+    p_unit_id: unitId
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(path, "page");
+  redirect(path);
+}

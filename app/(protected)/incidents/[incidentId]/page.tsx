@@ -77,6 +77,22 @@ type SearchSiteDashboardRow = {
   search_priority: string | null;
 };
 
+type SearchSiteSummaryRow = {
+  total_units: number;
+  not_visited_count: number;
+  clear_count: number;
+  no_answer_count: number;
+  casualties_count: number;
+  completed_count: number;
+};
+
+type SearchSiteUnitResultRow = {
+  site_id: string;
+  unit_id: string;
+  family_name: string | null;
+  search_status: string | null;
+};
+
 type OperationalNumberRow = {
   person_id: string;
   site_id: string | null;
@@ -261,6 +277,94 @@ function searchSiteAddress(site: SearchSiteDashboardRow) {
   return [site.street, site.house_number, site.city].filter(Boolean).join(" ").trim();
 }
 
+function numberValue(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeSearchSiteSummary(row: Partial<SearchSiteSummaryRow> | null | undefined): SearchSiteSummaryRow {
+  return {
+    total_units: numberValue(row?.total_units),
+    not_visited_count: numberValue(row?.not_visited_count),
+    clear_count: numberValue(row?.clear_count),
+    no_answer_count: numberValue(row?.no_answer_count),
+    casualties_count: numberValue(row?.casualties_count),
+    completed_count: numberValue(row?.completed_count)
+  };
+}
+
+function firstSearchSiteSummary(data: unknown) {
+  const row = Array.isArray(data) ? data[0] : data;
+  return normalizeSearchSiteSummary(row as Partial<SearchSiteSummaryRow> | null | undefined);
+}
+
+type SearchUnitStatus = "not_visited" | "no_answer" | "clear" | "casualties" | "completed";
+type SearchKpiKind = "scanned" | "completed" | "no_answer" | "casualties";
+
+type SearchKpiDrilldownEntry = {
+  unitId: string;
+  siteName: string | null;
+  floorNumber: number | null;
+  unitLabel: string;
+  familyName: string | null;
+  status: SearchUnitStatus;
+};
+
+const SEARCH_UNIT_STATUS_LABELS: Record<SearchUnitStatus, string> = {
+  not_visited: "טרם נסרקה",
+  no_answer: "אין מענה",
+  clear: "תקין",
+  casualties: "דווחו נפגעים",
+  completed: "סיום טיפול / מזוכה"
+};
+
+function normalizeSearchUnitStatus(status: string | null | undefined): SearchUnitStatus {
+  return ["not_visited", "no_answer", "clear", "casualties", "completed"].includes(status ?? "")
+    ? (status as SearchUnitStatus)
+    : "not_visited";
+}
+
+function searchUnitStatusLabel(status: SearchUnitStatus) {
+  return SEARCH_UNIT_STATUS_LABELS[status];
+}
+
+function searchUnitTone(status: SearchUnitStatus) {
+  if (status === "completed" || status === "clear") return "complete";
+  if (status === "casualties") return "casualties";
+  if (status === "no_answer") return "no-answer";
+  return "not-visited";
+}
+
+function matchesSearchKpi(status: SearchUnitStatus, kind: SearchKpiKind) {
+  if (kind === "scanned") return ["clear", "no_answer", "casualties", "completed"].includes(status);
+  if (kind === "completed") return status === "completed";
+  if (kind === "no_answer") return status === "no_answer";
+  return status === "casualties";
+}
+
+function SearchKpiDrilldown({ title, entries }: { title: string; entries: SearchKpiDrilldownEntry[] }) {
+  return (
+    <div className="search-kpi-drilldown-panel">
+      <strong>{title}</strong>
+      {entries.length === 0 ? (
+        <p className="muted">אין דירות להצגה</p>
+      ) : (
+        <ul className="search-kpi-drilldown-list">
+          {entries.map((entry) => (
+            <li key={`${entry.siteName ?? "site"}-${entry.unitId}`}>
+              {entry.siteName ? <span>{entry.siteName}</span> : null}
+              <span>קומה {entry.floorNumber ?? "-"}</span>
+              <strong>{entry.unitLabel}</strong>
+              <span>{entry.familyName ? `משפחת ${entry.familyName}` : "משפחה לא צוינה"}</span>
+              <span className={`search-unit-status ${searchUnitTone(entry.status)}`}>{searchUnitStatusLabel(entry.status)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function teamName(teamNumber: number, name?: string | null) {
   return operationalTeamLabel(teamNumber, name);
 }
@@ -405,6 +509,7 @@ export default async function IncidentDashboardPage({
   const [
     { data: siteRows },
     { data: searchSiteRows },
+    { data: searchUnitResultRows },
     { data: operationalRows },
     { data: teamRows },
     { data: assignmentRows },
@@ -432,6 +537,10 @@ export default async function IncidentDashboardPage({
       .eq("is_active", true)
       .eq("site_type", "search_site")
       .order("created_at", { ascending: true }),
+    supabase
+      .from("site_search_units")
+      .select("site_id,unit_id,family_name,search_status")
+      .eq("incident_id", params.incidentId),
     supabase
       .from("operational_numbers_dashboard")
       .select(
@@ -498,9 +607,14 @@ export default async function IncidentDashboardPage({
     supabase.rpc("can_manage_incidents")
   ]);
 
-  const sites = (siteRows ?? []) as SiteSummaryRow[];
+  const allSites = (siteRows ?? []) as SiteSummaryRow[];
   const searchSites = (searchSiteRows ?? []) as SearchSiteDashboardRow[];
-  const operationalNumbers = ((operationalRows ?? []) as OperationalNumberRow[]).filter((person) => !person.is_merged);
+  const searchSiteIds = new Set(searchSites.map((site) => site.id));
+  const sites = allSites.filter((site) => !searchSiteIds.has(site.site_id));
+
+  const operationalNumbers = ((operationalRows ?? []) as OperationalNumberRow[]).filter(
+    (person) => !person.is_merged && (!person.site_id || !searchSiteIds.has(person.site_id))
+  );
   const teams = (teamRows ?? []) as TeamRow[];
   const assignments = (assignmentRows ?? []) as TeamAssignmentRow[];
   const noteRows = (openNoteRows ?? []) as EventLogRow[];
@@ -511,6 +625,63 @@ export default async function IncidentDashboardPage({
   const isLifecycleClosed = lifecycle?.lifecycle_status === "closed" || summary.is_closed;
   const floors = (floorRows ?? []) as FloorRow[];
   const units = (unitRows ?? []) as UnitRow[];
+  const searchUnitResults = (searchUnitResultRows ?? []) as SearchSiteUnitResultRow[];
+  const emptySearchSiteSummary = normalizeSearchSiteSummary(null);
+  const searchResultsByUnitId = new Map(searchUnitResults.map((result) => [result.unit_id, result]));
+  const searchSiteSummaries = new Map(
+    searchSites.map((site) => {
+      const siteUnits = units.filter((unit) => unit.site_id === site.id && unit.is_active);
+      const siteSummary: SearchSiteSummaryRow = {
+        total_units: siteUnits.length,
+        not_visited_count: 0,
+        clear_count: 0,
+        no_answer_count: 0,
+        casualties_count: 0,
+        completed_count: 0
+      };
+
+      for (const unit of siteUnits) {
+        const status = normalizeSearchUnitStatus(searchResultsByUnitId.get(unit.id)?.search_status);
+        if (status === "clear") siteSummary.clear_count += 1;
+        else if (status === "no_answer") siteSummary.no_answer_count += 1;
+        else if (status === "casualties") siteSummary.casualties_count += 1;
+        else if (status === "completed") siteSummary.completed_count += 1;
+        else siteSummary.not_visited_count += 1;
+      }
+
+      return [site.id, normalizeSearchSiteSummary(siteSummary)] as const;
+    })
+  );
+  const searchFloorNumbersById = new Map(floors.map((floor) => [floor.id, floor.floor_number]));
+  const searchEntriesBySite = new Map(
+    searchSites.map((site) => {
+      const entries = units
+        .filter((unit) => unit.site_id === site.id && unit.is_active)
+        .sort((a, b) =>
+          (searchFloorNumbersById.get(a.floor_id ?? "") ?? -999) - (searchFloorNumbersById.get(b.floor_id ?? "") ?? -999) ||
+          unitDisplayLabel(a).localeCompare(unitDisplayLabel(b), "he", { numeric: true, sensitivity: "base" })
+        )
+        .map((unit) => {
+          const result = searchResultsByUnitId.get(unit.id);
+          return {
+            unitId: unit.id,
+            siteName: searchSiteDisplayName(site),
+            floorNumber: searchFloorNumbersById.get(unit.floor_id ?? "") ?? null,
+            unitLabel: unitDisplayLabel(unit),
+            familyName: result?.family_name ?? null,
+            status: normalizeSearchUnitStatus(result?.search_status)
+          } satisfies SearchKpiDrilldownEntry;
+        });
+      return [site.id, entries] as const;
+    })
+  );
+  const allSearchEntries = Array.from(searchEntriesBySite.values()).flat();
+  const searchEntriesByKpi = {
+    scanned: allSearchEntries.filter((entry) => matchesSearchKpi(entry.status, "scanned")),
+    completed: allSearchEntries.filter((entry) => matchesSearchKpi(entry.status, "completed")),
+    no_answer: allSearchEntries.filter((entry) => matchesSearchKpi(entry.status, "no_answer")),
+    casualties: allSearchEntries.filter((entry) => matchesSearchKpi(entry.status, "casualties"))
+  };
   const residents = (residentRows ?? []) as ResidentRow[];
   const residentStatuses = new Map(((statusRows ?? []) as StatusRow[]).map((status) => [status.id, status]));
   const unitPersonnel = (personnelRows ?? []) as UnitPersonnelRow[];
@@ -554,8 +725,18 @@ export default async function IncidentDashboardPage({
   const teamNamesByNumber = new Map(teams.map((team) => [team.team_number, team.name]));
   const sitesById = new Map(sites.map((site) => [site.site_id, site]));
   const searchSiteParentNames = new Map(sites.map((site) => [site.site_id, siteDisplayName(site)]));
-  const activeSearchSitesCount = searchSites.filter((site) => site.search_status !== "cleared").length;
-  const clearedSearchSitesCount = searchSites.filter((site) => site.search_status === "cleared").length;
+  const searchSiteTotals = searchSites.reduce(
+    (totals, site) => {
+      const siteSummary = searchSiteSummaries.get(site.id) ?? emptySearchSiteSummary;
+      totals.totalUnits += siteSummary.total_units;
+      totals.scanned += siteSummary.clear_count + siteSummary.no_answer_count + siteSummary.casualties_count + siteSummary.completed_count;
+      totals.completed += siteSummary.completed_count;
+      totals.noAnswer += siteSummary.no_answer_count;
+      totals.casualties += siteSummary.casualties_count;
+      return totals;
+    },
+    { totalUnits: 0, scanned: 0, completed: 0, noAnswer: 0, casualties: 0 }
+  );
   const activeOperationalPersonIds = new Set(operationalNumbers.map((person) => person.person_id));
   const floorsById = new Map(floors.map((floor) => [floor.id, floor]));
   const residentsByUnitId = residents.reduce((map, resident) => {
@@ -867,22 +1048,51 @@ export default async function IncidentDashboardPage({
           defaultOpen={false}
           className="search-sites-dashboard-widget"
         >
-          <div className="search-sites-summary-grid" aria-label={"\u05e1\u05d9\u05db\u05d5\u05dd \u05d0\u05ea\u05e8\u05d9 \u05e1\u05e8\u05d9\u05e7\u05d4"}>
-            <div>
-              <span>{"\u05e1\u05d4\u05f4\u05db \u05d0\u05ea\u05e8\u05d9 \u05e1\u05e8\u05d9\u05e7\u05d4"}</span>
-              <strong>{formatNumber(searchSites.length)}</strong>
+          <div className="search-sites-summary-grid search-sites-kpi-grid" aria-label={"\u05e1\u05d9\u05db\u05d5\u05dd \u05d3\u05d9\u05e8\u05d5\u05ea \u05d1\u05d0\u05ea\u05e8\u05d9 \u05e1\u05e8\u05d9\u05e7\u05d4"}>
+            <div className="search-kpi-total">
+              <span>{"\u05e1\u05d4\u05f4\u05db \u05d3\u05d9\u05e8\u05d5\u05ea"}</span>
+              <strong>{formatNumber(searchSiteTotals.totalUnits)}</strong>
             </div>
-            <div>
-              <span>{"\u05d0\u05ea\u05e8\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd"}</span>
-              <strong>{formatNumber(activeSearchSitesCount)}</strong>
-            </div>
-            <div>
-              <span>{"\u05d0\u05ea\u05e8\u05d9\u05dd \u05de\u05d6\u05d5\u05db\u05d9\u05dd"}</span>
-              <strong>{formatNumber(clearedSearchSitesCount)}</strong>
-            </div>
+            <details className="search-kpi-click-card search-kpi-scanned">
+              <summary>
+                <span>{"\u05d3\u05d9\u05e8\u05d5\u05ea \u05e9\u05e0\u05e1\u05e8\u05e7\u05d5"}</span>
+                <strong>{formatNumber(searchSiteTotals.scanned)}</strong>
+              </summary>
+              <SearchKpiDrilldown title={"\u05d3\u05d9\u05e8\u05d5\u05ea \u05e9\u05e0\u05e1\u05e8\u05e7\u05d5"} entries={searchEntriesByKpi.scanned} />
+            </details>
+            <details className="search-kpi-click-card search-kpi-completed">
+              <summary>
+                <span>{"\u05d3\u05d9\u05e8\u05d5\u05ea \u05d6\u05d5\u05db\u05d5"}</span>
+                <strong>{formatNumber(searchSiteTotals.completed)}</strong>
+              </summary>
+              <SearchKpiDrilldown title={"\u05d3\u05d9\u05e8\u05d5\u05ea \u05d6\u05d5\u05db\u05d5"} entries={searchEntriesByKpi.completed} />
+            </details>
+            <details className="search-kpi-click-card search-kpi-no-answer">
+              <summary>
+                <span>{"\u05d0\u05d9\u05df \u05de\u05e2\u05e0\u05d4"}</span>
+                <strong>{formatNumber(searchSiteTotals.noAnswer)}</strong>
+              </summary>
+              <SearchKpiDrilldown title={"\u05d3\u05d9\u05e8\u05d5\u05ea \u05dc\u05dc\u05d0 \u05de\u05e2\u05e0\u05d4"} entries={searchEntriesByKpi.no_answer} />
+            </details>
+            <details className="search-kpi-click-card search-kpi-casualties">
+              <summary>
+                <span>{"\u05d3\u05d5\u05d5\u05d7\u05d5 \u05e0\u05e4\u05d2\u05e2\u05d9\u05dd"}</span>
+                <strong>{formatNumber(searchSiteTotals.casualties)}</strong>
+              </summary>
+              <SearchKpiDrilldown title={"\u05d3\u05d9\u05e8\u05d5\u05ea \u05e2\u05dd \u05d3\u05d9\u05d5\u05d5\u05d7 \u05e0\u05e4\u05d2\u05e2\u05d9\u05dd"} entries={searchEntriesByKpi.casualties} />
+            </details>
           </div>
           <div className="search-sites-dashboard-list">
             {searchSites.map((site) => {
+              const siteSearchSummary = searchSiteSummaries.get(site.id) ?? emptySearchSiteSummary;
+              const siteScanned = siteSearchSummary.clear_count + siteSearchSummary.no_answer_count + siteSearchSummary.casualties_count + siteSearchSummary.completed_count;
+              const siteEntries = searchEntriesBySite.get(site.id) ?? [];
+              const siteEntriesByKpi = {
+                scanned: siteEntries.filter((entry) => matchesSearchKpi(entry.status, "scanned")),
+                completed: siteEntries.filter((entry) => matchesSearchKpi(entry.status, "completed")),
+                no_answer: siteEntries.filter((entry) => matchesSearchKpi(entry.status, "no_answer")),
+                casualties: siteEntries.filter((entry) => matchesSearchKpi(entry.status, "casualties"))
+              };
               const parentName = site.parent_site_id ? searchSiteParentNames.get(site.parent_site_id) : null;
               return (
                 <article className="search-site-dashboard-card" key={site.id}>
@@ -908,6 +1118,25 @@ export default async function IncidentDashboardPage({
                       <dd>{site.search_reason?.trim() || "-"}</dd>
                     </div>
                   </dl>
+                  <div className="search-site-card-kpis" aria-label={"\u05e1\u05d9\u05db\u05d5\u05dd \u05e1\u05e8\u05d9\u05e7\u05d4 \u05dc\u05d0\u05ea\u05e8"}>
+                    <div className="search-kpi-total"><span>{"\u05e1\u05d4\u05f4\u05db"}</span><strong>{formatNumber(siteSearchSummary.total_units)}</strong></div>
+                    <details className="search-kpi-click-card search-kpi-scanned">
+                      <summary><span>{"\u05e0\u05e1\u05e8\u05e7\u05d5"}</span><strong>{formatNumber(siteScanned)}</strong></summary>
+                      <SearchKpiDrilldown title={"\u05d3\u05d9\u05e8\u05d5\u05ea \u05e9\u05e0\u05e1\u05e8\u05e7\u05d5"} entries={siteEntriesByKpi.scanned} />
+                    </details>
+                    <details className="search-kpi-click-card search-kpi-completed">
+                      <summary><span>{"\u05d6\u05d5\u05db\u05d5"}</span><strong>{formatNumber(siteSearchSummary.completed_count)}</strong></summary>
+                      <SearchKpiDrilldown title={"\u05d3\u05d9\u05e8\u05d5\u05ea \u05d6\u05d5\u05db\u05d5"} entries={siteEntriesByKpi.completed} />
+                    </details>
+                    <details className="search-kpi-click-card search-kpi-no-answer">
+                      <summary><span>{"\u05d0\u05d9\u05df \u05de\u05e2\u05e0\u05d4"}</span><strong>{formatNumber(siteSearchSummary.no_answer_count)}</strong></summary>
+                      <SearchKpiDrilldown title={"\u05d3\u05d9\u05e8\u05d5\u05ea \u05dc\u05dc\u05d0 \u05de\u05e2\u05e0\u05d4"} entries={siteEntriesByKpi.no_answer} />
+                    </details>
+                    <details className="search-kpi-click-card search-kpi-casualties">
+                      <summary><span>{"\u05e0\u05e4\u05d2\u05e2\u05d9\u05dd"}</span><strong>{formatNumber(siteSearchSummary.casualties_count)}</strong></summary>
+                      <SearchKpiDrilldown title={"\u05d3\u05d9\u05e8\u05d5\u05ea \u05e2\u05dd \u05d3\u05d9\u05d5\u05d5\u05d7 \u05e0\u05e4\u05d2\u05e2\u05d9\u05dd"} entries={siteEntriesByKpi.casualties} />
+                    </details>
+                  </div>
                   <Link className="button compact secondary" href={`/incidents/${summary.incident_id}/sites/${site.id}`}>
                     {"\u05e4\u05ea\u05d7 \u05d0\u05ea\u05e8"}
                   </Link>

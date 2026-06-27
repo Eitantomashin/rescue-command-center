@@ -65,7 +65,7 @@ export default async function IncidentLayout({
       .order("site_number", { ascending: true }),
     supabase
       .from("sites")
-      .select("id,site_type,search_status")
+      .select("id,site_number,name,city,street,house_number,site_type,search_status")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true),
     supabase
@@ -80,17 +80,41 @@ export default async function IncidentLayout({
     notFound();
   }
 
-  const siteMetadata = new Map(
-    ((siteMetadataRows ?? []) as Array<{ id: string; site_type: string | null; search_status: string | null }>).map((site) => [site.id, site])
-  );
+  const siteMetadataRowsTyped = (siteMetadataRows ?? []) as Array<{
+    id: string;
+    site_number: number;
+    name: string | null;
+    city: string | null;
+    street: string | null;
+    house_number: string | null;
+    site_type: string | null;
+    search_status: string | null;
+  }>;
+  const siteMetadata = new Map(siteMetadataRowsTyped.map((site) => [site.id, site]));
   const isSearchUser = currentRole === "search_user";
-  const shellSites = ((sites ?? []) as SiteRow[])
+  const searchUserSites: SiteRow[] = siteMetadataRowsTyped
+    .filter((site) => site.site_type === "search_site")
     .map((site) => ({
-      ...site,
-      site_type: siteMetadata.get(site.site_id)?.site_type ?? "rescue_site",
-      search_status: siteMetadata.get(site.site_id)?.search_status ?? null
-    }))
-    .filter((site) => !isSearchUser || site.site_type === "search_site");
+      site_id: site.id,
+      site_number: site.site_number,
+      name: site.name,
+      city: site.city,
+      street: site.street,
+      house_number: site.house_number,
+      updated_potential: 0,
+      active_operational_numbers_count: 0,
+      gap_resolved_count: 0,
+      operational_gap: 0,
+      site_type: site.site_type,
+      search_status: site.search_status
+    }));
+  const shellSites = isSearchUser
+    ? searchUserSites
+    : ((sites ?? []) as SiteRow[]).map((site) => ({
+        ...site,
+        site_type: siteMetadata.get(site.site_id)?.site_type ?? "rescue_site",
+        search_status: siteMetadata.get(site.site_id)?.search_status ?? null
+      }));
 
   return (
     <IncidentPresenceProvider

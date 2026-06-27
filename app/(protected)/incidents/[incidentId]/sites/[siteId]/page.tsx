@@ -8,12 +8,14 @@ import { closeSite, reopenSite } from "../../lifecycle-actions";
 import {
   addApartmentToFloor,
   clearUnit,
+  completeSearchUnitAction,
   createGeneralAreaResident,
   createUnitResident,
   deleteEmptyPlaceholderResident,
   linkExistingPersonToResident,
   removeApartmentUnit,
   reopenClearedUnit,
+  saveSearchUnit,
   splitApartmentUnit,
   updateUnitResident,
   updateUnitStatus
@@ -43,6 +45,18 @@ type SiteSummaryRow = {
 };
 
 type SiteLifecycleRow = {
+  lifecycle_status: "open" | "paused" | "closed";
+  site_type: string | null;
+  search_status: string | null;
+};
+
+type SiteRecordRow = {
+  id: string;
+  incident_id: string;
+  name: string | null;
+  city: string | null;
+  street: string | null;
+  house_number: string | null;
   lifecycle_status: "open" | "paused" | "closed";
   site_type: string | null;
   search_status: string | null;
@@ -124,6 +138,120 @@ type StatusRow = {
   display_order: number | null;
 };
 
+type SearchUnitStatus = "not_visited" | "no_answer" | "clear" | "casualties" | "completed";
+
+type SearchUnitRow = {
+  unit_id: string;
+  family_name: string | null;
+  occupants_count: number | null;
+  contact_phone: string | null;
+  search_status: SearchUnitStatus | null;
+  casualty_psych: boolean | null;
+  casualty_body: boolean | null;
+  medical_evacuation: boolean | null;
+  notes: string | null;
+  searched_at: string | null;
+  completed_at: string | null;
+};
+
+type SearchSiteSummaryRow = {
+  total_units: number;
+  not_visited_count: number;
+  clear_count: number;
+  no_answer_count: number;
+  casualties_count: number;
+  completed_count: number;
+};
+
+type SearchKpiKind = "scanned" | "completed" | "no_answer" | "casualties";
+
+type SearchKpiDrilldownEntry = {
+  unitId: string;
+  floorNumber: number | null;
+  unitLabel: string;
+  familyName: string | null;
+  status: SearchUnitStatus;
+};
+
+const SEARCH_UNIT_STATUS_OPTIONS: Array<{ value: SearchUnitStatus; label: string }> = [
+  { value: "not_visited", label: "טרם נסרקה" },
+  { value: "no_answer", label: "אין מענה" },
+  { value: "clear", label: "תקין" },
+  { value: "casualties", label: "דווחו נפגעים" },
+  { value: "completed", label: "סיום טיפול / מזוכה" }
+];
+
+const SEARCH_UNIT_STATUS_LABELS: Record<SearchUnitStatus, string> = {
+  not_visited: "טרם נסרקה",
+  no_answer: "אין מענה",
+  clear: "תקין",
+  casualties: "דווחו נפגעים",
+  completed: "סיום טיפול / מזוכה"
+};
+
+function searchUnitStatusLabel(status: SearchUnitStatus | null | undefined) {
+  return SEARCH_UNIT_STATUS_LABELS[status ?? "not_visited"];
+}
+
+function searchUnitTone(status: SearchUnitStatus | null | undefined) {
+  if (status === "completed" || status === "clear") return "complete";
+  if (status === "casualties") return "casualties";
+  if (status === "no_answer") return "no-answer";
+  return "not-visited";
+}
+
+function matchesSearchKpi(status: SearchUnitStatus, kind: SearchKpiKind) {
+  if (kind === "scanned") return ["clear", "no_answer", "casualties", "completed"].includes(status);
+  if (kind === "completed") return status === "completed";
+  if (kind === "no_answer") return status === "no_answer";
+  return status === "casualties";
+}
+
+function SearchKpiDrilldown({ title, entries }: { title: string; entries: SearchKpiDrilldownEntry[] }) {
+  return (
+    <div className="search-kpi-drilldown-panel">
+      <strong>{title}</strong>
+      {entries.length === 0 ? (
+        <p className="muted">אין דירות להצגה</p>
+      ) : (
+        <ul className="search-kpi-drilldown-list">
+          {entries.map((entry) => (
+            <li key={entry.unitId}>
+              <span>קומה {entry.floorNumber ?? "-"}</span>
+              <strong>{entry.unitLabel}</strong>
+              <span>{entry.familyName ? `משפחת ${entry.familyName}` : "משפחה לא צוינה"}</span>
+              <span className={`search-unit-status ${searchUnitTone(entry.status)}`}>{searchUnitStatusLabel(entry.status)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function siteNameFromRecord(site: Pick<SiteRecordRow, "name" | "street" | "house_number">) {
+  return site.name?.trim() || [site.street, site.house_number].filter(Boolean).join(" ").trim() || "אתר סריקה";
+}
+function numberValue(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeSearchSiteSummary(row: Partial<SearchSiteSummaryRow> | null | undefined): SearchSiteSummaryRow {
+  return {
+    total_units: numberValue(row?.total_units),
+    not_visited_count: numberValue(row?.not_visited_count),
+    clear_count: numberValue(row?.clear_count),
+    no_answer_count: numberValue(row?.no_answer_count),
+    casualties_count: numberValue(row?.casualties_count),
+    completed_count: numberValue(row?.completed_count)
+  };
+}
+
+function firstSearchSiteSummary(data: unknown) {
+  const row = Array.isArray(data) ? data[0] : data;
+  return normalizeSearchSiteSummary(row as Partial<SearchSiteSummaryRow> | null | undefined);
+}
 type TreatmentState = "completed" | "in_progress" | "missing" | "unknown";
 
 const LINKED_PERSON_COMPLETED_STATUS_KEYS = new Set([
@@ -378,6 +506,190 @@ function hiddenContext(incidentId: string, siteId: string, unitId?: string) {
   );
 }
 
+function SearchSiteMobileWorkflow({
+  incidentId,
+  site,
+  floors,
+  unitsByFloor,
+  searchResultsByUnit,
+  summary,
+  canEdit
+}: {
+  incidentId: string;
+  site: SiteRecordRow;
+  floors: FloorRow[];
+  unitsByFloor: Map<string, UnitRow[]>;
+  searchResultsByUnit: Map<string, SearchUnitRow>;
+  summary: SearchSiteSummaryRow;
+  canEdit: boolean;
+}) {
+  const siteName = siteNameFromRecord(site);
+  const sortedFloors = [...floors].sort((a, b) => (b.floor_number ?? 0) - (a.floor_number ?? 0));
+  const scannedUnits = summary.clear_count + summary.no_answer_count + summary.casualties_count + summary.completed_count;
+  const floorsById = new Map(floors.map((floor) => [floor.id, floor]));
+  const searchEntries = Array.from(unitsByFloor.values()).flatMap((floorUnits) =>
+    sortUnits(floorUnits.filter((unit) => unit.is_active)).map((unit) => {
+      const result = searchResultsByUnit.get(unit.id);
+      const status = result?.search_status ?? "not_visited";
+      return {
+        unitId: unit.id,
+        floorNumber: floorsById.get(unit.floor_id)?.floor_number ?? null,
+        unitLabel: unitDisplayLabel(unit),
+        familyName: result?.family_name ?? null,
+        status
+      } satisfies SearchKpiDrilldownEntry;
+    })
+  );
+  const searchEntriesByKpi = {
+    scanned: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "scanned")),
+    completed: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "completed")),
+    no_answer: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "no_answer")),
+    casualties: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "casualties"))
+  };
+
+  return (
+    <main className="page search-site-mobile-page">
+      <section className="search-site-hero">
+        <div>
+          <span className="site-type-badge search-site">אתר סריקה</span>
+          <h1>{siteName}</h1>
+          <p>{[site.street, site.house_number, site.city].filter(Boolean).join(" ")}</p>
+        </div>
+        <span className="search-status-badge">{searchStatusLabel(site.search_status)}</span>
+      </section>
+
+      <section className="search-site-summary-grid search-clickable-kpis" aria-label="סיכום סריקה">
+        <div><span>סה״כ דירות</span><strong>{formatNumber(summary.total_units)}</strong></div>
+        <details className="search-kpi-click-card search-kpi-scanned">
+          <summary><span>דירות שנסרקו</span><strong>{formatNumber(scannedUnits)}</strong></summary>
+          <SearchKpiDrilldown title="דירות שנסרקו" entries={searchEntriesByKpi.scanned} />
+        </details>
+        <details className="search-kpi-click-card search-kpi-completed">
+          <summary><span>דירות זוכו</span><strong>{formatNumber(summary.completed_count)}</strong></summary>
+          <SearchKpiDrilldown title="דירות זוכו" entries={searchEntriesByKpi.completed} />
+        </details>
+        <div><span>טרם נסרקו</span><strong>{formatNumber(summary.not_visited_count)}</strong></div>
+        <details className="search-kpi-click-card search-kpi-no-answer">
+          <summary><span>אין מענה</span><strong>{formatNumber(summary.no_answer_count)}</strong></summary>
+          <SearchKpiDrilldown title="דירות ללא מענה" entries={searchEntriesByKpi.no_answer} />
+        </details>
+        <details className="search-kpi-click-card search-kpi-casualties">
+          <summary><span>דווחו נפגעים</span><strong>{formatNumber(summary.casualties_count)}</strong></summary>
+          <SearchKpiDrilldown title="דירות עם דיווח נפגעים" entries={searchEntriesByKpi.casualties} />
+        </details>
+      </section>
+      {!canEdit ? (
+        <section className="panel readonly-search-notice">
+          <strong>תצוגה בלבד</strong>
+          <p>אין הרשאה לעדכן תוצאות סריקה באתר זה או שהאתר סגור.</p>
+        </section>
+      ) : null}
+
+      <section className="search-floor-list" aria-label="קומות ודירות לסריקה">
+        {sortedFloors.length === 0 ? (
+          <div className="empty-state">
+            <h2>אין קומות להצגה</h2>
+            <p className="muted">אתר הסריקה משתמש במבנה הקיים של קומות ודירות.</p>
+          </div>
+        ) : null}
+
+        {sortedFloors.map((floor, index) => {
+          const floorUnits = sortUnits((unitsByFloor.get(floor.id) ?? []).filter((unit) => unit.is_active));
+          const floorResults = floorUnits.map((unit) => searchResultsByUnit.get(unit.id));
+          const completed = floorResults.filter((result) => result?.search_status === "completed").length;
+          const casualties = floorResults.filter((result) => result?.search_status === "casualties").length;
+          const openCount = floorUnits.length - completed;
+
+          return (
+            <details className="search-floor-card" key={floor.id} open={index === 0}>
+              <summary className="search-floor-summary">
+                <div>
+                  <h2>קומה {floor.floor_number}</h2>
+                  <p>{formatNumber(floorUnits.length)} דירות • {formatNumber(openCount)} פתוחות • {formatNumber(completed)} הושלמו</p>
+                </div>
+                {casualties > 0 ? <span className="search-alert-badge">{formatNumber(casualties)} עם נפגעים</span> : null}
+              </summary>
+
+              <div className="search-unit-list">
+                {floorUnits.map((unit) => {
+                  const result = searchResultsByUnit.get(unit.id);
+                  const status = result?.search_status ?? "not_visited";
+                  const tone = searchUnitTone(status);
+
+                  return (
+                    <article className={`search-unit-card ${tone}`} key={unit.id}>
+                      <div className="search-unit-card-header">
+                        <div>
+                          <h3>{unitDisplayLabel(unit)}</h3>
+                          {result?.family_name ? <p>משפחה: {result.family_name}</p> : <p>משפחה לא צוינה</p>}
+                        </div>
+                        <span className={`search-unit-status ${tone}`}>{searchUnitStatusLabel(status)}</span>
+                      </div>
+
+                      <div className="search-unit-indicators">
+                        {result?.occupants_count !== null && result?.occupants_count !== undefined ? <span>דיירים: {formatNumber(result.occupants_count)}</span> : null}
+                        {result?.contact_phone ? <span>טלפון: {result.contact_phone}</span> : null}
+                        {result?.casualty_psych ? <span className="warning">נפגע חרדה</span> : null}
+                        {result?.casualty_body ? <span className="danger">נפגע גוף</span> : null}
+                        {result?.medical_evacuation ? <span className="danger">נדרש פינוי</span> : null}
+                      </div>
+
+                      <form action={saveSearchUnit} className="search-unit-form">
+                        {hiddenContext(incidentId, site.id, unit.id)}
+                        <label>
+                          שם משפחה
+                          <input className="input" name="familyName" defaultValue={result?.family_name ?? ""} disabled={!canEdit} />
+                        </label>
+                        <label>
+                          מספר דיירים
+                          <input className="input" name="occupantsCount" type="number" min="0" inputMode="numeric" defaultValue={result?.occupants_count ?? ""} disabled={!canEdit} />
+                        </label>
+                        <label>
+                          טלפון קשר
+                          <input className="input" name="contactPhone" type="tel" defaultValue={result?.contact_phone ?? ""} disabled={!canEdit} />
+                        </label>
+                        <label>
+                          סטטוס סריקה
+                          <select className="input" name="searchStatus" defaultValue={status} disabled={!canEdit}>
+                            {SEARCH_UNIT_STATUS_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <div className="search-unit-checks">
+                          <label><input type="checkbox" name="casualtyPsych" defaultChecked={Boolean(result?.casualty_psych)} disabled={!canEdit} /> נפגע חרדה</label>
+                          <label><input type="checkbox" name="casualtyBody" defaultChecked={Boolean(result?.casualty_body)} disabled={!canEdit} /> נפגע גוף</label>
+                          <label><input type="checkbox" name="medicalEvacuation" defaultChecked={Boolean(result?.medical_evacuation)} disabled={!canEdit} /> פינוי רפואי</label>
+                        </div>
+
+                        <label className="search-unit-notes">
+                          הערות
+                          <textarea className="input" name="notes" rows={3} defaultValue={result?.notes ?? ""} disabled={!canEdit} />
+                        </label>
+
+                        <div className="search-unit-actions">
+                          <button className="button" type="submit" disabled={!canEdit}>שמור סריקה</button>
+                        </div>
+                      </form>
+
+                      <form action={completeSearchUnitAction} className="search-complete-form">
+                        {hiddenContext(incidentId, site.id, unit.id)}
+                        <button className="button secondary" type="submit" disabled={!canEdit || status === "completed"}>
+                          סיום טיפול / מזוכה
+                        </button>
+                      </form>
+                    </article>
+                  );
+                })}
+              </div>
+            </details>
+          );
+        })}
+      </section>
+    </main>
+  );
+}
 export default async function SiteDetailsPage({
   params,
   searchParams
@@ -387,6 +699,81 @@ export default async function SiteDetailsPage({
 }) {
   const supabase = createClient();
   const residentSearchQuery = String(searchParams?.q ?? "").trim().toLowerCase();
+
+  const { data: siteRecord, error: siteRecordError } = await supabase
+    .from("sites")
+    .select("id,incident_id,name,city,street,house_number,lifecycle_status,site_type,search_status")
+    .eq("incident_id", params.incidentId)
+    .eq("id", params.siteId)
+    .maybeSingle();
+
+  if (siteRecordError || !siteRecord) {
+    notFound();
+  }
+
+  const initialSiteRecord = siteRecord as SiteRecordRow;
+  const initialSearchSite = isSearchSite({ site_type: initialSiteRecord.site_type });
+
+  if (initialSearchSite) {
+    const [
+      { data: floorRows, error: floorsError },
+      { data: unitRows, error: unitsError },
+      { data: searchRows },
+      { data: summaryRows },
+      { data: canEditSearch }
+    ] = await Promise.all([
+      supabase
+        .from("floors")
+        .select("id,floor_number,units_count,status_id,is_active")
+        .eq("incident_id", params.incidentId)
+        .eq("site_id", params.siteId)
+        .eq("is_active", true)
+        .order("floor_number", { ascending: false }),
+      supabase
+        .from("units")
+        .select(
+          "id,floor_id,unit_number,zone_name,zone_type,zone_sequence,expected_occupants,family_name,known_people_count,status_id,is_fully_cleared,is_active,inactive_reason,notes,cleared_at,cleared_by,cleared_reason,cleared_potential_delta,cleared_method,reopened_at,reopened_by,previous_unit_label,original_unit_label,structure_change_type"
+        )
+        .eq("incident_id", params.incidentId)
+        .eq("site_id", params.siteId)
+        .eq("is_active", true)
+        .order("unit_number", { ascending: true }),
+      supabase
+        .from("site_search_units")
+        .select("unit_id,family_name,occupants_count,contact_phone,search_status,casualty_psych,casualty_body,medical_evacuation,notes,searched_at,completed_at")
+        .eq("incident_id", params.incidentId)
+        .eq("site_id", params.siteId),
+      supabase.rpc("get_search_site_summary", { p_site_id: params.siteId }),
+      supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId })
+    ]);
+
+    if (floorsError || unitsError) {
+      throw new Error(floorsError?.message ?? unitsError?.message ?? "לא ניתן לטעון אתר סריקה");
+    }
+
+    const searchResultsByUnit = new Map(
+      ((searchRows ?? []) as SearchUnitRow[]).map((result) => [result.unit_id, result])
+    );
+    const searchSummary = firstSearchSiteSummary(summaryRows);
+    const searchUnitsByFloor = ((unitRows ?? []) as UnitRow[]).reduce<Map<string, UnitRow[]>>((grouped, unit) => {
+      const floorUnits = grouped.get(unit.floor_id) ?? [];
+      floorUnits.push(unit);
+      grouped.set(unit.floor_id, floorUnits);
+      return grouped;
+    }, new Map());
+
+    return (
+      <SearchSiteMobileWorkflow
+        incidentId={params.incidentId}
+        site={initialSiteRecord}
+        floors={(floorRows ?? []) as FloorRow[]}
+        unitsByFloor={searchUnitsByFloor}
+        searchResultsByUnit={searchResultsByUnit}
+        summary={searchSummary}
+        canEdit={Boolean(canEditSearch && initialSiteRecord.lifecycle_status !== "closed")}
+      />
+    );
+  }
 
   const { data: summary, error: summaryError } = await supabase
     .from("site_dashboard_summary")
