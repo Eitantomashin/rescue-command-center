@@ -205,27 +205,38 @@ export function IncidentCommandShell({
             <span className="nav-icon" aria-hidden="true">👥</span>
             <span className="nav-label">כח אדם באירוע</span>
           </Link>
-          <div className="incident-site-node incident-report-node">
-            <div className="incident-nav-section-title">דוחות</div>
+          <details className="incident-site-node incident-report-node incident-nav-collapsible-section">
+            <summary className={pathname.startsWith(`${base}/sitreps`) || pathname.startsWith(`${base}/reports/closure`) ? "active" : ""}>
+              <span className="nav-icon" aria-hidden="true">{"\uD83D\uDCCB"}</span>
+              <span className="nav-label">{"\u05d3\u05d5\u05d7\u05d5\u05ea"}</span>
+            </summary>
             <div className="incident-site-links">
               <Link className={`incident-nav-item${activeClass(pathname, `${base}/sitreps`, false)}`} href={`${base}/sitreps`}>
-                <span className="nav-icon" aria-hidden="true">📋</span>
-                <span className="nav-label">חיתוכי מצב</span>
+                <span className="nav-icon" aria-hidden="true">{"\uD83D\uDCCB"}</span>
+                <span className="nav-label">{"\u05d3\u05d5\u05d7 \u05d9\u05d5\u05de\u05d9 \u05de\u05e6\u05d1"}</span>
               </Link>
               <Link className={`incident-nav-item${activeClass(pathname, `${base}/reports/closure`, false)}`} href={`${base}/reports/closure`}>
-                <span className="nav-icon" aria-hidden="true">🏁</span>
-                <span className="nav-label">דוח סגירת אירוע</span>
+                <span className="nav-icon" aria-hidden="true">{"\uD83C\uDFC1"}</span>
+                <span className="nav-label">{"\u05d3\u05d5\u05d7 \u05e1\u05d2\u05d9\u05e8\u05ea \u05d0\u05d9\u05e8\u05d5\u05e2"}</span>
               </Link>
             </div>
-          </div>
-          <Link className={`incident-nav-item${activeClass(pathname, `${base}/timeline`)}`} href={`${base}/timeline`}>
-            <span className="nav-icon" aria-hidden="true">🕒</span>
-            <span className="nav-label">ציר זמן מבצעי</span>
-          </Link>
-          <Link className={`incident-nav-item${activeClass(pathname, `${base}/investigation-assistant`)}`} href={`${base}/investigation-assistant`}>
-            <span className="nav-icon" aria-hidden="true">🦉</span>
-            <span className="nav-label">עוזר תחקור</span>
-          </Link>
+          </details>
+          <details className="incident-site-node incident-tools-node incident-nav-collapsible-section">
+            <summary className={pathname === `${base}/timeline` || pathname === `${base}/investigation-assistant` ? "active" : ""}>
+              <span className="nav-icon" aria-hidden="true">{"\uD83E\uDDED"}</span>
+              <span className="nav-label">{"\u05db\u05dc\u05d9 \u05e2\u05d6\u05e8"}</span>
+            </summary>
+            <div className="incident-site-links">
+              <Link className={`incident-nav-item${activeClass(pathname, `${base}/timeline`)}`} href={`${base}/timeline`}>
+                <span className="nav-icon" aria-hidden="true">{"\uD83D\uDD52"}</span>
+                <span className="nav-label">{"\u05e6\u05d9\u05e8 \u05d6\u05de\u05df \u05de\u05d1\u05e6\u05e2\u05d9"}</span>
+              </Link>
+              <Link className={`incident-nav-item${activeClass(pathname, `${base}/investigation-assistant`)}`} href={`${base}/investigation-assistant`}>
+                <span className="nav-icon" aria-hidden="true">{"\uD83E\uDD89"}</span>
+                <span className="nav-label">{"\u05e2\u05d5\u05d6\u05e8 \u05d4\u05ea\u05d7\u05e7\u05d5\u05e8"}</span>
+              </Link>
+            </div>
+          </details>
 
           <div className="incident-site-tree">
             {sites.map((site) => {
@@ -237,12 +248,14 @@ export function IncidentCommandShell({
               return (
                 <details className={`incident-site-node${searchSite ? " search-site-node" : ""}`} key={site.site_id} open={isCurrentSite}>
                   <summary className={isCurrentSite ? "active" : ""}>
-                    <span className={`site-status-dot coverage-${level}`} aria-label={`פער ${level}`} />
-                    <span className="nav-label">{siteLabel(site)}</span>
-                    <span className="nav-badge-stack">
-                      <span className={`nav-badge site-type-badge ${searchSite ? "search-site" : "rescue-site"}`}>{siteTypeLabel(site.site_type)}</span>
-                      {searchSite ? <span className="nav-badge search-status-badge">{searchStatusLabel(site.search_status)}</span> : null}
-                      {site.operational_gap > 0 ? <span className="nav-badge danger">{"פער"} {formatNumber(site.operational_gap)}</span> : null}
+                    <span className={`site-status-dot coverage-${level}`} aria-label={`\u05e4\u05e2\u05e8 ${level}`} />
+                    <span className="site-nav-main">
+                      <span className="nav-label site-nav-name">{siteLabel(site)}</span>
+                      <span className="nav-badge-stack">
+                        <span className={`nav-badge site-type-badge ${searchSite ? "search-site" : "rescue-site"}`}>{siteTypeLabel(site.site_type)}</span>
+                        {searchSite ? <span className="nav-badge search-status-badge">{searchStatusLabel(site.search_status)}</span> : null}
+                        {site.operational_gap > 0 ? <span className="nav-badge danger">{"\u05e4\u05e2\u05e8"} {formatNumber(site.operational_gap)}</span> : null}
+                      </span>
                     </span>
                   </summary>
                   <div className="incident-site-links">

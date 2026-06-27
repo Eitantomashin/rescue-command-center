@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
+import { searchStatusLabel } from "@/lib/site-display";
 import { DashboardCollapsibleSection } from "./dashboard-collapsible-section";
 import type { SiteAnalysisRow, SiteStatusSegments, SiteUnitAnalysisRow } from "./dashboard-site-command-summary-v2";
 import { DashboardCommandScope, type DashboardScopeOperationalNumber } from "./dashboard-command-scope-v2";
@@ -62,6 +63,18 @@ type SiteSummaryRow = {
   gap_resolved_count?: number;
   active_operational_numbers_count?: number;
   active_rescue_teams_count?: number;
+};
+
+type SearchSiteDashboardRow = {
+  id: string;
+  name: string | null;
+  city: string | null;
+  street: string | null;
+  house_number: string | null;
+  parent_site_id: string | null;
+  search_status: string | null;
+  search_reason: string | null;
+  search_priority: string | null;
 };
 
 type OperationalNumberRow = {
@@ -240,6 +253,14 @@ function siteAddress(site: SiteSummaryRow) {
   return [site.street, site.house_number, site.city].filter(Boolean).join(" ");
 }
 
+function searchSiteDisplayName(site: SearchSiteDashboardRow) {
+  return site.name?.trim() || [site.street, site.house_number].filter(Boolean).join(" ").trim() || "\u05d0\u05ea\u05e8 \u05e1\u05e8\u05d9\u05e7\u05d4";
+}
+
+function searchSiteAddress(site: SearchSiteDashboardRow) {
+  return [site.street, site.house_number, site.city].filter(Boolean).join(" ").trim();
+}
+
 function teamName(teamNumber: number, name?: string | null) {
   return operationalTeamLabel(teamNumber, name);
 }
@@ -363,6 +384,7 @@ export default async function IncidentDashboardPage({
 
   const [
     { data: siteRows },
+    { data: searchSiteRows },
     { data: operationalRows },
     { data: teamRows },
     { data: assignmentRows },
@@ -383,6 +405,13 @@ export default async function IncidentDashboardPage({
       .select("*")
       .eq("incident_id", params.incidentId)
       .order("site_number", { ascending: true }),
+    supabase
+      .from("sites")
+      .select("id,name,city,street,house_number,parent_site_id,search_status,search_reason,search_priority")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true)
+      .eq("site_type", "search_site")
+      .order("created_at", { ascending: true }),
     supabase
       .from("operational_numbers_dashboard")
       .select(
@@ -450,6 +479,7 @@ export default async function IncidentDashboardPage({
   ]);
 
   const sites = (siteRows ?? []) as SiteSummaryRow[];
+  const searchSites = (searchSiteRows ?? []) as SearchSiteDashboardRow[];
   const operationalNumbers = ((operationalRows ?? []) as OperationalNumberRow[]).filter((person) => !person.is_merged);
   const teams = (teamRows ?? []) as TeamRow[];
   const assignments = (assignmentRows ?? []) as TeamAssignmentRow[];
@@ -503,6 +533,9 @@ export default async function IncidentDashboardPage({
   const teamsById = new Map(teams.map((team) => [team.id, team]));
   const teamNamesByNumber = new Map(teams.map((team) => [team.team_number, team.name]));
   const sitesById = new Map(sites.map((site) => [site.site_id, site]));
+  const searchSiteParentNames = new Map(sites.map((site) => [site.site_id, siteDisplayName(site)]));
+  const activeSearchSitesCount = searchSites.filter((site) => site.search_status !== "cleared").length;
+  const clearedSearchSitesCount = searchSites.filter((site) => site.search_status === "cleared").length;
   const activeOperationalPersonIds = new Set(operationalNumbers.map((person) => person.person_id));
   const floorsById = new Map(floors.map((floor) => [floor.id, floor]));
   const residentsByUnitId = residents.reduce((map, resident) => {
@@ -807,6 +840,63 @@ export default async function IncidentDashboardPage({
         operationalNumbers={dashboardScopeOperationalNumbers}
         personnelTeams={personnelTeamItems}
       />
+
+      {searchSites.length > 0 ? (
+        <DashboardCollapsibleSection
+          title={"\u05d0\u05ea\u05e8\u05d9 \u05e1\u05e8\u05d9\u05e7\u05d4"}
+          defaultOpen={false}
+          className="search-sites-dashboard-widget"
+        >
+          <div className="search-sites-summary-grid" aria-label={"\u05e1\u05d9\u05db\u05d5\u05dd \u05d0\u05ea\u05e8\u05d9 \u05e1\u05e8\u05d9\u05e7\u05d4"}>
+            <div>
+              <span>{"\u05e1\u05d4\u05f4\u05db \u05d0\u05ea\u05e8\u05d9 \u05e1\u05e8\u05d9\u05e7\u05d4"}</span>
+              <strong>{formatNumber(searchSites.length)}</strong>
+            </div>
+            <div>
+              <span>{"\u05d0\u05ea\u05e8\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd"}</span>
+              <strong>{formatNumber(activeSearchSitesCount)}</strong>
+            </div>
+            <div>
+              <span>{"\u05d0\u05ea\u05e8\u05d9\u05dd \u05de\u05d6\u05d5\u05db\u05d9\u05dd"}</span>
+              <strong>{formatNumber(clearedSearchSitesCount)}</strong>
+            </div>
+          </div>
+          <div className="search-sites-dashboard-list">
+            {searchSites.map((site) => {
+              const parentName = site.parent_site_id ? searchSiteParentNames.get(site.parent_site_id) : null;
+              return (
+                <article className="search-site-dashboard-card" key={site.id}>
+                  <div>
+                    <div className="search-site-card-heading">
+                      <strong>{searchSiteDisplayName(site)}</strong>
+                      <span className="site-type-badge search-site">{"\u05d0\u05ea\u05e8 \u05e1\u05e8\u05d9\u05e7\u05d4"}</span>
+                      <span className="search-status-badge">{searchStatusLabel(site.search_status)}</span>
+                    </div>
+                    {searchSiteAddress(site) ? <p className="muted">{searchSiteAddress(site)}</p> : null}
+                  </div>
+                  <dl className="search-site-card-details">
+                    <div>
+                      <dt>{"\u05d0\u05ea\u05e8 \u05d0\u05d1"}</dt>
+                      <dd>{parentName ?? "\u05dc\u05dc\u05d0"}</dd>
+                    </div>
+                    <div>
+                      <dt>{"\u05e2\u05d3\u05d9\u05e4\u05d5\u05ea"}</dt>
+                      <dd>{site.search_priority?.trim() || "-"}</dd>
+                    </div>
+                    <div>
+                      <dt>{"\u05e1\u05d9\u05d1\u05ea \u05e1\u05e8\u05d9\u05e7\u05d4"}</dt>
+                      <dd>{site.search_reason?.trim() || "-"}</dd>
+                    </div>
+                  </dl>
+                  <Link className="button compact secondary" href={`/incidents/${summary.incident_id}/sites/${site.id}`}>
+                    {"\u05e4\u05ea\u05d7 \u05d0\u05ea\u05e8"}
+                  </Link>
+                </article>
+              );
+            })}
+          </div>
+        </DashboardCollapsibleSection>
+      ) : null}
 
       <DashboardCollapsibleSection
         title="הערות פתוחות"

@@ -6125,3 +6125,157 @@ textarea {
   margin-top: 5px;
   font-weight: 800;
 }
+
+.search-sites-dashboard-widget {
+  border-color: rgba(21, 101, 192, 0.16);
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.search-sites-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.search-sites-summary-grid div {
+  border: 1px solid rgba(21, 101, 192, 0.14);
+  border-radius: 10px;
+  background: #f4f9ff;
+  padding: 12px;
+}
+
+.search-sites-summary-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.search-sites-summary-grid strong {
+  display: block;
+  color: #1565c0;
+  font-size: 28px;
+  font-weight: 900;
+  margin-top: 4px;
+}
+
+.search-sites-dashboard-list {
+  display: grid;
+  gap: 10px;
+}
+
+.search-site-dashboard-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 1.8fr) auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid rgba(21, 101, 192, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 14px;
+  box-shadow: 0 10px 24px rgba(22, 50, 79, 0.06);
+}
+
+.search-site-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.search-site-card-heading strong {
+  color: var(--brand-primary);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.search-site-card-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.search-site-card-details div {
+  min-width: 0;
+}
+
+.search-site-card-details dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.search-site-card-details dd {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .search-sites-summary-grid,
+  .search-site-dashboard-card,
+  .search-site-card-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+.incident-nav-collapsible-section summary {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.incident-nav-collapsible-section summary::after {
+  content: "\25BE";
+  justify-self: end;
+  color: var(--muted);
+  font-size: 13px;
+  transition: transform 0.16s ease;
+}
+
+.incident-nav-collapsible-section[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.incident-site-tree .incident-site-node summary {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+}
+
+.site-nav-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.site-nav-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+  font-size: 14px;
+}
+
+.site-nav-main .nav-badge-stack {
+  justify-content: flex-start;
+  gap: 4px;
+}
+
+.site-nav-main .nav-badge,
+.site-nav-main .site-type-badge,
+.site-nav-main .search-status-badge {
+  padding: 2px 6px;
+  font-size: 10.5px;
+  line-height: 1.15;
+  max-width: 100%;
+}
+
+.site-nav-main .nav-badge.danger {
+  font-size: 10.5px;
+}
