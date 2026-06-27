@@ -1,4 +1,4 @@
-﻿-- Search Site Phase 5A: apartment/unit search results for Search Sites only.
+-- Search Site Phase 5A: apartment/unit search results for Search Sites only.
 -- Search Sites continue to reuse public.sites, public.floors, and public.units.
 
 create table if not exists public.site_search_units (
