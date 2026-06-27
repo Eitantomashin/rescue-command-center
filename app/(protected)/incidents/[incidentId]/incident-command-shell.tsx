@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { formatNumber } from "@/lib/format";
+import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
 
 export type IncidentShellIncident = {
   id: string;
@@ -21,6 +22,8 @@ export type IncidentShellSite = {
   active_operational_numbers_count?: number | null;
   gap_resolved_count?: number | null;
   operational_gap: number;
+  site_type?: string | null;
+  search_status?: string | null;
 };
 
 export type IncidentShellSummary = {
@@ -229,13 +232,18 @@ export function IncidentCommandShell({
               const rootHref = siteHref(incident.id, site.site_id);
               const isCurrentSite = pathname.startsWith(rootHref);
               const level = siteGapLevel(site);
+              const searchSite = isSearchSite(site);
 
               return (
-                <details className="incident-site-node" key={site.site_id} open={isCurrentSite}>
+                <details className={`incident-site-node${searchSite ? " search-site-node" : ""}`} key={site.site_id} open={isCurrentSite}>
                   <summary className={isCurrentSite ? "active" : ""}>
                     <span className={`site-status-dot coverage-${level}`} aria-label={`פער ${level}`} />
                     <span className="nav-label">{siteLabel(site)}</span>
-                    {site.operational_gap > 0 ? <span className="nav-badge danger">פער {formatNumber(site.operational_gap)}</span> : null}
+                    <span className="nav-badge-stack">
+                      <span className={`nav-badge site-type-badge ${searchSite ? "search-site" : "rescue-site"}`}>{siteTypeLabel(site.site_type)}</span>
+                      {searchSite ? <span className="nav-badge search-status-badge">{searchStatusLabel(site.search_status)}</span> : null}
+                      {site.operational_gap > 0 ? <span className="nav-badge danger">{"פער"} {formatNumber(site.operational_gap)}</span> : null}
+                    </span>
                   </summary>
                   <div className="incident-site-links">
                     <Link className={`incident-nav-item${activeClass(pathname, rootHref)}`} href={rootHref}>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatNumber } from "@/lib/format";
+import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
 
 type SiteRow = {
   incident_id: string;
@@ -20,6 +21,8 @@ type SiteRow = {
   gap_resolved_count: number;
   resolved_persons: number;
   operational_gap: number;
+  site_type?: string | null;
+  search_status?: string | null;
 };
 
 export default async function SitesPage({
@@ -29,13 +32,21 @@ export default async function SitesPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: incident }, { data, error }, { data: canManageSites }] = await Promise.all([
+  const [{ data: incident }, { data, error }, { data: siteMetadataRows }, { data: canManageSites }] = await Promise.all([
     supabase.from("incidents").select("id,name").eq("id", params.incidentId).maybeSingle(),
     supabase.from("site_dashboard_summary").select("*").eq("incident_id", params.incidentId).order("site_number", { ascending: true }),
+    supabase.from("sites").select("id,site_type,search_status").eq("incident_id", params.incidentId).eq("is_active", true),
     supabase.rpc("can_manage_sites", { p_incident_id: params.incidentId })
   ]);
 
-  const sites = (data ?? []) as SiteRow[];
+  const siteMetadata = new Map(
+    ((siteMetadataRows ?? []) as Array<{ id: string; site_type: string | null; search_status: string | null }>).map((site) => [site.id, site])
+  );
+  const sites = ((data ?? []) as SiteRow[]).map((site) => ({
+    ...site,
+    site_type: siteMetadata.get(site.site_id)?.site_type ?? "rescue_site",
+    search_status: siteMetadata.get(site.site_id)?.search_status ?? null
+  }));
 
   return (
     <main className="page">
@@ -72,6 +83,7 @@ export default async function SitesPage({
               <tr>
                 <th>אתר</th>
                 <th>כתובת</th>
+                <th className="site-type-header">{"\u05e1\u05d5\u05d2 \u05d0\u05ea\u05e8"}</th>
                 <th>סטטוס</th>
                 <th>פוטנציאל</th>
                 <th>יחידות פתוחות</th>
@@ -91,6 +103,12 @@ export default async function SitesPage({
                   <td>
                     {site.street} {site.house_number}
                     {site.city ? <div className="muted">{site.city}</div> : null}
+                  </td>
+                  <td className="site-type-column">
+                    <span className={`site-type-badge ${isSearchSite(site) ? "search-site" : "rescue-site"}`}>
+                      {siteTypeLabel(site.site_type)}
+                    </span>
+                    {isSearchSite(site) ? <div className="muted search-status-inline">{searchStatusLabel(site.search_status)}</div> : null}
                   </td>
                   <td>{site.site_status_label ?? "-"}</td>
                   <td>

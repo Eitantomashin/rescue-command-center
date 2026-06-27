@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatNumber } from "@/lib/format";
+import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
 import { CollaborativeLockSection } from "../../collaborative-lock";
 import { closeSite, reopenSite } from "../../lifecycle-actions";
 import {
@@ -37,10 +38,14 @@ type SiteSummaryRow = {
   resolved_persons: number;
   gap_resolved_count: number;
   operational_gap: number;
+  site_type?: string | null;
+  search_status?: string | null;
 };
 
 type SiteLifecycleRow = {
   lifecycle_status: "open" | "paused" | "closed";
+  site_type: string | null;
+  search_status: string | null;
 };
 
 type FloorRow = {
@@ -427,7 +432,7 @@ export default async function SiteDetailsPage({
       .order("sort_order", { ascending: true }),
     supabase
       .from("sites")
-      .select("lifecycle_status")
+      .select("lifecycle_status,site_type,search_status")
       .eq("id", params.siteId)
       .maybeSingle(),
     supabase.rpc("can_control_incident_lifecycle", { p_incident_id: params.incidentId }),
@@ -436,7 +441,11 @@ export default async function SiteDetailsPage({
 
   const floors = (floorRows ?? []) as FloorRow[];
   const units = (unitRows ?? []) as UnitRow[];
-  const siteLifecycleStatus = (siteLifecycle as SiteLifecycleRow | null)?.lifecycle_status ?? "open";
+  const siteMetadata = siteLifecycle as SiteLifecycleRow | null;
+  const siteLifecycleStatus = siteMetadata?.lifecycle_status ?? "open";
+  const siteType = siteMetadata?.site_type ?? site.site_type ?? "rescue_site";
+  const searchStatus = siteMetadata?.search_status ?? site.search_status ?? null;
+  const searchSite = isSearchSite({ site_type: siteType });
   const canEditThisSite = Boolean(canEditOperational && siteLifecycleStatus !== "closed");
   const unitIds = units.map((unit) => unit.id);
 
@@ -556,6 +565,10 @@ export default async function SiteDetailsPage({
             {site.city ? ` · ${site.city}` : ""}
           </p>
           <p className="muted">סטטוס אתר: {site.site_status_label ?? "-"}</p>
+          <div className="site-header-badges">
+            <span className={`site-type-badge ${searchSite ? "search-site" : "rescue-site"}`}>{siteTypeLabel(siteType)}</span>
+            {searchSite ? <span className="search-status-badge">{searchStatusLabel(searchStatus)}</span> : null}
+          </div>
           {searchParams?.structureError ? (
             <p className="error structure-error-message">{searchParams.structureError}</p>
           ) : null}

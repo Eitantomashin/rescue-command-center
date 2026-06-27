@@ -6069,3 +6069,59 @@ textarea {
     font-size: 28px;
   }
 }
+
+
+.site-header-badges,
+.nav-badge-stack {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.nav-badge-stack {
+  justify-content: flex-end;
+}
+
+.site-type-badge,
+.search-status-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.site-type-badge.rescue-site {
+  border: 1px solid rgba(22, 50, 79, 0.18);
+  background: #eef3f8;
+  color: var(--brand-primary);
+}
+
+.site-type-badge.search-site,
+.nav-badge.site-type-badge.search-site {
+  border: 1px solid rgba(21, 101, 192, 0.22);
+  background: #eaf3ff;
+  color: #1565c0;
+}
+
+.search-status-badge,
+.nav-badge.search-status-badge {
+  border: 1px solid rgba(21, 101, 192, 0.16);
+  background: #f4f9ff;
+  color: #1d4f8a;
+}
+
+.incident-site-node.search-site-node summary {
+  border-color: rgba(21, 101, 192, 0.16);
+  background: linear-gradient(90deg, rgba(21, 101, 192, 0.08), rgba(255, 255, 255, 0.9));
+}
+
+.search-status-inline {
+  margin-top: 5px;
+  font-weight: 800;
+}

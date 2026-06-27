@@ -21,6 +21,8 @@ type SiteRow = {
   active_operational_numbers_count?: number | null;
   gap_resolved_count?: number | null;
   operational_gap: number;
+  site_type?: string | null;
+  search_status?: string | null;
 };
 
 type SummaryRow = {
@@ -50,6 +52,7 @@ export default async function IncidentLayout({
     },
     { data: incident, error: incidentError },
     { data: sites },
+    { data: siteMetadataRows },
     { data: summary }
   ] = await Promise.all([
     supabase.auth.getUser(),
@@ -59,6 +62,11 @@ export default async function IncidentLayout({
       .select("site_id,site_number,name,city,street,house_number,updated_potential,active_operational_numbers_count,gap_resolved_count,operational_gap")
       .eq("incident_id", params.incidentId)
       .order("site_number", { ascending: true }),
+    supabase
+      .from("sites")
+      .select("id,site_type,search_status")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true),
     supabase
       .from("incident_dashboard_summary")
       .select("updated_potential,active_operational_numbers_count,gap_resolved_count,operational_gap,total_sites,active_teams,operational_numbers_rescued_count,operational_numbers_evacuated_count,operational_numbers_located_outside_site_count,operational_numbers_deceased_count")
@@ -70,6 +78,15 @@ export default async function IncidentLayout({
     notFound();
   }
 
+  const siteMetadata = new Map(
+    ((siteMetadataRows ?? []) as Array<{ id: string; site_type: string | null; search_status: string | null }>).map((site) => [site.id, site])
+  );
+  const shellSites = ((sites ?? []) as SiteRow[]).map((site) => ({
+    ...site,
+    site_type: siteMetadata.get(site.site_id)?.site_type ?? "rescue_site",
+    search_status: siteMetadata.get(site.site_id)?.search_status ?? null
+  }));
+
   return (
     <IncidentPresenceProvider
       incidentId={params.incidentId}
@@ -78,11 +95,11 @@ export default async function IncidentLayout({
         email: user?.email ?? null,
         user_metadata: user?.user_metadata
       }}
-      sites={(sites ?? []) as SiteRow[]}
+      sites={shellSites}
     >
       <IncidentCommandShell
         incident={incident as IncidentRow}
-        sites={(sites ?? []) as SiteRow[]}
+        sites={shellSites}
         summary={
           (summary as SummaryRow | null) ?? {
             updated_potential: 0,
