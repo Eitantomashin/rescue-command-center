@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
@@ -370,6 +370,26 @@ export default async function IncidentDashboardPage({
   params: { incidentId: string };
 }) {
   const supabase = createClient();
+  const { data: entryRole } = await supabase.rpc("current_user_role");
+
+  if (entryRole === "search_user") {
+    const { data: firstSearchSite } = await supabase
+      .from("sites")
+      .select("id")
+      .eq("incident_id", params.incidentId)
+      .eq("site_type", "search_site")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (firstSearchSite?.id) {
+      redirect(`/incidents/${params.incidentId}/sites/${firstSearchSite.id}`);
+    }
+
+    notFound();
+  }
+
   const { data: dashboard, error } = await supabase
     .from("incident_dashboard_summary")
     .select("*")

@@ -53,7 +53,8 @@ export default async function IncidentLayout({
     { data: incident, error: incidentError },
     { data: sites },
     { data: siteMetadataRows },
-    { data: summary }
+    { data: summary },
+    { data: currentRole }
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("incidents").select("id,name,is_closed").eq("id", params.incidentId).maybeSingle(),
@@ -71,7 +72,8 @@ export default async function IncidentLayout({
       .from("incident_dashboard_summary")
       .select("updated_potential,active_operational_numbers_count,gap_resolved_count,operational_gap,total_sites,active_teams,operational_numbers_rescued_count,operational_numbers_evacuated_count,operational_numbers_located_outside_site_count,operational_numbers_deceased_count")
       .eq("incident_id", params.incidentId)
-      .maybeSingle()
+      .maybeSingle(),
+    supabase.rpc("current_user_role")
   ]);
 
   if (incidentError || !incident) {
@@ -81,11 +83,14 @@ export default async function IncidentLayout({
   const siteMetadata = new Map(
     ((siteMetadataRows ?? []) as Array<{ id: string; site_type: string | null; search_status: string | null }>).map((site) => [site.id, site])
   );
-  const shellSites = ((sites ?? []) as SiteRow[]).map((site) => ({
-    ...site,
-    site_type: siteMetadata.get(site.site_id)?.site_type ?? "rescue_site",
-    search_status: siteMetadata.get(site.site_id)?.search_status ?? null
-  }));
+  const isSearchUser = currentRole === "search_user";
+  const shellSites = ((sites ?? []) as SiteRow[])
+    .map((site) => ({
+      ...site,
+      site_type: siteMetadata.get(site.site_id)?.site_type ?? "rescue_site",
+      search_status: siteMetadata.get(site.site_id)?.search_status ?? null
+    }))
+    .filter((site) => !isSearchUser || site.site_type === "search_site");
 
   return (
     <IncidentPresenceProvider
