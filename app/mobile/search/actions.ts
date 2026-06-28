@@ -109,3 +109,24 @@ export async function completeMobileSearchUnit(formData: FormData) {
   revalidateSearchSiteViews(paths);
   redirect(paths.sitePath);
 }
+
+export async function addMobileSearchUnit(formData: FormData) {
+  const paths = mobileSitePath(formData);
+  const siteId = requiredValue(formData, "siteId", "אתר");
+  const floorId = requiredValue(formData, "floorId", "קומה");
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("add_search_site_manual_unit", {
+    p_site_id: siteId,
+    p_floor_id: floorId,
+    p_reported_unit_number: nullableValue(formData, "reportedUnitNumber"),
+    p_notes: nullableValue(formData, "manualUnitNotes")
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidateSearchSiteViews(paths);
+  redirect(paths.sitePath);
+}

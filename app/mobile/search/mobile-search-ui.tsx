@@ -5,7 +5,7 @@ import {
   searchScannedCount,
   searchSummaryFromStatuses
 } from "@/lib/search-site-status";
-import { completeMobileSearchUnit, saveMobileSearchUnit } from "./actions";
+import { addMobileSearchUnit, completeMobileSearchUnit, saveMobileSearchUnit } from "./actions";
 
 export type MobileSearchFloor = {
   id: string;
@@ -55,6 +55,8 @@ export type MobileSearchSummary = {
 };
 
 type MobileSearchStatus = "not_visited" | "no_answer" | "clear" | "casualties" | "completed";
+
+const MANUAL_SEARCH_UNIT_ZONE_NAME = "הוספה ידנית";
 
 const SEARCH_UNIT_STATUS_OPTIONS: Array<{ value: MobileSearchStatus; label: string }> = [
   { value: "not_visited", label: "טרם נסרקה" },
@@ -125,6 +127,10 @@ function unitDisplayLabel(unit: MobileSearchUnit) {
   return `${zoneTypeLabel(unit.zone_type)} ${unit.zone_sequence ?? unit.unit_number}`;
 }
 
+function isManualSearchUnit(unit: MobileSearchUnit) {
+  return unit.zone_type === "other" && unit.zone_name === MANUAL_SEARCH_UNIT_ZONE_NAME;
+}
+
 function sortUnits(units: MobileSearchUnit[]) {
   return [...units].sort((a, b) =>
     a.unit_number.localeCompare(b.unit_number, "he", {
@@ -140,6 +146,16 @@ function hiddenContext(incidentId: string, siteId: string, unitId?: string) {
       <input type="hidden" name="incidentId" value={incidentId} />
       <input type="hidden" name="siteId" value={siteId} />
       {unitId ? <input type="hidden" name="unitId" value={unitId} /> : null}
+    </>
+  );
+}
+
+function hiddenFloorContext(incidentId: string, siteId: string, floorId: string) {
+  return (
+    <>
+      <input type="hidden" name="incidentId" value={incidentId} />
+      <input type="hidden" name="siteId" value={siteId} />
+      <input type="hidden" name="floorId" value={floorId} />
     </>
   );
 }
@@ -254,6 +270,27 @@ export function MobileSearchScanner({
                 {openIssues > 0 ? <span className="search-alert-badge">{formatNumber(openIssues)} לטיפול</span> : null}
               </summary>
 
+              {canEdit ? (
+                <details className="mobile-search-add-unit-panel">
+                  <summary className="button compact secondary">+ הוסף דירה לקומה</summary>
+                  <form action={addMobileSearchUnit} className="mobile-search-add-unit-form">
+                    {hiddenFloorContext(site.incident_id, site.id, floor.id)}
+                    <label>
+                      מספר דירה שדווח בשטח
+                      <input className="input" name="reportedUnitNumber" inputMode="text" placeholder="אופציונלי" />
+                    </label>
+                    <label>
+                      הערות
+                      <textarea className="input" name="manualUnitNotes" rows={2} placeholder="אופציונלי" />
+                    </label>
+                    <p className="mobile-search-add-unit-help">
+                      הדירה תוצג כ"הוספה ידנית" ולא תשנה מספרי דירות קיימים.
+                    </p>
+                    <button className="button" type="submit">הוסף דירה</button>
+                  </form>
+                </details>
+              ) : null}
+
               <div className="search-unit-list">
                 {floorUnits.map((unit) => {
                   const result = searchResultsByUnit.get(unit.id);
@@ -265,6 +302,7 @@ export function MobileSearchScanner({
                       <div className="search-unit-card-header">
                         <div>
                           <h3>{unitDisplayLabel(unit)}</h3>
+                          {isManualSearchUnit(unit) ? <span className="search-manual-unit-badge">נוספה בשטח</span> : null}
                           {result?.family_name ? <p>משפחה: {result.family_name}</p> : <p>משפחה לא צוינה</p>}
                         </div>
                         <span className={`search-unit-status ${tone}`}>{searchUnitStatusLabel(status)}</span>

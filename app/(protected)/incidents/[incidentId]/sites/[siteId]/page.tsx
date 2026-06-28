@@ -178,6 +178,8 @@ type SearchKpiDrilldownEntry = {
   status: SearchUnitStatus;
 };
 
+const MANUAL_SEARCH_UNIT_ZONE_NAME = "הוספה ידנית";
+
 const SEARCH_UNIT_STATUS_OPTIONS: Array<{ value: SearchUnitStatus; label: string }> = [
   { value: "not_visited", label: "טרם נסרקה" },
   { value: "no_answer", label: "אין מענה" },
@@ -472,6 +474,10 @@ function unitDisplayLabel(unit: UnitRow) {
   return `${zoneTypeLabel(unit.zone_type)} ${unit.zone_sequence ?? unit.unit_number}`;
 }
 
+function isManualSearchUnit(unit: UnitRow) {
+  return unit.zone_type === "other" && unit.zone_name === MANUAL_SEARCH_UNIT_ZONE_NAME;
+}
+
 function unitPreviousLabel(unit: UnitRow) {
   if (unit.original_unit_label && unit.structure_change_type === "apartment_split") {
     return `פוצלה מדירה ${unit.original_unit_label}`;
@@ -680,6 +686,7 @@ function SearchSiteMobileWorkflow({
                       <div className="search-unit-card-header">
                         <div>
                           <h3>{unitDisplayLabel(unit)}</h3>
+                          {isManualSearchUnit(unit) ? <span className="search-manual-unit-badge">נוספה בשטח</span> : null}
                           {result?.family_name ? <p>משפחה: {result.family_name}</p> : <p>משפחה לא צוינה</p>}
                         </div>
                         <span className={`search-unit-status ${tone}`}>{searchUnitStatusLabel(status)}</span>
