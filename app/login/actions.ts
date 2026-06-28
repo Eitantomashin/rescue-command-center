@@ -17,6 +17,11 @@ export async function signIn(formData: FormData) {
     redirect("/login?error=1");
   }
 
+  const { data: role } = await supabase.rpc("current_user_role");
+  if (role === "search_user") {
+    redirect("/mobile/search");
+  }
+
   redirect("/incidents");
 }
 

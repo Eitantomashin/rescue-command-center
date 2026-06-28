@@ -194,7 +194,8 @@ function searchUnitStatusLabel(status: SearchUnitStatus | null | undefined) {
 }
 
 function searchUnitTone(status: SearchUnitStatus | null | undefined) {
-  if (status === "completed" || status === "clear") return "complete";
+  if (status === "completed") return "complete";
+  if (status === "clear") return "clear";
   if (status === "casualties") return "casualties";
   if (status === "no_answer") return "no-answer";
   return "not-visited";
@@ -526,6 +527,7 @@ function SearchSiteMobileWorkflow({
   const siteName = siteNameFromRecord(site);
   const sortedFloors = [...floors].sort((a, b) => (b.floor_number ?? 0) - (a.floor_number ?? 0));
   const scannedUnits = summary.clear_count + summary.no_answer_count + summary.casualties_count + summary.completed_count;
+  const progressPercent = summary.total_units > 0 ? Math.round((scannedUnits / summary.total_units) * 100) : 0;
   const floorsById = new Map(floors.map((floor) => [floor.id, floor]));
   const searchEntries = Array.from(unitsByFloor.values()).flatMap((floorUnits) =>
     sortUnits(floorUnits.filter((unit) => unit.is_active)).map((unit) => {
@@ -555,7 +557,24 @@ function SearchSiteMobileWorkflow({
           <h1>{siteName}</h1>
           <p>{[site.street, site.house_number, site.city].filter(Boolean).join(" ")}</p>
         </div>
-        <span className="search-status-badge">{searchStatusLabel(site.search_status)}</span>
+        <div className="search-site-hero-status">
+          <span className="search-status-badge">{searchStatusLabel(site.search_status)}</span>
+          <strong>{formatNumber(progressPercent)}%</strong>
+          <span>התקדמות סריקה</span>
+        </div>
+      </section>
+
+      <section className="search-progress-header" aria-label="התקדמות סריקה">
+        <div className="search-progress-bar" aria-hidden="true">
+          <span style={{ inlineSize: `${progressPercent}%` }} />
+        </div>
+        <div className="search-progress-metrics">
+          <div><span>סה״כ</span><strong>{formatNumber(summary.total_units)}</strong></div>
+          <div><span>נסרקו</span><strong>{formatNumber(scannedUnits)}</strong></div>
+          <div><span>זוכו</span><strong>{formatNumber(summary.completed_count)}</strong></div>
+          <div><span>אין מענה</span><strong>{formatNumber(summary.no_answer_count)}</strong></div>
+          <div><span>נפגעים</span><strong>{formatNumber(summary.casualties_count)}</strong></div>
+        </div>
       </section>
 
       <section className="search-site-summary-grid search-clickable-kpis" aria-label="סיכום סריקה">
@@ -595,17 +614,19 @@ function SearchSiteMobileWorkflow({
 
         {sortedFloors.map((floor, index) => {
           const floorUnits = sortUnits((unitsByFloor.get(floor.id) ?? []).filter((unit) => unit.is_active));
-          const floorResults = floorUnits.map((unit) => searchResultsByUnit.get(unit.id));
-          const completed = floorResults.filter((result) => result?.search_status === "completed").length;
-          const casualties = floorResults.filter((result) => result?.search_status === "casualties").length;
-          const openCount = floorUnits.length - completed;
+          const floorStatuses = floorUnits.map((unit) => searchResultsByUnit.get(unit.id)?.search_status ?? "not_visited");
+          const scanned = floorStatuses.filter((status) => ["clear", "no_answer", "casualties", "completed"].includes(status)).length;
+          const completed = floorStatuses.filter((status) => status === "completed").length;
+          const casualties = floorStatuses.filter((status) => status === "casualties").length;
+          const noAnswer = floorStatuses.filter((status) => status === "no_answer").length;
+          const openIssues = casualties + noAnswer;
 
           return (
-            <details className="search-floor-card" key={floor.id} open={index === 0}>
+            <details className="search-floor-card" key={floor.id} name="search-floor-accordion" open={index === 0}>
               <summary className="search-floor-summary">
                 <div>
                   <h2>קומה {floor.floor_number}</h2>
-                  <p>{formatNumber(floorUnits.length)} דירות • {formatNumber(openCount)} פתוחות • {formatNumber(completed)} הושלמו</p>
+                  <p>{formatNumber(floorUnits.length)} דירות • {formatNumber(scanned)} נסרקו • {formatNumber(completed)} הושלמו • {formatNumber(openIssues)} פתוחות</p>
                 </div>
                 {casualties > 0 ? <span className="search-alert-badge">{formatNumber(casualties)} עם נפגעים</span> : null}
               </summary>
@@ -626,6 +647,33 @@ function SearchSiteMobileWorkflow({
                         <span className={`search-unit-status ${tone}`}>{searchUnitStatusLabel(status)}</span>
                       </div>
 
+                      <div className="search-quick-actions" aria-label="פעולות מהירות">
+                        {[
+                          { value: "clear", label: "תקין" },
+                          { value: "no_answer", label: "אין מענה" },
+                          { value: "casualties", label: "דווחו נפגעים" }
+                        ].map((action) => (
+                          <form action={saveSearchUnit} key={action.value}>
+                            {hiddenContext(incidentId, site.id, unit.id)}
+                            <input type="hidden" name="familyName" value={result?.family_name ?? ""} />
+                            <input type="hidden" name="occupantsCount" value={result?.occupants_count ?? ""} />
+                            <input type="hidden" name="contactPhone" value={result?.contact_phone ?? ""} />
+                            <input type="hidden" name="searchStatus" value={action.value} />
+                            {action.value === "casualties" ? <input type="hidden" name="casualtyBody" value="on" /> : null}
+                            <input type="hidden" name="notes" value={result?.notes ?? ""} />
+                            <button className={`button compact search-quick-button ${searchUnitTone(action.value as SearchUnitStatus)}`} type="submit" disabled={!canEdit}>
+                              {action.label}
+                            </button>
+                          </form>
+                        ))}
+                        <form action={completeSearchUnitAction}>
+                          {hiddenContext(incidentId, site.id, unit.id)}
+                          <button className="button compact search-quick-button complete" type="submit" disabled={!canEdit || status === "completed"}>
+                            סיום טיפול / מזוכה
+                          </button>
+                        </form>
+                      </div>
+
                       <div className="search-unit-indicators">
                         {result?.occupants_count !== null && result?.occupants_count !== undefined ? <span>דיירים: {formatNumber(result.occupants_count)}</span> : null}
                         {result?.contact_phone ? <span>טלפון: {result.contact_phone}</span> : null}
@@ -634,7 +682,9 @@ function SearchSiteMobileWorkflow({
                         {result?.medical_evacuation ? <span className="danger">נדרש פינוי</span> : null}
                       </div>
 
-                      <form action={saveSearchUnit} className="search-unit-form">
+                      <details className="search-unit-detail-panel">
+                        <summary>פתח טופס מלא</summary>
+                        <form action={saveSearchUnit} className="search-unit-form">
                         {hiddenContext(incidentId, site.id, unit.id)}
                         <label>
                           שם משפחה
@@ -672,6 +722,8 @@ function SearchSiteMobileWorkflow({
                           <button className="button" type="submit" disabled={!canEdit}>שמור סריקה</button>
                         </div>
                       </form>
+
+                      </details>
 
                       <form action={completeSearchUnitAction} className="search-complete-form">
                         {hiddenContext(incidentId, site.id, unit.id)}

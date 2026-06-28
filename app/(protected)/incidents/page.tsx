@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import { archiveIncident, permanentlyDeleteIncident, restoreIncident } from "./actions";
@@ -55,6 +56,10 @@ export default async function IncidentsPage({
 }) {
   const supabase = createClient();
   const { data: systemRole } = await supabase.rpc("current_user_role");
+  if (systemRole === "search_user") {
+    redirect("/mobile/search");
+  }
+
   const isAdmin = systemRole === "admin";
   const canManageIncidents = isAdmin || systemRole === "commander";
   const canViewAssignedArchive = isAdmin || systemRole === "commander";

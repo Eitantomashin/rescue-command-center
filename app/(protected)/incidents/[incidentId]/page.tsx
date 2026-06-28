@@ -488,7 +488,7 @@ export default async function IncidentDashboardPage({
       .maybeSingle();
 
     if (firstSearchSite?.id) {
-      redirect(`/incidents/${params.incidentId}/sites/${firstSearchSite.id}`);
+      redirect(`/mobile/search/${params.incidentId}/${firstSearchSite.id}`);
     }
 
     notFound();

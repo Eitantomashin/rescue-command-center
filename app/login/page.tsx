@@ -16,6 +16,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   } = await supabase.auth.getUser();
 
   if (user) {
+    const { data: role } = await supabase.rpc("current_user_role");
+    if (role === "search_user") {
+      redirect("/mobile/search");
+    }
+
     redirect("/incidents");
   }
 
