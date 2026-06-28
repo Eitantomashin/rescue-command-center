@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { formatNumber } from "@/lib/format";
+import { formatDateTime, formatNumber } from "@/lib/format";
 import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
 import { CollaborativeLockSection } from "../../collaborative-lock";
 import { closeSite, reopenSite } from "../../lifecycle-actions";
@@ -252,6 +252,42 @@ function normalizeSearchSiteSummary(row: Partial<SearchSiteSummaryRow> | null | 
 function firstSearchSiteSummary(data: unknown) {
   const row = Array.isArray(data) ? data[0] : data;
   return normalizeSearchSiteSummary(row as Partial<SearchSiteSummaryRow> | null | undefined);
+}
+
+function liveSearchSummaryFromRows(units: UnitRow[], resultsByUnit: Map<string, SearchUnitRow>) {
+  const summary = normalizeSearchSiteSummary(null);
+  summary.total_units = units.filter((unit) => unit.is_active).length;
+
+  for (const unit of units) {
+    if (!unit.is_active) continue;
+    const status = resultsByUnit.get(unit.id)?.search_status ?? "not_visited";
+
+    if (status === "clear") summary.clear_count += 1;
+    else if (status === "no_answer") summary.no_answer_count += 1;
+    else if (status === "casualties") summary.casualties_count += 1;
+    else if (status === "completed") summary.completed_count += 1;
+    else summary.not_visited_count += 1;
+  }
+
+  return summary;
+}
+
+function liveSearchSiteStatus(summary: SearchSiteSummaryRow) {
+  const scanned = summary.clear_count + summary.no_answer_count + summary.casualties_count + summary.completed_count;
+
+  if (scanned === 0) {
+    return { label: "טרם התחיל", tone: "not-started" };
+  }
+
+  if (summary.no_answer_count > 0 || summary.casualties_count > 0) {
+    return { label: "ממצאים פתוחים", tone: "open-items" };
+  }
+
+  if (summary.total_units > 0 && scanned >= summary.total_units) {
+    return { label: "אתר מזוכה", tone: "cleared" };
+  }
+
+  return { label: "בסריקה", tone: "in-progress" };
 }
 type TreatmentState = "completed" | "in_progress" | "missing" | "unknown";
 
@@ -528,6 +564,7 @@ function SearchSiteMobileWorkflow({
   const sortedFloors = [...floors].sort((a, b) => (b.floor_number ?? 0) - (a.floor_number ?? 0));
   const scannedUnits = summary.clear_count + summary.no_answer_count + summary.casualties_count + summary.completed_count;
   const progressPercent = summary.total_units > 0 ? Math.round((scannedUnits / summary.total_units) * 100) : 0;
+  const siteLiveStatus = liveSearchSiteStatus(summary);
   const floorsById = new Map(floors.map((floor) => [floor.id, floor]));
   const searchEntries = Array.from(unitsByFloor.values()).flatMap((floorUnits) =>
     sortUnits(floorUnits.filter((unit) => unit.is_active)).map((unit) => {
@@ -558,7 +595,7 @@ function SearchSiteMobileWorkflow({
           <p>{[site.street, site.house_number, site.city].filter(Boolean).join(" ")}</p>
         </div>
         <div className="search-site-hero-status">
-          <span className="search-status-badge">{searchStatusLabel(site.search_status)}</span>
+          <span className={`search-status-badge search-site-live-${siteLiveStatus.tone}`}>{siteLiveStatus.label}</span>
           <strong>{formatNumber(progressPercent)}%</strong>
           <span>התקדמות סריקה</span>
         </div>
@@ -680,6 +717,9 @@ function SearchSiteMobileWorkflow({
                         {result?.casualty_psych ? <span className="warning">נפגע חרדה</span> : null}
                         {result?.casualty_body ? <span className="danger">נפגע גוף</span> : null}
                         {result?.medical_evacuation ? <span className="danger">נדרש פינוי</span> : null}
+                        {result?.searched_at ? <span>נסרק: {formatDateTime(result.searched_at)}</span> : null}
+                        {result?.completed_at ? <span>הושלם: {formatDateTime(result.completed_at)}</span> : null}
+                        {result?.notes ? <span className="search-unit-note-chip">הערות: {result.notes}</span> : null}
                       </div>
 
                       <details className="search-unit-detail-panel">
@@ -806,8 +846,10 @@ export default async function SiteDetailsPage({
     const searchResultsByUnit = new Map(
       ((searchRows ?? []) as SearchUnitRow[]).map((result) => [result.unit_id, result])
     );
-    const searchSummary = firstSearchSiteSummary(summaryRows);
-    const searchUnitsByFloor = ((unitRows ?? []) as UnitRow[]).reduce<Map<string, UnitRow[]>>((grouped, unit) => {
+    const searchUnits = (unitRows ?? []) as UnitRow[];
+    const rpcSearchSummary = firstSearchSiteSummary(summaryRows);
+    const liveSearchSummary = liveSearchSummaryFromRows(searchUnits, searchResultsByUnit);
+    const searchUnitsByFloor = searchUnits.reduce<Map<string, UnitRow[]>>((grouped, unit) => {
       const floorUnits = grouped.get(unit.floor_id) ?? [];
       floorUnits.push(unit);
       grouped.set(unit.floor_id, floorUnits);
@@ -821,7 +863,7 @@ export default async function SiteDetailsPage({
         floors={(floorRows ?? []) as FloorRow[]}
         unitsByFloor={searchUnitsByFloor}
         searchResultsByUnit={searchResultsByUnit}
-        summary={searchSummary}
+        summary={liveSearchSummary.total_units > 0 ? liveSearchSummary : rpcSearchSummary}
         canEdit={Boolean(canEditSearch && initialSiteRecord.lifecycle_status !== "closed")}
       />
     );

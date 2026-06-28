@@ -6122,6 +6122,30 @@ textarea {
   color: #1d4f8a;
 }
 
+.search-status-badge.search-site-live-not-started {
+  border-color: rgba(117, 117, 117, 0.2);
+  background: #eceff3;
+  color: #45515f;
+}
+
+.search-status-badge.search-site-live-in-progress {
+  border-color: rgba(21, 101, 192, 0.22);
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.search-status-badge.search-site-live-open-items {
+  border-color: rgba(249, 168, 37, 0.34);
+  background: #fff0c2;
+  color: #8a5b00;
+}
+
+.search-status-badge.search-site-live-cleared {
+  border-color: rgba(46, 125, 50, 0.28);
+  background: #e8f5e9;
+  color: var(--success);
+}
+
 .incident-site-node.search-site-node summary {
   border-color: rgba(21, 101, 192, 0.16);
   background: linear-gradient(90deg, rgba(21, 101, 192, 0.08), rgba(255, 255, 255, 0.9));
@@ -6639,6 +6663,13 @@ textarea {
   color: var(--critical);
 }
 
+.search-unit-indicators .search-unit-note-chip {
+  width: 100%;
+  border-radius: 12px;
+  background: rgba(22, 50, 79, 0.08);
+  white-space: normal;
+}
+
 .search-unit-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6830,6 +6861,20 @@ textarea {
 .search-kpi-click-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(22, 50, 79, 0.12);
+}
+
+.search-kpi-click-card summary::after {
+  content: "\05e4\05d9\05e8\05d5\05d8";
+  position: static;
+  inset: auto;
+  justify-self: start;
+  width: fit-content;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+.search-kpi-click-card[open] summary::after {
+  content: "\05e1\05d2\05d5\05e8";
 }
 
 .search-kpi-drilldown-panel {
