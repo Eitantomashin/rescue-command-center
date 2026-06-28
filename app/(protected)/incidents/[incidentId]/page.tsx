@@ -10,6 +10,7 @@ import { DashboardCommandScope, type DashboardScopeOperationalNumber } from "./d
 import { ConnectedUsersWidget } from "./incident-presence";
 import { closeIncident, pauseIncident, renameIncident, reopenIncident } from "./lifecycle-actions";
 import type { PersonnelTeamItem } from "./personnel-team-drilldown";
+import { SearchSitesDashboardWidget, type SearchSitesWidgetData } from "./search-sites-dashboard-widget";
 import {
   ATTENDANCE_STATUSES,
   PERSONNEL_DEPARTMENTS,
@@ -957,6 +958,20 @@ export default async function IncidentDashboardPage({
     dashboardStatusGroup: person.dashboard_status_group,
     mergedOperationalNumbers: person.merged_operational_numbers ?? []
   }));
+  const searchSitesWidgetData: SearchSitesWidgetData = {
+    sites: searchSites.map((site) => ({
+      id: site.id,
+      name: searchSiteDisplayName(site),
+      address: searchSiteAddress(site) || null,
+      parentName: site.parent_site_id ? searchSiteParentNames.get(site.parent_site_id) ?? null : null,
+      searchPriority: site.search_priority,
+      searchReason: site.search_reason,
+      summary: searchSiteSummaries.get(site.id) ?? emptySearchSiteSummary,
+      entries: searchEntriesBySite.get(site.id) ?? []
+    })),
+    updatedAt: new Date().toISOString()
+  };
+
   return (
     <main className="page commander-dashboard-page">
       <div className="command-hero">
@@ -1043,7 +1058,9 @@ export default async function IncidentDashboardPage({
         personnelTeams={personnelTeamItems}
       />
 
-      {searchSites.length > 0 ? (
+      <SearchSitesDashboardWidget incidentId={summary.incident_id} initialData={searchSitesWidgetData} />
+
+      {false && searchSites.length > 0 ? (
         <DashboardCollapsibleSection
           title={"\u05d0\u05ea\u05e8\u05d9 \u05e1\u05e8\u05d9\u05e7\u05d4"}
           defaultOpen={false}

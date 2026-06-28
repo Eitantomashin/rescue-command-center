@@ -6196,6 +6196,17 @@ textarea {
   gap: 10px;
 }
 
+.search-widget-refresh-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .search-site-dashboard-card {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(260px, 1.8fr) auto;

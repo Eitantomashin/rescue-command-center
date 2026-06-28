@@ -50,12 +50,21 @@ function mobileSitePath(formData: FormData) {
   const siteId = requiredValue(formData, "siteId", "אתר");
   return {
     incidentPath: `/mobile/search/${incidentId}`,
-    sitePath: `/mobile/search/${incidentId}/${siteId}`
+    sitePath: `/mobile/search/${incidentId}/${siteId}`,
+    commanderDashboardPath: `/incidents/${incidentId}`,
+    commanderSitePath: `/incidents/${incidentId}/sites/${siteId}`
   };
 }
 
+function revalidateSearchSiteViews(paths: ReturnType<typeof mobileSitePath>) {
+  revalidatePath(paths.sitePath, "page");
+  revalidatePath(paths.incidentPath, "page");
+  revalidatePath(paths.commanderDashboardPath, "page");
+  revalidatePath(paths.commanderSitePath, "page");
+}
+
 export async function saveMobileSearchUnit(formData: FormData) {
-  const { incidentPath, sitePath } = mobileSitePath(formData);
+  const paths = mobileSitePath(formData);
   const siteId = requiredValue(formData, "siteId", "אתר");
   const unitId = requiredValue(formData, "unitId", "דירה");
   const occupantsCount = optionalNonNegativeInteger(formData, "occupantsCount", "מספר דיירים");
@@ -78,13 +87,12 @@ export async function saveMobileSearchUnit(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(sitePath, "page");
-  revalidatePath(incidentPath, "page");
-  redirect(sitePath);
+  revalidateSearchSiteViews(paths);
+  redirect(paths.sitePath);
 }
 
 export async function completeMobileSearchUnit(formData: FormData) {
-  const { incidentPath, sitePath } = mobileSitePath(formData);
+  const paths = mobileSitePath(formData);
   const siteId = requiredValue(formData, "siteId", "אתר");
   const unitId = requiredValue(formData, "unitId", "דירה");
 
@@ -98,7 +106,6 @@ export async function completeMobileSearchUnit(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(sitePath, "page");
-  revalidatePath(incidentPath, "page");
-  redirect(sitePath);
+  revalidateSearchSiteViews(paths);
+  redirect(paths.sitePath);
 }
