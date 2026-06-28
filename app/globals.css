@@ -6437,11 +6437,28 @@ textarea {
   overflow: hidden;
 }
 
+.search-floor-card.search-site-live-not-started {
+  border-color: rgba(117, 117, 117, 0.28);
+}
+
+.search-floor-card.search-site-live-in-progress {
+  border-color: rgba(21, 101, 192, 0.34);
+}
+
+.search-floor-card.search-site-live-open-items {
+  border-color: rgba(249, 168, 37, 0.45);
+}
+
+.search-floor-card.search-site-live-cleared {
+  border-color: rgba(46, 125, 50, 0.36);
+}
+
 .search-floor-summary {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
   padding: 16px;
   cursor: pointer;
   background: #f5f7fa;

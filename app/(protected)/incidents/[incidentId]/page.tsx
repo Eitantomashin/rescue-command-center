@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
-import { searchStatusLabel } from "@/lib/site-display";
+import { searchLiveStatus, searchScannedCount } from "@/lib/search-site-status";
 import { DashboardCollapsibleSection } from "./dashboard-collapsible-section";
 import type { SiteAnalysisRow, SiteStatusSegments, SiteUnitAnalysisRow } from "./dashboard-site-command-summary-v2";
 import { DashboardCommandScope, type DashboardScopeOperationalNumber } from "./dashboard-command-scope-v2";
@@ -329,7 +329,8 @@ function searchUnitStatusLabel(status: SearchUnitStatus) {
 }
 
 function searchUnitTone(status: SearchUnitStatus) {
-  if (status === "completed" || status === "clear") return "complete";
+  if (status === "completed") return "complete";
+  if (status === "clear") return "clear";
   if (status === "casualties") return "casualties";
   if (status === "no_answer") return "no-answer";
   return "not-visited";
@@ -729,7 +730,7 @@ export default async function IncidentDashboardPage({
     (totals, site) => {
       const siteSummary = searchSiteSummaries.get(site.id) ?? emptySearchSiteSummary;
       totals.totalUnits += siteSummary.total_units;
-      totals.scanned += siteSummary.clear_count + siteSummary.no_answer_count + siteSummary.casualties_count + siteSummary.completed_count;
+      totals.scanned += searchScannedCount(siteSummary);
       totals.completed += siteSummary.completed_count;
       totals.noAnswer += siteSummary.no_answer_count;
       totals.casualties += siteSummary.casualties_count;
@@ -1085,7 +1086,8 @@ export default async function IncidentDashboardPage({
           <div className="search-sites-dashboard-list">
             {searchSites.map((site) => {
               const siteSearchSummary = searchSiteSummaries.get(site.id) ?? emptySearchSiteSummary;
-              const siteScanned = siteSearchSummary.clear_count + siteSearchSummary.no_answer_count + siteSearchSummary.casualties_count + siteSearchSummary.completed_count;
+              const siteScanned = searchScannedCount(siteSearchSummary);
+              const siteLiveStatus = searchLiveStatus(siteSearchSummary);
               const siteEntries = searchEntriesBySite.get(site.id) ?? [];
               const siteEntriesByKpi = {
                 scanned: siteEntries.filter((entry) => matchesSearchKpi(entry.status, "scanned")),
@@ -1100,7 +1102,7 @@ export default async function IncidentDashboardPage({
                     <div className="search-site-card-heading">
                       <strong>{searchSiteDisplayName(site)}</strong>
                       <span className="site-type-badge search-site">{"\u05d0\u05ea\u05e8 \u05e1\u05e8\u05d9\u05e7\u05d4"}</span>
-                      <span className="search-status-badge">{searchStatusLabel(site.search_status)}</span>
+                      <span className={`search-status-badge search-site-live-${siteLiveStatus.tone}`}>{siteLiveStatus.label}</span>
                     </div>
                     {searchSiteAddress(site) ? <p className="muted">{searchSiteAddress(site)}</p> : null}
                   </div>

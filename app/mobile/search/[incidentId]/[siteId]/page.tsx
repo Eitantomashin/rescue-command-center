@@ -25,11 +25,6 @@ function normalizeSummary(row: Partial<MobileSearchSummary> | null | undefined):
   };
 }
 
-function firstSummary(data: unknown) {
-  const row = Array.isArray(data) ? data[0] : data;
-  return normalizeSummary(row as Partial<MobileSearchSummary> | null | undefined);
-}
-
 function userDisplayName(user: { email?: string | null; user_metadata?: Record<string, unknown> | null }) {
   const metadata = user.user_metadata ?? {};
   const displayName = String(metadata.display_name ?? metadata.full_name ?? metadata.name ?? "").trim();
@@ -73,7 +68,6 @@ export default async function MobileSearchSitePage({
     { data: floorRows, error: floorsError },
     { data: unitRows, error: unitsError },
     { data: searchRows },
-    { data: summaryRows },
     { data: canEditSearch }
   ] = await Promise.all([
     supabase
@@ -103,7 +97,6 @@ export default async function MobileSearchSitePage({
       .select("unit_id,family_name,occupants_count,contact_phone,search_status,casualty_psych,casualty_body,medical_evacuation,notes")
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId),
-    supabase.rpc("get_search_site_summary", { p_site_id: params.siteId }),
     supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId })
   ]);
 
@@ -125,7 +118,6 @@ export default async function MobileSearchSitePage({
     grouped.set(unit.floor_id, floorUnits);
     return grouped;
   }, new Map());
-  const rpcSummary = firstSummary(summaryRows);
   const liveSummary = liveSummaryFromRows(units, searchResultsByUnit);
 
   return (
@@ -134,7 +126,7 @@ export default async function MobileSearchSitePage({
       floors={(floorRows ?? []) as MobileSearchFloor[]}
       unitsByFloor={unitsByFloor}
       searchResultsByUnit={searchResultsByUnit}
-      summary={liveSummary.total_units > 0 ? liveSummary : rpcSummary}
+      summary={liveSummary}
       canEdit={Boolean(canEditSearch)}
       reporterName={userDisplayName(user)}
     />

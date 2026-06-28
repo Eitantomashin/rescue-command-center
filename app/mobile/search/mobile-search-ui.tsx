@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { formatNumber } from "@/lib/format";
+import {
+  searchLiveStatus,
+  searchScannedCount,
+  searchSummaryFromStatuses
+} from "@/lib/search-site-status";
 import { completeMobileSearchUnit, saveMobileSearchUnit } from "./actions";
 
 export type MobileSearchFloor = {
@@ -175,9 +180,9 @@ export function MobileSearchScanner({
   reporterName: string;
 }) {
   const sortedFloors = [...floors].sort((a, b) => (b.floor_number ?? 0) - (a.floor_number ?? 0));
-  const scannedUnits = summary.clear_count + summary.no_answer_count + summary.casualties_count + summary.completed_count;
+  const scannedUnits = searchScannedCount(summary);
   const progressPercent = summary.total_units > 0 ? Math.round((scannedUnits / summary.total_units) * 100) : 0;
-  const status = liveSiteStatus(summary);
+  const status = searchLiveStatus(summary);
 
   return (
     <main className="mobile-search-page">
@@ -232,19 +237,20 @@ export function MobileSearchScanner({
         {sortedFloors.map((floor, index) => {
           const floorUnits = sortUnits((unitsByFloor.get(floor.id) ?? []).filter((unit) => unit.is_active));
           const floorStatuses = floorUnits.map((unit) => normalizeStatus(searchResultsByUnit.get(unit.id)?.search_status));
-          const scanned = floorStatuses.filter((status) => ["clear", "no_answer", "casualties", "completed"].includes(status)).length;
-          const completed = floorStatuses.filter((status) => status === "completed").length;
-          const casualties = floorStatuses.filter((status) => status === "casualties").length;
-          const noAnswer = floorStatuses.filter((status) => status === "no_answer").length;
-          const openIssues = casualties + noAnswer;
+          const floorSummary = searchSummaryFromStatuses(floorStatuses);
+          const floorStatus = searchLiveStatus(floorSummary);
+          const scanned = searchScannedCount(floorSummary);
+          const completed = floorSummary.completed_count;
+          const openIssues = floorSummary.casualties_count + floorSummary.no_answer_count;
 
           return (
-            <details className="search-floor-card mobile-search-floor" key={floor.id} name="mobile-search-floor" open={index === 0}>
+            <details className={`search-floor-card mobile-search-floor search-site-live-${floorStatus.tone}`} key={floor.id} name="mobile-search-floor" open={index === 0}>
               <summary className="search-floor-summary">
                 <div>
                   <h2>קומה {floor.floor_number}</h2>
                   <p>{formatNumber(floorUnits.length)} דירות • {formatNumber(scanned)} נסרקו • {formatNumber(completed)} הושלמו • {formatNumber(openIssues)} פתוחות</p>
                 </div>
+                <span className={`search-status-badge search-site-live-${floorStatus.tone}`}>{floorStatus.label}</span>
                 {openIssues > 0 ? <span className="search-alert-badge">{formatNumber(openIssues)} לטיפול</span> : null}
               </summary>
 

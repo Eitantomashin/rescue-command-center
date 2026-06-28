@@ -2,6 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import {
+  searchLiveStatus as sharedSearchLiveStatus,
+  searchScannedCount,
+  searchSummaryFromStatuses
+} from "@/lib/search-site-status";
 import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
 import { CollaborativeLockSection } from "../../collaborative-lock";
 import { closeSite, reopenSite } from "../../lifecycle-actions";
@@ -247,11 +252,6 @@ function normalizeSearchSiteSummary(row: Partial<SearchSiteSummaryRow> | null | 
     casualties_count: numberValue(row?.casualties_count),
     completed_count: numberValue(row?.completed_count)
   };
-}
-
-function firstSearchSiteSummary(data: unknown) {
-  const row = Array.isArray(data) ? data[0] : data;
-  return normalizeSearchSiteSummary(row as Partial<SearchSiteSummaryRow> | null | undefined);
 }
 
 function liveSearchSummaryFromRows(units: UnitRow[], resultsByUnit: Map<string, SearchUnitRow>) {
@@ -564,7 +564,7 @@ function SearchSiteMobileWorkflow({
   const sortedFloors = [...floors].sort((a, b) => (b.floor_number ?? 0) - (a.floor_number ?? 0));
   const scannedUnits = summary.clear_count + summary.no_answer_count + summary.casualties_count + summary.completed_count;
   const progressPercent = summary.total_units > 0 ? Math.round((scannedUnits / summary.total_units) * 100) : 0;
-  const siteLiveStatus = liveSearchSiteStatus(summary);
+  const siteLiveStatus = sharedSearchLiveStatus(summary);
   const floorsById = new Map(floors.map((floor) => [floor.id, floor]));
   const searchEntries = Array.from(unitsByFloor.values()).flatMap((floorUnits) =>
     sortUnits(floorUnits.filter((unit) => unit.is_active)).map((unit) => {
@@ -652,20 +652,21 @@ function SearchSiteMobileWorkflow({
         {sortedFloors.map((floor, index) => {
           const floorUnits = sortUnits((unitsByFloor.get(floor.id) ?? []).filter((unit) => unit.is_active));
           const floorStatuses = floorUnits.map((unit) => searchResultsByUnit.get(unit.id)?.search_status ?? "not_visited");
-          const scanned = floorStatuses.filter((status) => ["clear", "no_answer", "casualties", "completed"].includes(status)).length;
-          const completed = floorStatuses.filter((status) => status === "completed").length;
-          const casualties = floorStatuses.filter((status) => status === "casualties").length;
-          const noAnswer = floorStatuses.filter((status) => status === "no_answer").length;
-          const openIssues = casualties + noAnswer;
+          const floorSummary = searchSummaryFromStatuses(floorStatuses);
+          const floorStatus = sharedSearchLiveStatus(floorSummary);
+          const scanned = searchScannedCount(floorSummary);
+          const completed = floorSummary.completed_count;
+          const openIssues = floorSummary.casualties_count + floorSummary.no_answer_count;
 
           return (
-            <details className="search-floor-card" key={floor.id} name="search-floor-accordion" open={index === 0}>
+            <details className={`search-floor-card search-site-live-${floorStatus.tone}`} key={floor.id} name="search-floor-accordion" open={index === 0}>
               <summary className="search-floor-summary">
                 <div>
                   <h2>קומה {floor.floor_number}</h2>
                   <p>{formatNumber(floorUnits.length)} דירות • {formatNumber(scanned)} נסרקו • {formatNumber(completed)} הושלמו • {formatNumber(openIssues)} פתוחות</p>
                 </div>
-                {casualties > 0 ? <span className="search-alert-badge">{formatNumber(casualties)} עם נפגעים</span> : null}
+                <span className={`search-status-badge search-site-live-${floorStatus.tone}`}>{floorStatus.label}</span>
+                {floorSummary.casualties_count > 0 ? <span className="search-alert-badge">{formatNumber(floorSummary.casualties_count)} עם נפגעים</span> : null}
               </summary>
 
               <div className="search-unit-list">
@@ -811,7 +812,6 @@ export default async function SiteDetailsPage({
       { data: floorRows, error: floorsError },
       { data: unitRows, error: unitsError },
       { data: searchRows },
-      { data: summaryRows },
       { data: canEditSearch }
     ] = await Promise.all([
       supabase
@@ -835,7 +835,6 @@ export default async function SiteDetailsPage({
         .select("unit_id,family_name,occupants_count,contact_phone,search_status,casualty_psych,casualty_body,medical_evacuation,notes,searched_at,completed_at")
         .eq("incident_id", params.incidentId)
         .eq("site_id", params.siteId),
-      supabase.rpc("get_search_site_summary", { p_site_id: params.siteId }),
       supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId })
     ]);
 
@@ -847,7 +846,6 @@ export default async function SiteDetailsPage({
       ((searchRows ?? []) as SearchUnitRow[]).map((result) => [result.unit_id, result])
     );
     const searchUnits = (unitRows ?? []) as UnitRow[];
-    const rpcSearchSummary = firstSearchSiteSummary(summaryRows);
     const liveSearchSummary = liveSearchSummaryFromRows(searchUnits, searchResultsByUnit);
     const searchUnitsByFloor = searchUnits.reduce<Map<string, UnitRow[]>>((grouped, unit) => {
       const floorUnits = grouped.get(unit.floor_id) ?? [];
@@ -863,7 +861,7 @@ export default async function SiteDetailsPage({
         floors={(floorRows ?? []) as FloorRow[]}
         unitsByFloor={searchUnitsByFloor}
         searchResultsByUnit={searchResultsByUnit}
-        summary={liveSearchSummary.total_units > 0 ? liveSearchSummary : rpcSearchSummary}
+        summary={liveSearchSummary}
         canEdit={Boolean(canEditSearch && initialSiteRecord.lifecycle_status !== "closed")}
       />
     );

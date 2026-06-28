@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { searchLiveStatus } from "@/lib/search-site-status";
 import { createClient } from "@/lib/supabase/server";
 
 type IncidentRow = {
@@ -63,22 +64,6 @@ function emptyLiveSummary(): SearchSiteLiveSummary {
     casualties: 0,
     completed: 0
   };
-}
-
-function liveStatus(summary: SearchSiteLiveSummary) {
-  if (summary.scanned === 0) {
-    return { label: "טרם התחיל", tone: "not-started" };
-  }
-
-  if (summary.noAnswer > 0 || summary.casualties > 0) {
-    return { label: "ממצאים פתוחים", tone: "open-items" };
-  }
-
-  if (summary.totalUnits > 0 && summary.scanned >= summary.totalUnits) {
-    return { label: "אתר מזוכה", tone: "cleared" };
-  }
-
-  return { label: "בסריקה", tone: "in-progress" };
 }
 
 function progressPercent(summary: SearchSiteLiveSummary) {
@@ -179,7 +164,14 @@ export default async function MobileSearchSitesPage({
 
         {searchSites.map((site) => {
           const summary = summariesBySite.get(site.id) ?? emptyLiveSummary();
-          const status = liveStatus(summary);
+          const status = searchLiveStatus({
+            total_units: summary.totalUnits,
+            clear_count: summary.scanned - summary.noAnswer - summary.casualties - summary.completed,
+            completed_count: summary.completed,
+            no_answer_count: summary.noAnswer,
+            casualties_count: summary.casualties,
+            not_visited_count: Math.max(0, summary.totalUnits - summary.scanned)
+          });
           const percent = progressPercent(summary);
 
           return (
