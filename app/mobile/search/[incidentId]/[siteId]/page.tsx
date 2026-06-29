@@ -37,7 +37,14 @@ function liveSummaryFromRows(units: MobileSearchUnit[], resultsByUnit: Map<strin
 
   for (const unit of units) {
     if (!unit.is_active) continue;
-    const status = resultsByUnit.get(unit.id)?.search_status ?? "not_visited";
+    const result = resultsByUnit.get(unit.id);
+    const status =
+      Number(result?.anxiety_casualties_count ?? 0) > 0 ||
+            Number(result?.physical_casualties_count ?? 0) > 0 ||
+            result?.casualty_psych ||
+            result?.casualty_body
+          ? "casualties"
+          : result?.search_status ?? "not_visited";
 
     if (status === "clear") summary.clear_count += 1;
     else if (status === "no_answer") summary.no_answer_count += 1;
@@ -94,7 +101,7 @@ export default async function MobileSearchSitePage({
       .order("unit_number", { ascending: true }),
     supabase
       .from("site_search_units")
-      .select("unit_id,family_name,occupants_count,contact_phone,search_status,casualty_psych,casualty_body,medical_evacuation,notes")
+      .select("unit_id,family_name,occupants_count,contact_phone,search_status,casualty_psych,casualty_body,medical_evacuation,anxiety_casualties_count,physical_casualties_count,has_apartment_damage,apartment_damage_notes,notes")
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId),
     supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId })

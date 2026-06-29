@@ -32,6 +32,10 @@ type SearchResultRow = {
   site_id: string;
   unit_id: string;
   search_status: string | null;
+  casualty_psych: boolean | null;
+  casualty_body: boolean | null;
+  anxiety_casualties_count: number | null;
+  physical_casualties_count: number | null;
 };
 
 type SearchSiteLiveSummary = {
@@ -68,6 +72,23 @@ function emptyLiveSummary(): SearchSiteLiveSummary {
 
 function progressPercent(summary: SearchSiteLiveSummary) {
   return summary.totalUnits > 0 ? Math.round((summary.scanned / summary.totalUnits) * 100) : 0;
+}
+
+function effectiveSearchStatus(row: SearchResultRow | undefined) {
+  if (!row) return "not_visited";
+  if (
+    row.search_status === "casualties" ||
+    row.casualty_psych ||
+    row.casualty_body ||
+    Number(row.anxiety_casualties_count ?? 0) > 0 ||
+    Number(row.physical_casualties_count ?? 0) > 0
+  ) {
+    return "casualties";
+  }
+  if (row.search_status === "no_answer") return "no_answer";
+  if (row.search_status === "completed") return "completed";
+  if (row.search_status === "clear") return "clear";
+  return "not_visited";
 }
 
 export default async function MobileSearchSitesPage({
@@ -109,7 +130,7 @@ export default async function MobileSearchSitesPage({
       .eq("is_active", true),
     supabase
       .from("site_search_units")
-      .select("site_id,unit_id,search_status")
+      .select("site_id,unit_id,search_status,casualty_psych,casualty_body,anxiety_casualties_count,physical_casualties_count")
       .eq("incident_id", params.incidentId)
   ]);
 
@@ -126,7 +147,7 @@ export default async function MobileSearchSitesPage({
   const resultsByUnit = new Map(((searchRows ?? []) as SearchResultRow[]).map((row) => [row.unit_id, row]));
   const summariesBySite = ((unitRows ?? []) as SearchUnitRow[]).reduce<Map<string, SearchSiteLiveSummary>>((map, unit) => {
     const summary = map.get(unit.site_id) ?? emptyLiveSummary();
-    const status = resultsByUnit.get(unit.id)?.search_status ?? "not_visited";
+    const status = effectiveSearchStatus(resultsByUnit.get(unit.id));
 
     summary.totalUnits += 1;
     if (["clear", "no_answer", "casualties", "completed"].includes(status)) summary.scanned += 1;

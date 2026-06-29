@@ -11,8 +11,8 @@ export default async function SiteOperationalLogPage({
     incidentId: params.incidentId,
     fixedSiteId: params.siteId,
     searchParams,
-    pageTitle: "יומן מבצעי אתר",
+    pageTitle: "\u05d9\u05d5\u05de\u05df \u05de\u05d1\u05e6\u05e2\u05d9 \u05d0\u05ea\u05e8",
     backHref: `/incidents/${params.incidentId}/sites/${params.siteId}`,
-    backLabel: "חזרה לתמונת מבנה"
+    backLabel: "\u05d7\u05d6\u05e8\u05d4 \u05dc\u05ea\u05de\u05d5\u05e0\u05ea \u05de\u05d1\u05e0\u05d4"
   });
 }

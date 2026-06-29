@@ -15,6 +15,10 @@ export type SearchKpiDrilldownEntry = {
   unitLabel: string;
   familyName: string | null;
   status: SearchUnitStatus;
+  anxietyCasualtiesCount: number;
+  physicalCasualtiesCount: number;
+  hasApartmentDamage: boolean;
+  apartmentDamageNotes: string | null;
 };
 
 export type SearchSiteWidgetSite = {
@@ -25,6 +29,9 @@ export type SearchSiteWidgetSite = {
   searchPriority: string | null;
   searchReason: string | null;
   summary: SearchStatusSummary;
+  anxietyCasualtiesCount: number;
+  physicalCasualtiesCount: number;
+  damagedUnitsCount: number;
   entries: SearchKpiDrilldownEntry[];
 };
 
@@ -74,6 +81,10 @@ function SearchKpiDrilldown({ title, entries }: { title: string; entries: Search
               <span>קומה {entry.floorNumber ?? "-"}</span>
               <strong>{entry.unitLabel}</strong>
               <span>{entry.familyName ? `משפחת ${entry.familyName}` : "משפחה לא צוינה"}</span>
+              {entry.anxietyCasualtiesCount > 0 ? <span>נפגעי חרדה: {formatNumber(entry.anxietyCasualtiesCount)}</span> : null}
+              {entry.physicalCasualtiesCount > 0 ? <span>נפגעי גוף: {formatNumber(entry.physicalCasualtiesCount)}</span> : null}
+              {entry.hasApartmentDamage ? <span>נזק לדירה</span> : null}
+              {entry.apartmentDamageNotes ? <span>{entry.apartmentDamageNotes}</span> : null}
               <span className={`search-unit-status ${searchUnitTone(entry.status)}`}>{searchUnitStatusLabel(entry.status)}</span>
             </li>
           ))}
@@ -125,7 +136,8 @@ export function SearchSitesDashboardWidget({
       scanned: allEntries.filter((entry) => matchesSearchKpi(entry.status, "scanned")),
       completed: allEntries.filter((entry) => matchesSearchKpi(entry.status, "completed")),
       no_answer: allEntries.filter((entry) => matchesSearchKpi(entry.status, "no_answer")),
-      casualties: allEntries.filter((entry) => matchesSearchKpi(entry.status, "casualties"))
+      casualties: allEntries.filter((entry) => matchesSearchKpi(entry.status, "casualties")),
+      damaged: allEntries.filter((entry) => entry.hasApartmentDamage)
     };
   }, [data.sites]);
 
@@ -138,9 +150,12 @@ export function SearchSitesDashboardWidget({
           acc.completed += site.summary.completed_count;
           acc.noAnswer += site.summary.no_answer_count;
           acc.casualties += site.summary.casualties_count;
+          acc.anxietyCasualties += site.anxietyCasualtiesCount;
+          acc.physicalCasualties += site.physicalCasualtiesCount;
+          acc.damagedUnits += site.damagedUnitsCount;
           return acc;
         },
-        { totalUnits: 0, scanned: 0, completed: 0, noAnswer: 0, casualties: 0 }
+        { totalUnits: 0, scanned: 0, completed: 0, noAnswer: 0, casualties: 0, anxietyCasualties: 0, physicalCasualties: 0, damagedUnits: 0 }
       ),
     [data.sites]
   );
@@ -184,6 +199,18 @@ export function SearchSitesDashboardWidget({
           <summary><span>דווחו נפגעים</span><strong>{formatNumber(totals.casualties)}</strong></summary>
           <SearchKpiDrilldown title="דירות עם דיווח נפגעים" entries={entriesByKpi.casualties} />
         </details>
+        <div className="search-kpi-total search-kpi-warning">
+          <span>סה"כ נפגעי חרדה</span>
+          <strong>{formatNumber(totals.anxietyCasualties)}</strong>
+        </div>
+        <div className="search-kpi-total search-kpi-danger">
+          <span>סה"כ נפגעי גוף</span>
+          <strong>{formatNumber(totals.physicalCasualties)}</strong>
+        </div>
+        <details className="search-kpi-click-card search-kpi-damage">
+          <summary><span>דירות עם נזק</span><strong>{formatNumber(totals.damagedUnits)}</strong></summary>
+          <SearchKpiDrilldown title="דירות עם נזק" entries={entriesByKpi.damaged} />
+        </details>
       </div>
 
       <div className="search-sites-dashboard-list">
@@ -194,7 +221,8 @@ export function SearchSitesDashboardWidget({
             scanned: site.entries.filter((entry) => matchesSearchKpi(entry.status, "scanned")),
             completed: site.entries.filter((entry) => matchesSearchKpi(entry.status, "completed")),
             no_answer: site.entries.filter((entry) => matchesSearchKpi(entry.status, "no_answer")),
-            casualties: site.entries.filter((entry) => matchesSearchKpi(entry.status, "casualties"))
+            casualties: site.entries.filter((entry) => matchesSearchKpi(entry.status, "casualties")),
+            damaged: site.entries.filter((entry) => entry.hasApartmentDamage)
           };
 
           return (
@@ -229,6 +257,12 @@ export function SearchSitesDashboardWidget({
                 <details className="search-kpi-click-card search-kpi-casualties">
                   <summary><span>נפגעים</span><strong>{formatNumber(site.summary.casualties_count)}</strong></summary>
                   <SearchKpiDrilldown title="דירות עם דיווח נפגעים" entries={siteEntriesByKpi.casualties} />
+                </details>
+                <div className="search-kpi-total search-kpi-warning"><span>חרדה</span><strong>{formatNumber(site.anxietyCasualtiesCount)}</strong></div>
+                <div className="search-kpi-total search-kpi-danger"><span>גוף</span><strong>{formatNumber(site.physicalCasualtiesCount)}</strong></div>
+                <details className="search-kpi-click-card search-kpi-damage">
+                  <summary><span>נזק</span><strong>{formatNumber(site.damagedUnitsCount)}</strong></summary>
+                  <SearchKpiDrilldown title="דירות עם נזק" entries={siteEntriesByKpi.damaged} />
                 </details>
               </div>
               <Link className="button compact secondary" href={`/incidents/${incidentId}/sites/${site.id}`}>

@@ -10,6 +10,7 @@ import {
 import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
 import { CollaborativeLockSection } from "../../collaborative-lock";
 import { closeSite, reopenSite } from "../../lifecycle-actions";
+import { CreateSearchSiteReportButton } from "../../reports/search-sites/create-search-site-report-button";
 import {
   addApartmentToFloor,
   clearUnit,
@@ -154,6 +155,10 @@ type SearchUnitRow = {
   casualty_psych: boolean | null;
   casualty_body: boolean | null;
   medical_evacuation: boolean | null;
+  anxiety_casualties_count: number | null;
+  physical_casualties_count: number | null;
+  has_apartment_damage: boolean | null;
+  apartment_damage_notes: string | null;
   notes: string | null;
   searched_at: string | null;
   completed_at: string | null;
@@ -176,6 +181,10 @@ type SearchKpiDrilldownEntry = {
   unitLabel: string;
   familyName: string | null;
   status: SearchUnitStatus;
+  anxietyCasualtiesCount: number;
+  physicalCasualtiesCount: number;
+  hasApartmentDamage: boolean;
+  apartmentDamageNotes: string | null;
 };
 
 const MANUAL_SEARCH_UNIT_ZONE_NAME = "הוספה ידנית";
@@ -198,6 +207,20 @@ const SEARCH_UNIT_STATUS_LABELS: Record<SearchUnitStatus, string> = {
 
 function searchUnitStatusLabel(status: SearchUnitStatus | null | undefined) {
   return SEARCH_UNIT_STATUS_LABELS[status ?? "not_visited"];
+}
+
+function effectiveSearchStatus(result: SearchUnitRow | undefined): SearchUnitStatus {
+  const status = result?.search_status ?? "not_visited";
+  if (
+    Number(result?.anxiety_casualties_count ?? 0) > 0 ||
+    Number(result?.physical_casualties_count ?? 0) > 0 ||
+    result?.casualty_psych ||
+    result?.casualty_body
+  ) {
+    return "casualties";
+  }
+  if (status === "completed") return "completed";
+  return status;
 }
 
 function searchUnitTone(status: SearchUnitStatus | null | undefined) {
@@ -228,6 +251,10 @@ function SearchKpiDrilldown({ title, entries }: { title: string; entries: Search
               <span>קומה {entry.floorNumber ?? "-"}</span>
               <strong>{entry.unitLabel}</strong>
               <span>{entry.familyName ? `משפחת ${entry.familyName}` : "משפחה לא צוינה"}</span>
+              {entry.anxietyCasualtiesCount > 0 ? <span>נפגעי חרדה: {formatNumber(entry.anxietyCasualtiesCount)}</span> : null}
+              {entry.physicalCasualtiesCount > 0 ? <span>נפגעי גוף: {formatNumber(entry.physicalCasualtiesCount)}</span> : null}
+              {entry.hasApartmentDamage ? <span>נזק לדירה</span> : null}
+              {entry.apartmentDamageNotes ? <span>{entry.apartmentDamageNotes}</span> : null}
               <span className={`search-unit-status ${searchUnitTone(entry.status)}`}>{searchUnitStatusLabel(entry.status)}</span>
             </li>
           ))}
@@ -262,7 +289,7 @@ function liveSearchSummaryFromRows(units: UnitRow[], resultsByUnit: Map<string, 
 
   for (const unit of units) {
     if (!unit.is_active) continue;
-    const status = resultsByUnit.get(unit.id)?.search_status ?? "not_visited";
+    const status = effectiveSearchStatus(resultsByUnit.get(unit.id));
 
     if (status === "clear") summary.clear_count += 1;
     else if (status === "no_answer") summary.no_answer_count += 1;
@@ -556,7 +583,9 @@ function SearchSiteMobileWorkflow({
   unitsByFloor,
   searchResultsByUnit,
   summary,
-  canEdit
+  canEdit,
+  canCreateSearchReport,
+  reportErrorMessage
 }: {
   incidentId: string;
   site: SiteRecordRow;
@@ -565,6 +594,8 @@ function SearchSiteMobileWorkflow({
   searchResultsByUnit: Map<string, SearchUnitRow>;
   summary: SearchSiteSummaryRow;
   canEdit: boolean;
+  canCreateSearchReport: boolean;
+  reportErrorMessage?: string;
 }) {
   const siteName = siteNameFromRecord(site);
   const sortedFloors = [...floors].sort((a, b) => (b.floor_number ?? 0) - (a.floor_number ?? 0));
@@ -575,13 +606,16 @@ function SearchSiteMobileWorkflow({
   const searchEntries = Array.from(unitsByFloor.values()).flatMap((floorUnits) =>
     sortUnits(floorUnits.filter((unit) => unit.is_active)).map((unit) => {
       const result = searchResultsByUnit.get(unit.id);
-      const status = result?.search_status ?? "not_visited";
       return {
         unitId: unit.id,
         floorNumber: floorsById.get(unit.floor_id)?.floor_number ?? null,
         unitLabel: unitDisplayLabel(unit),
         familyName: result?.family_name ?? null,
-        status
+        status: effectiveSearchStatus(result),
+        anxietyCasualtiesCount: numberValue(result?.anxiety_casualties_count),
+        physicalCasualtiesCount: numberValue(result?.physical_casualties_count),
+        hasApartmentDamage: Boolean(result?.has_apartment_damage),
+        apartmentDamageNotes: result?.apartment_damage_notes ?? null
       } satisfies SearchKpiDrilldownEntry;
     })
   );
@@ -589,8 +623,11 @@ function SearchSiteMobileWorkflow({
     scanned: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "scanned")),
     completed: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "completed")),
     no_answer: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "no_answer")),
-    casualties: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "casualties"))
+    casualties: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "casualties")),
+    damaged: searchEntries.filter((entry) => entry.hasApartmentDamage)
   };
+  const anxietyCasualtiesTotal = searchEntries.reduce((sum, entry) => sum + entry.anxietyCasualtiesCount, 0);
+  const physicalCasualtiesTotal = searchEntries.reduce((sum, entry) => sum + entry.physicalCasualtiesCount, 0);
 
   return (
     <main className="page search-site-mobile-page">
@@ -603,11 +640,20 @@ function SearchSiteMobileWorkflow({
         <div className="search-site-hero-status">
           <span className={`search-status-badge search-site-live-${siteLiveStatus.tone}`}>{siteLiveStatus.label}</span>
           <strong>{formatNumber(progressPercent)}%</strong>
+          {canCreateSearchReport ? (
+            <CreateSearchSiteReportButton incidentId={incidentId} siteId={site.id} className="button secondary compact" />
+          ) : null}
           <span>התקדמות סריקה</span>
         </div>
       </section>
 
       <section className="search-progress-header" aria-label="התקדמות סריקה">
+        {reportErrorMessage ? (
+          <div className="panel form-error">
+            <strong>לא ניתן להפיק דוח סריקה</strong>
+            <p>{reportErrorMessage}</p>
+          </div>
+        ) : null}
         <div className="search-progress-bar" aria-hidden="true">
           <span style={{ inlineSize: `${progressPercent}%` }} />
         </div>
@@ -617,6 +663,9 @@ function SearchSiteMobileWorkflow({
           <div><span>זוכו</span><strong>{formatNumber(summary.completed_count)}</strong></div>
           <div><span>אין מענה</span><strong>{formatNumber(summary.no_answer_count)}</strong></div>
           <div><span>נפגעים</span><strong>{formatNumber(summary.casualties_count)}</strong></div>
+          <div><span>חרדה</span><strong>{formatNumber(anxietyCasualtiesTotal)}</strong></div>
+          <div><span>גוף</span><strong>{formatNumber(physicalCasualtiesTotal)}</strong></div>
+          <div><span>נזק</span><strong>{formatNumber(searchEntriesByKpi.damaged.length)}</strong></div>
         </div>
       </section>
 
@@ -639,6 +688,12 @@ function SearchSiteMobileWorkflow({
           <summary><span>דווחו נפגעים</span><strong>{formatNumber(summary.casualties_count)}</strong></summary>
           <SearchKpiDrilldown title="דירות עם דיווח נפגעים" entries={searchEntriesByKpi.casualties} />
         </details>
+        <div><span>נפגעי חרדה</span><strong>{formatNumber(anxietyCasualtiesTotal)}</strong></div>
+        <div><span>נפגעי גוף</span><strong>{formatNumber(physicalCasualtiesTotal)}</strong></div>
+        <details className="search-kpi-click-card search-kpi-damage">
+          <summary><span>דירות עם נזק</span><strong>{formatNumber(searchEntriesByKpi.damaged.length)}</strong></summary>
+          <SearchKpiDrilldown title="דירות עם נזק" entries={searchEntriesByKpi.damaged} />
+        </details>
       </section>
       {!canEdit ? (
         <section className="panel readonly-search-notice">
@@ -657,7 +712,7 @@ function SearchSiteMobileWorkflow({
 
         {sortedFloors.map((floor, index) => {
           const floorUnits = sortUnits((unitsByFloor.get(floor.id) ?? []).filter((unit) => unit.is_active));
-          const floorStatuses = floorUnits.map((unit) => searchResultsByUnit.get(unit.id)?.search_status ?? "not_visited");
+          const floorStatuses = floorUnits.map((unit) => effectiveSearchStatus(searchResultsByUnit.get(unit.id)));
           const floorSummary = searchSummaryFromStatuses(floorStatuses);
           const floorStatus = sharedSearchLiveStatus(floorSummary);
           const scanned = searchScannedCount(floorSummary);
@@ -678,7 +733,7 @@ function SearchSiteMobileWorkflow({
               <div className="search-unit-list">
                 {floorUnits.map((unit) => {
                   const result = searchResultsByUnit.get(unit.id);
-                  const status = result?.search_status ?? "not_visited";
+                  const status = effectiveSearchStatus(result);
                   const tone = searchUnitTone(status);
 
                   return (
@@ -704,7 +759,14 @@ function SearchSiteMobileWorkflow({
                             <input type="hidden" name="occupantsCount" value={result?.occupants_count ?? ""} />
                             <input type="hidden" name="contactPhone" value={result?.contact_phone ?? ""} />
                             <input type="hidden" name="searchStatus" value={action.value} />
+                            {result?.casualty_psych ? <input type="hidden" name="casualtyPsych" value="on" /> : null}
+                            {result?.casualty_body ? <input type="hidden" name="casualtyBody" value="on" /> : null}
                             {action.value === "casualties" ? <input type="hidden" name="casualtyBody" value="on" /> : null}
+                            {result?.medical_evacuation ? <input type="hidden" name="medicalEvacuation" value="on" /> : null}
+                            <input type="hidden" name="anxietyCasualtiesCount" value={result?.anxiety_casualties_count ?? 0} />
+                            <input type="hidden" name="physicalCasualtiesCount" value={result?.physical_casualties_count ?? 0} />
+                            {result?.has_apartment_damage ? <input type="hidden" name="hasApartmentDamage" value="on" /> : null}
+                            <input type="hidden" name="apartmentDamageNotes" value={result?.apartment_damage_notes ?? ""} />
                             <input type="hidden" name="notes" value={result?.notes ?? ""} />
                             <button className={`button compact search-quick-button ${searchUnitTone(action.value as SearchUnitStatus)}`} type="submit" disabled={!canEdit}>
                               {action.label}
@@ -724,7 +786,11 @@ function SearchSiteMobileWorkflow({
                         {result?.contact_phone ? <span>טלפון: {result.contact_phone}</span> : null}
                         {result?.casualty_psych ? <span className="warning">נפגע חרדה</span> : null}
                         {result?.casualty_body ? <span className="danger">נפגע גוף</span> : null}
+                        {numberValue(result?.anxiety_casualties_count) > 0 ? <span className="warning">נפגעי חרדה: {formatNumber(numberValue(result?.anxiety_casualties_count))}</span> : null}
+                        {numberValue(result?.physical_casualties_count) > 0 ? <span className="danger">נפגעי גוף: {formatNumber(numberValue(result?.physical_casualties_count))}</span> : null}
                         {result?.medical_evacuation ? <span className="danger">נדרש פינוי</span> : null}
+                        {result?.has_apartment_damage ? <span className="warning">נזק לדירה</span> : null}
+                        {result?.apartment_damage_notes ? <span className="search-unit-note-chip">פירוט נזק: {result.apartment_damage_notes}</span> : null}
                         {result?.searched_at ? <span>נסרק: {formatDateTime(result.searched_at)}</span> : null}
                         {result?.completed_at ? <span>הושלם: {formatDateTime(result.completed_at)}</span> : null}
                         {result?.notes ? <span className="search-unit-note-chip">הערות: {result.notes}</span> : null}
@@ -747,6 +813,14 @@ function SearchSiteMobileWorkflow({
                           <input className="input" name="contactPhone" type="tel" defaultValue={result?.contact_phone ?? ""} disabled={!canEdit} />
                         </label>
                         <label>
+                          מספר נפגעי חרדה
+                          <input className="input" name="anxietyCasualtiesCount" type="number" min="0" inputMode="numeric" defaultValue={result?.anxiety_casualties_count ?? 0} disabled={!canEdit} />
+                        </label>
+                        <label>
+                          מספר נפגעי גוף
+                          <input className="input" name="physicalCasualtiesCount" type="number" min="0" inputMode="numeric" defaultValue={result?.physical_casualties_count ?? 0} disabled={!canEdit} />
+                        </label>
+                        <label>
                           סטטוס סריקה
                           <select className="input" name="searchStatus" defaultValue={status} disabled={!canEdit}>
                             {SEARCH_UNIT_STATUS_OPTIONS.map((option) => (
@@ -759,7 +833,13 @@ function SearchSiteMobileWorkflow({
                           <label><input type="checkbox" name="casualtyPsych" defaultChecked={Boolean(result?.casualty_psych)} disabled={!canEdit} /> נפגע חרדה</label>
                           <label><input type="checkbox" name="casualtyBody" defaultChecked={Boolean(result?.casualty_body)} disabled={!canEdit} /> נפגע גוף</label>
                           <label><input type="checkbox" name="medicalEvacuation" defaultChecked={Boolean(result?.medical_evacuation)} disabled={!canEdit} /> פינוי רפואי</label>
+                          <label><input type="checkbox" name="hasApartmentDamage" defaultChecked={Boolean(result?.has_apartment_damage)} disabled={!canEdit} /> קיים נזק לדירה</label>
                         </div>
+
+                        <label className="search-unit-notes">
+                          פירוט נזק
+                          <textarea className="input" name="apartmentDamageNotes" rows={2} defaultValue={result?.apartment_damage_notes ?? ""} disabled={!canEdit} />
+                        </label>
 
                         <label className="search-unit-notes">
                           הערות
@@ -795,7 +875,7 @@ export default async function SiteDetailsPage({
   searchParams
 }: {
   params: { incidentId: string; siteId: string };
-  searchParams?: { q?: string; structureError?: string };
+  searchParams?: { q?: string; structureError?: string; searchReport?: string; message?: string };
 }) {
   const supabase = createClient();
   const residentSearchQuery = String(searchParams?.q ?? "").trim().toLowerCase();
@@ -819,7 +899,8 @@ export default async function SiteDetailsPage({
       { data: floorRows, error: floorsError },
       { data: unitRows, error: unitsError },
       { data: searchRows },
-      { data: canEditSearch }
+      { data: canEditSearch },
+      { data: currentRole }
     ] = await Promise.all([
       supabase
         .from("floors")
@@ -839,10 +920,11 @@ export default async function SiteDetailsPage({
         .order("unit_number", { ascending: true }),
       supabase
         .from("site_search_units")
-        .select("unit_id,family_name,occupants_count,contact_phone,search_status,casualty_psych,casualty_body,medical_evacuation,notes,searched_at,completed_at")
+        .select("unit_id,family_name,occupants_count,contact_phone,search_status,casualty_psych,casualty_body,medical_evacuation,anxiety_casualties_count,physical_casualties_count,has_apartment_damage,apartment_damage_notes,notes,searched_at,completed_at")
         .eq("incident_id", params.incidentId)
         .eq("site_id", params.siteId),
-      supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId })
+      supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId }),
+      supabase.rpc("current_user_role")
     ]);
 
     if (floorsError || unitsError) {
@@ -870,6 +952,8 @@ export default async function SiteDetailsPage({
         searchResultsByUnit={searchResultsByUnit}
         summary={liveSearchSummary}
         canEdit={Boolean(canEditSearch && initialSiteRecord.lifecycle_status !== "closed")}
+        canCreateSearchReport={["admin", "commander"].includes(String(currentRole ?? ""))}
+        reportErrorMessage={searchParams?.searchReport === "error" ? decodeURIComponent(searchParams?.message ?? "") : undefined}
       />
     );
   }

@@ -123,6 +123,12 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
     return items;
   }
 
+  if (pathname.startsWith(`${base}/reports/search-sites`)) {
+    items.push({ label: "דוחות", href: `${base}/sitreps` });
+    items.push({ label: "דוחות אתרי סריקה", href: `${base}/reports/search-sites` });
+    return items;
+  }
+
   if (pathname === `${base}/timeline`) {
     items.push({ label: "ציר זמן מבצעי", href: pathname });
     return items;
@@ -178,6 +184,10 @@ export function IncidentCommandShell({
   const coverage =
     summary.updated_potential > 0 ? Math.round((activeOperationalNumbers / summary.updated_potential) * 100) : 0;
   const breadcrumbs = breadcrumbItems(incident, sites, pathname);
+  const reportsActive =
+    pathname.startsWith(`${base}/sitreps`) ||
+    pathname.startsWith(`${base}/reports/closure`) ||
+    pathname.startsWith(`${base}/reports/search-sites`);
 
   return (
     <div className="incident-command-layout">
@@ -206,7 +216,7 @@ export function IncidentCommandShell({
             <span className="nav-label">כח אדם באירוע</span>
           </Link>
           <details className="incident-site-node incident-report-node incident-nav-collapsible-section">
-            <summary className={pathname.startsWith(`${base}/sitreps`) || pathname.startsWith(`${base}/reports/closure`) ? "active" : ""}>
+            <summary className={reportsActive ? "active" : ""}>
               <span className="nav-icon" aria-hidden="true">{"\uD83D\uDCCB"}</span>
               <span className="nav-label">{"\u05d3\u05d5\u05d7\u05d5\u05ea"}</span>
             </summary>
@@ -218,6 +228,10 @@ export function IncidentCommandShell({
               <Link className={`incident-nav-item${activeClass(pathname, `${base}/reports/closure`, false)}`} href={`${base}/reports/closure`}>
                 <span className="nav-icon" aria-hidden="true">{"\uD83C\uDFC1"}</span>
                 <span className="nav-label">{"\u05d3\u05d5\u05d7 \u05e1\u05d2\u05d9\u05e8\u05ea \u05d0\u05d9\u05e8\u05d5\u05e2"}</span>
+              </Link>
+              <Link className={`incident-nav-item${activeClass(pathname, `${base}/reports/search-sites`, false)}`} href={`${base}/reports/search-sites`}>
+                <span className="nav-icon" aria-hidden="true">{"\uD83D\uDD0E"}</span>
+                <span className="nav-label">דוחות אתרי סריקה</span>
               </Link>
             </div>
           </details>

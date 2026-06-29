@@ -68,6 +68,8 @@ export async function saveMobileSearchUnit(formData: FormData) {
   const siteId = requiredValue(formData, "siteId", "אתר");
   const unitId = requiredValue(formData, "unitId", "דירה");
   const occupantsCount = optionalNonNegativeInteger(formData, "occupantsCount", "מספר דיירים");
+  const anxietyCasualtiesCount = optionalNonNegativeInteger(formData, "anxietyCasualtiesCount", "מספר נפגעי חרדה") ?? 0;
+  const physicalCasualtiesCount = optionalNonNegativeInteger(formData, "physicalCasualtiesCount", "מספר נפגעי גוף") ?? 0;
 
   const supabase = createClient();
   const { error } = await supabase.rpc("create_or_update_search_unit", {
@@ -80,7 +82,11 @@ export async function saveMobileSearchUnit(formData: FormData) {
     p_casualty_psych: formData.get("casualtyPsych") === "on",
     p_casualty_body: formData.get("casualtyBody") === "on",
     p_medical_evacuation: formData.get("medicalEvacuation") === "on",
-    p_notes: nullableValue(formData, "notes")
+    p_notes: nullableValue(formData, "notes"),
+    p_anxiety_casualties_count: anxietyCasualtiesCount,
+    p_physical_casualties_count: physicalCasualtiesCount,
+    p_has_apartment_damage: formData.get("hasApartmentDamage") === "on",
+    p_apartment_damage_notes: nullableValue(formData, "apartmentDamageNotes")
   });
 
   if (error) {

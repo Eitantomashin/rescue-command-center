@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { containsHebrewMojibake, displayHebrewText } from "@/lib/hebrew-text";
 import { operationalTeamLabel } from "@/lib/operational-teams";
 import { createGeneralOperationalNote, updateGeneralOperationalNoteStatus } from "./actions";
 
@@ -93,6 +94,33 @@ const operationalNumberLogTypes = new Set([
 
 const siteLogTypes = new Set(["site_created", "site_updated", "site_created_from_wizard", "site_structure_generated"]);
 const teamLogTypes = new Set(["team_assigned", "team_updated"]);
+
+const eventLogFallbackText: Record<string, { title: string; description?: string }> = {
+  search_unit_apartment_searched: {
+    title: "דירה בסריקה נבדקה",
+    description: "עודכנו פרטי סריקת דירה"
+  },
+  search_unit_no_answer: {
+    title: "אין מענה בדירה בסריקה",
+    description: "הדירה סומנה ללא מענה"
+  },
+  search_unit_casualties_found: {
+    title: "דווחו נפגעים בדירה בסריקה",
+    description: "הדירה סומנה עם דיווח נפגעים"
+  },
+  search_unit_completed: {
+    title: "דירה בסריקה הושלמה",
+    description: "הדירה סומנה כהושלמה"
+  },
+  search_unit_added_in_field: {
+    title: "הוספה ידנית של דירה בשטח",
+    description: "נוספה דירה ידנית לאתר סריקה"
+  },
+  search_site_report_created: {
+    title: "יצירת דוח אתר סריקה",
+    description: "נוצר דוח סריקה רשמי"
+  }
+};
 
 const eventTypeOptions = [
   ["all", "כל העדכונים"],
@@ -241,7 +269,41 @@ function groupedByDate(logs: EventLogRow[]) {
 
 function metadataText(metadata: Record<string, unknown>, key: string) {
   const value = metadata[key];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+  const repaired = displayHebrewText(typeof value === "string" ? value : null);
+  return typeof repaired === "string" && repaired.trim() ? repaired.trim() : null;
+}
+
+function repairMetadata(value: unknown): unknown {
+  if (typeof value === "string") {
+    return displayHebrewText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(repairMetadata);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => [key, repairMetadata(entryValue)])
+    );
+  }
+
+  return value;
+}
+
+function repairEventLogText(log: EventLogRow): EventLogRow {
+  const title = displayHebrewText(log.title) ?? log.title;
+  const description = displayHebrewText(log.description) ?? log.description;
+  const fallback = eventLogFallbackText[log.log_type];
+
+  return {
+    ...log,
+    title: fallback && containsHebrewMojibake(title) ? fallback.title : title,
+    description: fallback && (!description || containsHebrewMojibake(description)) ? fallback.description ?? description : description,
+    source_type: displayHebrewText(log.source_type) ?? log.source_type,
+    source_name: displayHebrewText(log.source_name) ?? log.source_name,
+    metadata: repairMetadata(log.metadata) as Record<string, unknown>
+  };
 }
 
 function metadataNumber(metadata: Record<string, unknown>, key: string) {
@@ -651,7 +713,7 @@ export async function OperationalLogView({
   }
 
   const { data: rawLogs, count: totalMatchingCount } = await logQuery;
-  const logs = (rawLogs ?? []) as EventLogRow[];
+  const logs = ((rawLogs ?? []) as EventLogRow[]).map(repairEventLogText);
   const displayLogs = fixedSiteId
     ? logs
     : logs.filter((log, index, allLogs) => {

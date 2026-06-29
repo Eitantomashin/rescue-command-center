@@ -32,6 +32,10 @@ export type MobileSearchResult = {
   casualty_psych: boolean | null;
   casualty_body: boolean | null;
   medical_evacuation: boolean | null;
+  anxiety_casualties_count: number | null;
+  physical_casualties_count: number | null;
+  has_apartment_damage: boolean | null;
+  apartment_damage_notes: string | null;
   notes: string | null;
 };
 
@@ -76,6 +80,25 @@ const SEARCH_UNIT_STATUS_LABELS: Record<MobileSearchStatus, string> = {
 
 function normalizeStatus(status: MobileSearchStatus | null | undefined): MobileSearchStatus {
   return status ?? "not_visited";
+}
+
+function numberValue(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function effectiveSearchStatus(result: MobileSearchResult | undefined): MobileSearchStatus {
+  const status = normalizeStatus(result?.search_status);
+  if (
+    numberValue(result?.anxiety_casualties_count) > 0 ||
+    numberValue(result?.physical_casualties_count) > 0 ||
+    result?.casualty_psych ||
+    result?.casualty_body
+  ) {
+    return "casualties";
+  }
+  if (status === "completed") return "completed";
+  return status;
 }
 
 function searchUnitStatusLabel(status: MobileSearchStatus | null | undefined) {
@@ -252,7 +275,7 @@ export function MobileSearchScanner({
 
         {sortedFloors.map((floor, index) => {
           const floorUnits = sortUnits((unitsByFloor.get(floor.id) ?? []).filter((unit) => unit.is_active));
-          const floorStatuses = floorUnits.map((unit) => normalizeStatus(searchResultsByUnit.get(unit.id)?.search_status));
+          const floorStatuses = floorUnits.map((unit) => effectiveSearchStatus(searchResultsByUnit.get(unit.id)));
           const floorSummary = searchSummaryFromStatuses(floorStatuses);
           const floorStatus = searchLiveStatus(floorSummary);
           const scanned = searchScannedCount(floorSummary);
@@ -294,7 +317,7 @@ export function MobileSearchScanner({
               <div className="search-unit-list">
                 {floorUnits.map((unit) => {
                   const result = searchResultsByUnit.get(unit.id);
-                  const status = normalizeStatus(result?.search_status);
+                  const status = effectiveSearchStatus(result);
                   const tone = searchUnitTone(status);
 
                   return (
@@ -320,7 +343,14 @@ export function MobileSearchScanner({
                             <input type="hidden" name="occupantsCount" value={result?.occupants_count ?? ""} />
                             <input type="hidden" name="contactPhone" value={result?.contact_phone ?? ""} />
                             <input type="hidden" name="searchStatus" value={action.value} />
+                            {result?.casualty_psych ? <input type="hidden" name="casualtyPsych" value="on" /> : null}
+                            {result?.casualty_body ? <input type="hidden" name="casualtyBody" value="on" /> : null}
                             {action.value === "casualties" ? <input type="hidden" name="casualtyBody" value="on" /> : null}
+                            {result?.medical_evacuation ? <input type="hidden" name="medicalEvacuation" value="on" /> : null}
+                            <input type="hidden" name="anxietyCasualtiesCount" value={result?.anxiety_casualties_count ?? 0} />
+                            <input type="hidden" name="physicalCasualtiesCount" value={result?.physical_casualties_count ?? 0} />
+                            {result?.has_apartment_damage ? <input type="hidden" name="hasApartmentDamage" value="on" /> : null}
+                            <input type="hidden" name="apartmentDamageNotes" value={result?.apartment_damage_notes ?? ""} />
                             <input type="hidden" name="notes" value={result?.notes ?? ""} />
                             <button className={`button compact search-quick-button ${searchUnitTone(action.value as MobileSearchStatus)}`} type="submit" disabled={!canEdit}>
                               {action.label}
@@ -340,7 +370,11 @@ export function MobileSearchScanner({
                         {result?.contact_phone ? <span>טלפון: {result.contact_phone}</span> : null}
                         {result?.casualty_psych ? <span className="warning">נפגע חרדה</span> : null}
                         {result?.casualty_body ? <span className="danger">נפגע גוף</span> : null}
+                        {numberValue(result?.anxiety_casualties_count) > 0 ? <span className="warning">נפגעי חרדה: {formatNumber(numberValue(result?.anxiety_casualties_count))}</span> : null}
+                        {numberValue(result?.physical_casualties_count) > 0 ? <span className="danger">נפגעי גוף: {formatNumber(numberValue(result?.physical_casualties_count))}</span> : null}
                         {result?.medical_evacuation ? <span className="danger">נדרש פינוי</span> : null}
+                        {result?.has_apartment_damage ? <span className="warning">נזק לדירה</span> : null}
+                        {result?.apartment_damage_notes ? <span className="search-unit-note-chip">פירוט נזק: {result.apartment_damage_notes}</span> : null}
                       </div>
 
                       <details className="search-unit-detail-panel">
@@ -360,6 +394,14 @@ export function MobileSearchScanner({
                             <input className="input" name="contactPhone" type="tel" defaultValue={result?.contact_phone ?? ""} disabled={!canEdit} />
                           </label>
                           <label>
+                            מספר נפגעי חרדה
+                            <input className="input" name="anxietyCasualtiesCount" type="number" min="0" inputMode="numeric" defaultValue={result?.anxiety_casualties_count ?? 0} disabled={!canEdit} />
+                          </label>
+                          <label>
+                            מספר נפגעי גוף
+                            <input className="input" name="physicalCasualtiesCount" type="number" min="0" inputMode="numeric" defaultValue={result?.physical_casualties_count ?? 0} disabled={!canEdit} />
+                          </label>
+                          <label>
                             סטטוס סריקה
                             <select className="input" name="searchStatus" defaultValue={status} disabled={!canEdit}>
                               {SEARCH_UNIT_STATUS_OPTIONS.map((option) => (
@@ -372,7 +414,13 @@ export function MobileSearchScanner({
                             <label><input type="checkbox" name="casualtyPsych" defaultChecked={Boolean(result?.casualty_psych)} disabled={!canEdit} /> נפגע חרדה</label>
                             <label><input type="checkbox" name="casualtyBody" defaultChecked={Boolean(result?.casualty_body)} disabled={!canEdit} /> נפגע גוף</label>
                             <label><input type="checkbox" name="medicalEvacuation" defaultChecked={Boolean(result?.medical_evacuation)} disabled={!canEdit} /> פינוי רפואי</label>
+                            <label><input type="checkbox" name="hasApartmentDamage" defaultChecked={Boolean(result?.has_apartment_damage)} disabled={!canEdit} /> קיים נזק לדירה</label>
                           </div>
+
+                          <label className="search-unit-notes">
+                            פירוט נזק
+                            <textarea className="input" name="apartmentDamageNotes" rows={2} defaultValue={result?.apartment_damage_notes ?? ""} disabled={!canEdit} />
+                          </label>
 
                           <label className="search-unit-notes">
                             הערות

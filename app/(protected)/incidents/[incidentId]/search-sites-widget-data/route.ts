@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { normalizeSearchUnitStatus, searchSummaryFromStatuses } from "@/lib/search-site-status";
+import { normalizeSearchUnitStatus, searchSummaryFromStatuses, type SearchUnitStatus } from "@/lib/search-site-status";
 import type { SearchSitesWidgetData, SearchSiteWidgetSite } from "../search-sites-dashboard-widget";
 
 type SearchSiteRow = {
@@ -33,7 +33,32 @@ type SearchResultRow = {
   unit_id: string;
   family_name: string | null;
   search_status: string | null;
+  casualty_psych: boolean | null;
+  casualty_body: boolean | null;
+  anxiety_casualties_count: number | null;
+  physical_casualties_count: number | null;
+  has_apartment_damage: boolean | null;
+  apartment_damage_notes: string | null;
 };
+
+function numberValue(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function effectiveSearchStatus(result: SearchResultRow | undefined): SearchUnitStatus {
+  const status = normalizeSearchUnitStatus(result?.search_status);
+  if (
+    numberValue(result?.anxiety_casualties_count) > 0 ||
+    numberValue(result?.physical_casualties_count) > 0 ||
+    result?.casualty_psych ||
+    result?.casualty_body
+  ) {
+    return "casualties";
+  }
+  if (status === "completed") return "completed";
+  return status;
+}
 
 function siteName(site: Pick<SearchSiteRow, "name" | "street" | "house_number">) {
   return site.name?.trim() || [site.street, site.house_number].filter(Boolean).join(" ").trim() || "אתר סריקה";
@@ -99,7 +124,7 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       .eq("is_active", true),
     supabase
       .from("site_search_units")
-      .select("unit_id,family_name,search_status")
+      .select("unit_id,family_name,search_status,casualty_psych,casualty_body,anxiety_casualties_count,physical_casualties_count,has_apartment_damage,apartment_damage_notes")
       .eq("incident_id", params.incidentId)
   ]);
 
@@ -128,7 +153,11 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
           floorNumber: floorNumbers.get(unit.floor_id ?? "") ?? null,
           unitLabel: unitLabel(unit),
           familyName: result?.family_name ?? null,
-          status: normalizeSearchUnitStatus(result?.search_status)
+          status: effectiveSearchStatus(result),
+          anxietyCasualtiesCount: numberValue(result?.anxiety_casualties_count),
+          physicalCasualtiesCount: numberValue(result?.physical_casualties_count),
+          hasApartmentDamage: Boolean(result?.has_apartment_damage),
+          apartmentDamageNotes: result?.apartment_damage_notes ?? null
         };
       });
 
@@ -140,6 +169,9 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       searchPriority: site.search_priority,
       searchReason: site.search_reason,
       summary: searchSummaryFromStatuses(entries.map((entry) => entry.status)),
+      anxietyCasualtiesCount: entries.reduce((sum, entry) => sum + entry.anxietyCasualtiesCount, 0),
+      physicalCasualtiesCount: entries.reduce((sum, entry) => sum + entry.physicalCasualtiesCount, 0),
+      damagedUnitsCount: entries.filter((entry) => entry.hasApartmentDamage).length,
       entries
     };
   });

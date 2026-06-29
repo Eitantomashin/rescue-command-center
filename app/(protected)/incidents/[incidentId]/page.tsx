@@ -92,6 +92,12 @@ type SearchSiteUnitResultRow = {
   unit_id: string;
   family_name: string | null;
   search_status: string | null;
+  casualty_psych: boolean | null;
+  casualty_body: boolean | null;
+  anxiety_casualties_count: number | null;
+  physical_casualties_count: number | null;
+  has_apartment_damage: boolean | null;
+  apartment_damage_notes: string | null;
 };
 
 type OperationalNumberRow = {
@@ -309,6 +315,10 @@ type SearchKpiDrilldownEntry = {
   unitLabel: string;
   familyName: string | null;
   status: SearchUnitStatus;
+  anxietyCasualtiesCount: number;
+  physicalCasualtiesCount: number;
+  hasApartmentDamage: boolean;
+  apartmentDamageNotes: string | null;
 };
 
 const SEARCH_UNIT_STATUS_LABELS: Record<SearchUnitStatus, string> = {
@@ -323,6 +333,20 @@ function normalizeSearchUnitStatus(status: string | null | undefined): SearchUni
   return ["not_visited", "no_answer", "clear", "casualties", "completed"].includes(status ?? "")
     ? (status as SearchUnitStatus)
     : "not_visited";
+}
+
+function effectiveSearchUnitStatus(result: SearchSiteUnitResultRow | undefined): SearchUnitStatus {
+  const status = normalizeSearchUnitStatus(result?.search_status);
+  if (
+    Number(result?.anxiety_casualties_count ?? 0) > 0 ||
+    Number(result?.physical_casualties_count ?? 0) > 0 ||
+    result?.casualty_psych ||
+    result?.casualty_body
+  ) {
+    return "casualties";
+  }
+  if (status === "completed") return "completed";
+  return status;
 }
 
 function searchUnitStatusLabel(status: SearchUnitStatus) {
@@ -541,7 +565,7 @@ export default async function IncidentDashboardPage({
       .order("created_at", { ascending: true }),
     supabase
       .from("site_search_units")
-      .select("site_id,unit_id,family_name,search_status")
+      .select("site_id,unit_id,family_name,search_status,casualty_psych,casualty_body,anxiety_casualties_count,physical_casualties_count,has_apartment_damage,apartment_damage_notes")
       .eq("incident_id", params.incidentId),
     supabase
       .from("operational_numbers_dashboard")
@@ -643,7 +667,7 @@ export default async function IncidentDashboardPage({
       };
 
       for (const unit of siteUnits) {
-        const status = normalizeSearchUnitStatus(searchResultsByUnitId.get(unit.id)?.search_status);
+        const status = effectiveSearchUnitStatus(searchResultsByUnitId.get(unit.id));
         if (status === "clear") siteSummary.clear_count += 1;
         else if (status === "no_answer") siteSummary.no_answer_count += 1;
         else if (status === "casualties") siteSummary.casualties_count += 1;
@@ -671,7 +695,11 @@ export default async function IncidentDashboardPage({
             floorNumber: searchFloorNumbersById.get(unit.floor_id ?? "") ?? null,
             unitLabel: unitDisplayLabel(unit),
             familyName: result?.family_name ?? null,
-            status: normalizeSearchUnitStatus(result?.search_status)
+            status: effectiveSearchUnitStatus(result),
+            anxietyCasualtiesCount: numberValue(result?.anxiety_casualties_count),
+            physicalCasualtiesCount: numberValue(result?.physical_casualties_count),
+            hasApartmentDamage: Boolean(result?.has_apartment_damage),
+            apartmentDamageNotes: result?.apartment_damage_notes ?? null
           } satisfies SearchKpiDrilldownEntry;
         });
       return [site.id, entries] as const;
@@ -967,6 +995,9 @@ export default async function IncidentDashboardPage({
       searchPriority: site.search_priority,
       searchReason: site.search_reason,
       summary: searchSiteSummaries.get(site.id) ?? emptySearchSiteSummary,
+      anxietyCasualtiesCount: (searchEntriesBySite.get(site.id) ?? []).reduce((sum, entry) => sum + entry.anxietyCasualtiesCount, 0),
+      physicalCasualtiesCount: (searchEntriesBySite.get(site.id) ?? []).reduce((sum, entry) => sum + entry.physicalCasualtiesCount, 0),
+      damagedUnitsCount: (searchEntriesBySite.get(site.id) ?? []).filter((entry) => entry.hasApartmentDamage).length,
       entries: searchEntriesBySite.get(site.id) ?? []
     })),
     updatedAt: new Date().toISOString()

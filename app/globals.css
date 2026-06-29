@@ -6620,12 +6620,22 @@ textarea {
   color: #45515f;
 }
 
+.search-unit-status.not_visited {
+  background: #eceff3;
+  color: #45515f;
+}
+
 .search-unit-status.clear {
   background: #e3f2fd;
   color: #1565c0;
 }
 
 .search-unit-status.no-answer {
+  background: #fff0c2;
+  color: #8a5b00;
+}
+
+.search-unit-status.no_answer {
   background: #fff0c2;
   color: #8a5b00;
 }
@@ -6638,6 +6648,39 @@ textarea {
 .search-unit-status.complete {
   background: #e8f5e9;
   color: var(--success);
+}
+
+.search-unit-status.completed {
+  background: #e8f5e9;
+  color: var(--success);
+}
+
+.search-report-warning-list,
+.search-report-damage-list {
+  display: grid;
+  gap: 10px;
+}
+
+.search-report-warning-list {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.search-report-warning-list span,
+.search-report-damage-list li {
+  border: 1px solid rgba(249, 168, 37, 0.35);
+  border-radius: 10px;
+  background: rgba(249, 168, 37, 0.12);
+  padding: 10px 12px;
+}
+
+.search-report-damage-list {
+  list-style: none;
+  padding: 0;
+}
+
+.search-report-damage-list li {
+  display: grid;
+  gap: 4px;
 }
 
 .search-unit-indicators,
@@ -6915,6 +6958,21 @@ textarea {
 
 .search-kpi-click-card summary::-webkit-details-marker {
   display: none;
+}
+
+.search-kpi-warning {
+  border-color: rgba(249, 168, 37, 0.35);
+  background: #fff9e6;
+}
+
+.search-kpi-danger {
+  border-color: rgba(211, 47, 47, 0.32);
+  background: #fff3f2;
+}
+
+.search-kpi-damage {
+  border-color: rgba(245, 130, 32, 0.34);
+  background: #fff7ef;
 }
 
 .search-kpi-click-card summary::after {
