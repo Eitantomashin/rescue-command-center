@@ -34,6 +34,8 @@ export type MobileSearchResult = {
   medical_evacuation: boolean | null;
   anxiety_casualties_count: number | null;
   physical_casualties_count: number | null;
+  casualties_resolved: boolean | null;
+  casualties_resolved_at: string | null;
   has_apartment_damage: boolean | null;
   apartment_damage_notes: string | null;
   notes: string | null;
@@ -56,6 +58,9 @@ export type MobileSearchSummary = {
   no_answer_count: number;
   casualties_count: number;
   completed_count: number;
+  reported_casualties_count?: number;
+  open_casualties_count?: number;
+  resolved_casualties_count?: number;
 };
 
 type MobileSearchStatus = "not_visited" | "no_answer" | "clear" | "casualties" | "completed";
@@ -87,17 +92,22 @@ function numberValue(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function effectiveSearchStatus(result: MobileSearchResult | undefined): MobileSearchStatus {
-  const status = normalizeStatus(result?.search_status);
-  if (
+function hasCasualtyFinding(result: MobileSearchResult | undefined) {
+  return (
     numberValue(result?.anxiety_casualties_count) > 0 ||
     numberValue(result?.physical_casualties_count) > 0 ||
-    result?.casualty_psych ||
-    result?.casualty_body
-  ) {
+    Boolean(result?.casualty_psych) ||
+    Boolean(result?.casualty_body) ||
+    Boolean(result?.medical_evacuation)
+  );
+}
+
+function effectiveSearchStatus(result: MobileSearchResult | undefined): MobileSearchStatus {
+  const status = normalizeStatus(result?.search_status);
+  if (status === "completed") return "completed";
+  if (hasCasualtyFinding(result) && !result?.casualties_resolved) {
     return "casualties";
   }
-  if (status === "completed") return "completed";
   return status;
 }
 
@@ -222,6 +232,13 @@ export function MobileSearchScanner({
   const scannedUnits = searchScannedCount(summary);
   const progressPercent = summary.total_units > 0 ? Math.round((scannedUnits / summary.total_units) * 100) : 0;
   const status = searchLiveStatus(summary);
+  const allSearchResults = Array.from(searchResultsByUnit.values());
+  const reportedCasualties = summary.reported_casualties_count ?? allSearchResults.reduce(
+    (sum, result) => sum + numberValue(result.anxiety_casualties_count) + numberValue(result.physical_casualties_count),
+    0
+  );
+  const openCasualtyUnits = summary.open_casualties_count ?? allSearchResults.filter((result) => hasCasualtyFinding(result) && !result.casualties_resolved).length;
+  const resolvedCasualtyUnits = summary.resolved_casualties_count ?? allSearchResults.filter((result) => hasCasualtyFinding(result) && result.casualties_resolved).length;
 
   return (
     <main className="mobile-search-page">
@@ -255,6 +272,9 @@ export function MobileSearchScanner({
           <div><span>זוכו</span><strong>{formatNumber(summary.completed_count)}</strong></div>
           <div><span>אין מענה</span><strong>{formatNumber(summary.no_answer_count)}</strong></div>
           <div><span>נפגעים</span><strong>{formatNumber(summary.casualties_count)}</strong></div>
+          <div><span>סה״כ נפגעים</span><strong>{formatNumber(reportedCasualties)}</strong></div>
+          <div><span>נפגעים פתוחים</span><strong>{formatNumber(openCasualtyUnits)}</strong></div>
+          <div><span>טיפול הושלם</span><strong>{formatNumber(resolvedCasualtyUnits)}</strong></div>
         </div>
       </section>
 
@@ -373,6 +393,8 @@ export function MobileSearchScanner({
                         {numberValue(result?.anxiety_casualties_count) > 0 ? <span className="warning">נפגעי חרדה: {formatNumber(numberValue(result?.anxiety_casualties_count))}</span> : null}
                         {numberValue(result?.physical_casualties_count) > 0 ? <span className="danger">נפגעי גוף: {formatNumber(numberValue(result?.physical_casualties_count))}</span> : null}
                         {result?.medical_evacuation ? <span className="danger">נדרש פינוי</span> : null}
+                        {hasCasualtyFinding(result) && status === "completed" ? <span className="success">היו נפגעים - הטיפול הושלם</span> : null}
+                        {hasCasualtyFinding(result) && status !== "completed" && !result?.casualties_resolved ? <span className="danger">נפגעים פתוחים</span> : null}
                         {result?.has_apartment_damage ? <span className="warning">נזק לדירה</span> : null}
                         {result?.apartment_damage_notes ? <span className="search-unit-note-chip">פירוט נזק: {result.apartment_damage_notes}</span> : null}
                       </div>

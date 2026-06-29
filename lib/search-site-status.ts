@@ -12,6 +12,9 @@ export type SearchStatusSummary = {
   no_answer_count: number;
   casualties_count: number;
   completed_count: number;
+  reported_casualties_count?: number;
+  open_casualties_count?: number;
+  resolved_casualties_count?: number;
 };
 
 const SEARCH_UNIT_STATUSES = new Set<SearchUnitStatus>([

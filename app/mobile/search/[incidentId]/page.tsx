@@ -34,8 +34,10 @@ type SearchResultRow = {
   search_status: string | null;
   casualty_psych: boolean | null;
   casualty_body: boolean | null;
+  medical_evacuation: boolean | null;
   anxiety_casualties_count: number | null;
   physical_casualties_count: number | null;
+  casualties_resolved: boolean | null;
 };
 
 type SearchSiteLiveSummary = {
@@ -76,17 +78,18 @@ function progressPercent(summary: SearchSiteLiveSummary) {
 
 function effectiveSearchStatus(row: SearchResultRow | undefined) {
   if (!row) return "not_visited";
+  if (row.search_status === "completed") return "completed";
   if (
     row.search_status === "casualties" ||
     row.casualty_psych ||
     row.casualty_body ||
+    row.medical_evacuation ||
     Number(row.anxiety_casualties_count ?? 0) > 0 ||
     Number(row.physical_casualties_count ?? 0) > 0
   ) {
-    return "casualties";
+    return row.casualties_resolved ? row.search_status ?? "not_visited" : "casualties";
   }
   if (row.search_status === "no_answer") return "no_answer";
-  if (row.search_status === "completed") return "completed";
   if (row.search_status === "clear") return "clear";
   return "not_visited";
 }
@@ -130,7 +133,7 @@ export default async function MobileSearchSitesPage({
       .eq("is_active", true),
     supabase
       .from("site_search_units")
-      .select("site_id,unit_id,search_status,casualty_psych,casualty_body,anxiety_casualties_count,physical_casualties_count")
+      .select("site_id,unit_id,search_status,casualty_psych,casualty_body,medical_evacuation,anxiety_casualties_count,physical_casualties_count,casualties_resolved")
       .eq("incident_id", params.incidentId)
   ]);
 

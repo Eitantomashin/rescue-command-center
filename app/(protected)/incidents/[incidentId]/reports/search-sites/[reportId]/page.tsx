@@ -46,6 +46,16 @@ function booleanValue(value: unknown) {
   return value === true || value === "true";
 }
 
+function casualtyTreatmentText(apartment: Record<string, unknown>) {
+  const reported =
+    numberValue(apartment.anxiety_casualties_count) +
+    numberValue(apartment.physical_casualties_count);
+  const hasFinding = reported > 0 || booleanValue(apartment.medical_evacuation);
+
+  if (!hasFinding) return "-";
+  return booleanValue(apartment.casualties_resolved) ? "הטיפול הושלם" : "נפגעים פתוחים";
+}
+
 function durationText(secondsValue: unknown) {
   const seconds = numberValue(secondsValue);
   if (seconds <= 0) return "-";
@@ -162,6 +172,9 @@ export default async function SearchSiteReportPage({
         <section className="sitrep-section">
           <h2>נפגעים</h2>
           <div className="summary-grid">
+            <div><span className="muted">סה״כ נפגעים דווחו</span><strong>{formatNumber(numberValue(casualties.reported_casualties_total))}</strong></div>
+            <div><span className="muted">נפגעים פתוחים</span><strong>{formatNumber(numberValue(casualties.open_casualties_total))}</strong></div>
+            <div><span className="muted">נפגעים שטופלו</span><strong>{formatNumber(numberValue(casualties.resolved_casualties_total))}</strong></div>
             <div><span className="muted">נפגעי חרדה</span><strong>{formatNumber(numberValue(casualties.anxiety_casualties_total))}</strong></div>
             <div><span className="muted">נפגעי גוף</span><strong>{formatNumber(numberValue(casualties.physical_casualties_total))}</strong></div>
             <div><span className="muted">פינויים רפואיים</span><strong>{formatNumber(numberValue(casualties.medical_evacuations))}</strong></div>
@@ -201,6 +214,7 @@ export default async function SearchSiteReportPage({
                   <th>חרדה</th>
                   <th>גוף</th>
                   <th>פינוי</th>
+                  <th>טיפול בנפגעים</th>
                   <th>נזק</th>
                   <th>הערות</th>
                 </tr>
@@ -216,6 +230,7 @@ export default async function SearchSiteReportPage({
                     <td>{formatNumber(numberValue(apartment.anxiety_casualties_count))}</td>
                     <td>{formatNumber(numberValue(apartment.physical_casualties_count))}</td>
                     <td>{booleanValue(apartment.medical_evacuation) ? "כן" : "לא"}</td>
+                    <td>{casualtyTreatmentText(apartment)}</td>
                     <td>{booleanValue(apartment.has_apartment_damage) ? textValue(apartment.apartment_damage_notes, "כן") : "לא"}</td>
                     <td>{textValue(apartment.notes, "-")}</td>
                   </tr>

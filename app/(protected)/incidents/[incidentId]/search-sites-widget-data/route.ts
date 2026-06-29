@@ -32,13 +32,17 @@ type UnitRow = {
 type SearchResultRow = {
   unit_id: string;
   family_name: string | null;
+  occupants_count: number | null;
   search_status: string | null;
   casualty_psych: boolean | null;
   casualty_body: boolean | null;
+  medical_evacuation: boolean | null;
   anxiety_casualties_count: number | null;
   physical_casualties_count: number | null;
+  casualties_resolved: boolean | null;
   has_apartment_damage: boolean | null;
   apartment_damage_notes: string | null;
+  notes: string | null;
 };
 
 function numberValue(value: unknown) {
@@ -48,15 +52,16 @@ function numberValue(value: unknown) {
 
 function effectiveSearchStatus(result: SearchResultRow | undefined): SearchUnitStatus {
   const status = normalizeSearchUnitStatus(result?.search_status);
+  if (status === "completed") return "completed";
   if (
     numberValue(result?.anxiety_casualties_count) > 0 ||
     numberValue(result?.physical_casualties_count) > 0 ||
     result?.casualty_psych ||
-    result?.casualty_body
+    result?.casualty_body ||
+    result?.medical_evacuation
   ) {
-    return "casualties";
+    return result?.casualties_resolved ? status : "casualties";
   }
-  if (status === "completed") return "completed";
   return status;
 }
 
@@ -124,7 +129,7 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       .eq("is_active", true),
     supabase
       .from("site_search_units")
-      .select("unit_id,family_name,search_status,casualty_psych,casualty_body,anxiety_casualties_count,physical_casualties_count,has_apartment_damage,apartment_damage_notes")
+      .select("unit_id,family_name,occupants_count,search_status,casualty_psych,casualty_body,medical_evacuation,anxiety_casualties_count,physical_casualties_count,casualties_resolved,has_apartment_damage,apartment_damage_notes,notes")
       .eq("incident_id", params.incidentId)
   ]);
 
@@ -153,11 +158,22 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
           floorNumber: floorNumbers.get(unit.floor_id ?? "") ?? null,
           unitLabel: unitLabel(unit),
           familyName: result?.family_name ?? null,
+          occupantsCount: result?.occupants_count ?? null,
           status: effectiveSearchStatus(result),
           anxietyCasualtiesCount: numberValue(result?.anxiety_casualties_count),
           physicalCasualtiesCount: numberValue(result?.physical_casualties_count),
+          casualtiesResolved: Boolean(result?.casualties_resolved),
+          hasCasualtyFinding: Boolean(
+            numberValue(result?.anxiety_casualties_count) > 0 ||
+            numberValue(result?.physical_casualties_count) > 0 ||
+            result?.casualty_psych ||
+            result?.casualty_body ||
+            result?.medical_evacuation
+          ),
+          medicalEvacuation: Boolean(result?.medical_evacuation),
           hasApartmentDamage: Boolean(result?.has_apartment_damage),
-          apartmentDamageNotes: result?.apartment_damage_notes ?? null
+          apartmentDamageNotes: result?.apartment_damage_notes ?? null,
+          notes: result?.notes ?? null
         };
       });
 
