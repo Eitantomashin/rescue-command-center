@@ -1709,6 +1709,139 @@ textarea {
   color: var(--danger);
 }
 
+.command-kpi-card.tone-clock {
+  grid-column: span 2;
+  position: relative;
+  overflow: hidden;
+  align-content: start;
+  border-color: rgba(37, 99, 235, 0.48);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(37, 99, 235, 0.08), transparent 32%),
+    radial-gradient(circle at 82% 110%, rgba(14, 165, 233, 0.07), transparent 30%),
+    linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
+  min-height: 132px;
+  padding: 16px 20px;
+}
+
+.command-kpi-card.tone-clock > span:first-child {
+  color: var(--brand-primary);
+  font-size: clamp(20px, 2.1vw, 28px);
+  font-weight: 950;
+  text-align: center;
+}
+
+.command-kpi-card.tone-clock strong {
+  color: #1d4ed8;
+}
+
+.activity-clock-content {
+  display: grid;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.activity-clock-values {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  direction: ltr;
+  align-items: center;
+  border-block-end: 1px solid rgba(22, 50, 79, 0.12);
+  padding: 0 10px 12px;
+}
+
+.activity-clock-unit {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  direction: rtl;
+}
+
+.activity-clock-colon {
+  color: #2563eb;
+  font-size: clamp(30px, 3vw, 40px);
+  font-weight: 950;
+  line-height: 1;
+  transform: translateY(-9px);
+}
+
+.activity-clock-unit span {
+  color: #16324f;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.activity-clock-unit strong {
+  color: #2563eb;
+  font-size: clamp(34px, 3.6vw, 48px);
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.activity-clock-times {
+  display: grid;
+  gap: 0;
+  border-block-start: 1px solid rgba(22, 50, 79, 0.12);
+}
+
+.activity-clock-times span {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  align-items: center;
+  gap: 12px;
+  color: #334155;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 9px 4px;
+}
+
+.activity-clock-times span + span {
+  border-block-start: 1px solid rgba(22, 50, 79, 0.1);
+}
+
+.activity-clock-times b {
+  color: #2563eb;
+  font-weight: 950;
+}
+
+.activity-clock-missing {
+  color: var(--danger);
+  font-size: 24px;
+}
+
+@media (max-width: 760px) {
+  .command-kpi-card.tone-clock {
+    grid-column: auto;
+  }
+
+  .activity-clock-times span {
+    grid-template-columns: 56px 1fr;
+    font-size: 14px;
+  }
+
+  .activity-clock-values {
+    padding-inline: 0;
+  }
+
+  .activity-clock-unit {
+    padding-inline: 8px;
+  }
+}
+
+.command-kpi-detail-lines {
+  display: grid;
+  gap: 4px;
+}
+
+.command-kpi-detail-lines span {
+  color: var(--brand-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .merged-kpi-panel {
   border-color: rgba(126, 68, 190, 0.28);
   background: #fbf7ff;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatNumber } from "@/lib/format";
 import { DashboardSiteCommandSummary, type SiteAnalysisRow } from "./dashboard-site-command-summary-v2";
 import { OperationalStatusOverview, type OperationalStatusSiteBreakdown, type OperationalStatusTile } from "./operational-status-overview";
@@ -31,6 +31,17 @@ type CommandKpi = {
   detail: string;
   tone?: string;
   clickable?: boolean;
+  detailLines?: string[];
+  clockParts?: ActivityClockParts;
+};
+
+type ActivityClockParts = {
+  missingStart: boolean;
+  days: number;
+  hours: number;
+  minutes: number;
+  startLabel: string;
+  currentLabel: string;
 };
 
 const STATUS_GROUPS = [
@@ -66,20 +77,51 @@ function timeAgo(now: Date, date: Date | null) {
   return `לפני ${diffDays} ימים`;
 }
 
-function eventDuration(now: Date, openedAt: string) {
-  const opened = new Date(openedAt);
-  const diffMinutes = Math.max(0, Math.floor((now.getTime() - opened.getTime()) / 60000));
-  const days = Math.floor(diffMinutes / 1440);
-  const hours = Math.floor((diffMinutes % 1440) / 60);
-  const minutes = diffMinutes % 60;
 
-  if (days > 0) return `${days} ימים ${hours} שעות`;
-  if (hours > 0) return `${hours} שעות ${minutes} דק׳`;
-  return `${minutes} דק׳`;
+function formatClockDateTime(date: Date | null) {
+  if (!date) return "\u05DC\u05D0 \u05D4\u05D5\u05D2\u05D3\u05E8\u05D4";
+
+  const datePart = new Intl.DateTimeFormat("he-IL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(date);
+  const timePart = new Intl.DateTimeFormat("he-IL", {
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+
+  return `${datePart} | ${timePart}`;
 }
 
-function exceptionCount(sites: SiteAnalysisRow[]) {
-  return sites.filter((site) => site.level === "high" || site.teams.length === 0 || site.operationalGap > 0).length;
+function incidentStartDate(openedAt: string | null | undefined) {
+  if (!openedAt) return null;
+  const date = new Date(openedAt);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function activityClockParts(now: Date, openedAt: string | null | undefined): ActivityClockParts {
+  const opened = incidentStartDate(openedAt);
+  if (!opened) {
+    return {
+      missingStart: true,
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      startLabel: "\u05DC\u05D0 \u05D4\u05D5\u05D2\u05D3\u05E8\u05D4 \u05E9\u05E2\u05EA \u05D4\u05EA\u05D7\u05DC\u05D4",
+      currentLabel: formatClockDateTime(now)
+    };
+  }
+
+  const diffMinutes = Math.max(0, Math.floor((now.getTime() - opened.getTime()) / 60000));
+  return {
+    missingStart: false,
+    days: Math.floor(diffMinutes / 1440),
+    hours: Math.floor((diffMinutes % 1440) / 60),
+    minutes: diffMinutes % 60,
+    startLabel: formatClockDateTime(opened),
+    currentLabel: formatClockDateTime(now)
+  };
 }
 
 function scopedTeams(teams: PersonnelTeamItem[], visiblePersonIds: Set<string>) {
@@ -190,7 +232,12 @@ export function DashboardCommandScope({
     () => new Set(visibleOperationalNumbers.map((person) => person.personId)),
     [visibleOperationalNumbers]
   );
-  const now = useMemo(() => new Date(), []);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, []);
   const latestOperationalUpdate = latestDate(visibleOperationalNumbers.map((person) => person.latestReportedAt));
   const visiblePersonnelTeams = scopedTeams(personnelTeams, visiblePersonIds);
   const visibleMergedGroups = mergedNumberGroups(visibleOperationalNumbers);
@@ -198,13 +245,8 @@ export function DashboardCommandScope({
   const visibleTiles = STATUS_GROUPS.map((status) =>
     statusTile(visibleOperationalNumbers, sitesById, status.group, status.label, status.tone)
   );
+  const clockParts = activityClockParts(now, openedAt);
   const kpis: CommandKpi[] = [
-    {
-      id: "duration",
-      label: "משך האירוע",
-      value: eventDuration(now, openedAt),
-      detail: "מאז פתיחת האירוע"
-    },
     {
       id: "last-update",
       label: "עדכון מבצעי אחרון",
@@ -219,11 +261,12 @@ export function DashboardCommandScope({
       detail: "לפי דוח חיתוך המצב האחרון"
     },
     {
-      id: "exceptions",
-      label: "חריגים פעילים",
-      value: formatNumber(exceptionCount(visibleSites)),
-      detail: "פער גבוה, אתר ללא צוות או פער פתוח",
-      tone: exceptionCount(visibleSites) > 0 ? "danger" : "default"
+      id: "activity-clock",
+      label: "\u05E9\u05E2\u05D5\u05DF \u05E4\u05E2\u05D9\u05DC\u05D5\u05EA",
+      value: clockParts.missingStart ? "\u05DC\u05D0 \u05D4\u05D5\u05D2\u05D3\u05E8\u05D4 \u05E9\u05E2\u05EA \u05D4\u05EA\u05D7\u05DC\u05D4" : "",
+      detail: "\u05D6\u05DE\u05DF \u05DE\u05EA\u05D7\u05D9\u05DC\u05EA \u05D4\u05E4\u05E2\u05D9\u05DC\u05D5\u05EA",
+      tone: "clock",
+      clockParts
     }
   ];
   const commandKpis: CommandKpi[] = [
@@ -269,8 +312,46 @@ export function DashboardCommandScope({
             onClick={() => item.clickable && setOpenKpi(openKpi === item.id ? null : item.id)}
           >
             <span>{item.label}</span>
-            <strong>{item.value}</strong>
-            <small>{item.detail}</small>
+            {item.clockParts ? (
+              <div className="activity-clock-content">
+                {item.clockParts.missingStart ? (
+                  <strong className="activity-clock-missing">{item.value}</strong>
+                ) : (
+                  <div className="activity-clock-values" aria-label={"\u05D6\u05DE\u05DF \u05E9\u05D7\u05DC\u05E3"}>
+                    <div className="activity-clock-unit">
+                      <strong>{formatNumber(item.clockParts.days)}</strong>
+                      <span>{"\u05D9\u05DE\u05D9\u05DD"}</span>
+                    </div>
+                    <span className="activity-clock-colon" aria-hidden="true">:</span>
+                    <div className="activity-clock-unit">
+                      <strong>{formatNumber(item.clockParts.hours)}</strong>
+                      <span>{"\u05E9\u05E2\u05D5\u05EA"}</span>
+                    </div>
+                    <span className="activity-clock-colon" aria-hidden="true">:</span>
+                    <div className="activity-clock-unit">
+                      <strong>{formatNumber(item.clockParts.minutes)}</strong>
+                      <span>{"\u05D3\u05E7\u05D5\u05EA"}</span>
+                    </div>
+                  </div>
+                )}
+                <div className="activity-clock-times">
+                  <span><b>{"\u05D4\u05EA\u05D7\u05DC\u05D4"}</b>{item.clockParts.startLabel}</span>
+                  <span><b>{"\u05DB\u05E2\u05EA"}</b>{item.clockParts.currentLabel}</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+                {item.detailLines?.length ? (
+                  <small className="command-kpi-detail-lines">
+                    {item.detailLines.map((line) => (
+                      <span key={line}>{line}</span>
+                    ))}
+                  </small>
+                ) : null}
+              </>
+            )}
           </button>
         ))}
       </section>
