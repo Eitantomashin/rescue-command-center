@@ -96,6 +96,11 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
     { label: incident.name, href: base }
   ];
 
+  if (pathname === `${base}/war-room`) {
+    items.push({ label: "\u05de\u05e1\u05da \u05d7\u05de\u05f4\u05dc", href: pathname });
+    return items;
+  }
+
   if (pathname === `${base}/operational-log`) {
     items.push({ label: "יומן מבצעי כללי", href: pathname });
     return items;
@@ -174,6 +179,7 @@ export function IncidentCommandShell({
   const pathname = usePathname();
   const base = `/incidents/${incident.id}`;
   const isCommanderDashboard = pathname === base;
+  const isWarRoom = pathname === `${base}/war-room`;
   const activeOperationalNumbers = summary.active_operational_numbers_count ?? summary.gap_resolved_count ?? 0;
   const completedOperationalNumbers =
     (summary.operational_numbers_rescued_count ?? 0) +
@@ -201,6 +207,10 @@ export function IncidentCommandShell({
           <Link className={`incident-nav-item${activeClass(pathname, base)}`} href={base}>
             <span className="nav-icon" aria-hidden="true">📊</span>
             <span className="nav-label">דשבורד מפקד</span>
+          </Link>
+          <Link className={`incident-nav-item${activeClass(pathname, `${base}/war-room`)}`} href={`${base}/war-room`}>
+            <span className="nav-icon" aria-hidden="true">{"\uD83D\uDDA5\uFE0F"}</span>
+            <span className="nav-label">{"\u05de\u05e1\u05da \u05d7\u05de\u05f4\u05dc"}</span>
           </Link>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/operational-log`)}`} href={`${base}/operational-log`}>
             <span className="nav-icon" aria-hidden="true">📝</span>
@@ -328,6 +338,7 @@ export function IncidentCommandShell({
       </aside>
 
       <div className={`incident-command-content${isCommanderDashboard ? " commander-dashboard-content" : ""}`}>
+        {!isWarRoom ? (
         <section className="incident-ops-strip operational-status-strip" aria-label="סיכום מבצעי">
           <div className="status-strip-item status-strip-critical">
             <span>🔴 פער מבצעי</span>
@@ -346,7 +357,9 @@ export function IncidentCommandShell({
             <strong>{formatNumber(summary.total_sites ?? sites.length)}</strong>
           </div>
         </section>
+        ) : null}
 
+        {!isWarRoom ? (
         <nav className="breadcrumb-bar" aria-label="מיקום נוכחי">
           {breadcrumbs.map((item, index) => (
             <span key={`${item.href}-${item.label}`}>
@@ -359,6 +372,7 @@ export function IncidentCommandShell({
             </span>
           ))}
         </nav>
+        ) : null}
         {children}
       </div>
     </div>
