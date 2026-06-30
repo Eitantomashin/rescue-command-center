@@ -1969,6 +1969,203 @@ textarea {
 .site-command-fact.fact-updated strong {
   color: var(--brand-secondary);
 }
+.site-command-fact.clickable {
+  font: inherit;
+  color: inherit;
+  text-align: right;
+  cursor: pointer;
+  appearance: none;
+}
+
+.site-command-fact.clickable:hover,
+.site-command-fact.clickable:focus-visible {
+  border-color: rgba(245, 130, 32, 0.62);
+  box-shadow: 0 16px 34px rgba(245, 130, 32, 0.18);
+  transform: translateY(-1px);
+}
+
+.site-command-fact.clickable:focus-visible {
+  outline: 3px solid rgba(245, 130, 32, 0.28);
+  outline-offset: 3px;
+}
+
+.updated-potential-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(7, 18, 32, 0.46);
+  backdrop-filter: blur(4px);
+}
+
+.updated-potential-modal {
+  width: min(760px, 100%);
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  direction: rtl;
+  border: 1px solid rgba(22, 50, 79, 0.16);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
+  box-shadow: 0 28px 80px rgba(8, 28, 48, 0.28);
+  padding: 24px;
+}
+
+.updated-potential-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid rgba(22, 50, 79, 0.12);
+  padding-bottom: 16px;
+}
+
+.updated-potential-modal-header h2 {
+  margin: 4px 0 0;
+  color: var(--brand-primary);
+  font-size: clamp(24px, 4vw, 32px);
+  font-weight: 900;
+}
+
+.updated-potential-helper {
+  margin: 16px 0;
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.updated-potential-total-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid rgba(245, 130, 32, 0.28);
+  border-radius: 12px;
+  background: #fff6ed;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+
+.updated-potential-total-card span {
+  color: var(--brand-primary);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.updated-potential-total-card strong {
+  color: var(--brand-secondary);
+  font-size: clamp(38px, 8vw, 54px);
+  line-height: 1;
+  font-weight: 950;
+}
+
+.updated-potential-total-card.gap-total {
+  border-color: rgba(211, 47, 47, 0.28);
+  background: #fff1f1;
+}
+
+.updated-potential-total-card.gap-total strong {
+  color: var(--danger);
+}
+
+.updated-potential-breakdown {
+  display: grid;
+  gap: 10px;
+}
+
+.updated-potential-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-inline-start: 5px solid rgba(22, 50, 79, 0.24);
+  border-radius: 10px;
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.updated-potential-row span {
+  display: block;
+  color: var(--brand-primary);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.updated-potential-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.updated-potential-row strong {
+  color: var(--brand-primary);
+  font-size: 28px;
+  font-weight: 950;
+}
+
+.updated-potential-row.tone-blue {
+  border-inline-start-color: var(--brand-primary);
+  background: #f3f7fb;
+}
+
+.updated-potential-row.tone-orange {
+  border-inline-start-color: var(--brand-secondary);
+  background: #fff6ed;
+}
+
+.updated-potential-row.tone-orange strong {
+  color: var(--brand-secondary);
+}
+
+.updated-potential-row.tone-green {
+  border-inline-start-color: var(--success);
+  background: #f1f8f2;
+}
+
+.updated-potential-row.tone-green strong {
+  color: var(--success);
+}
+
+.updated-potential-row.tone-red {
+  border-inline-start-color: var(--danger);
+  background: #fff1f1;
+}
+
+.updated-potential-row.tone-red strong {
+  color: var(--danger);
+}
+
+@media (max-width: 640px) {
+  .updated-potential-modal-backdrop {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .updated-potential-modal {
+    max-height: 88vh;
+    padding: 18px;
+  }
+
+  .updated-potential-modal-header,
+  .updated-potential-total-card,
+  .updated-potential-row {
+    grid-template-columns: 1fr;
+  }
+
+  .updated-potential-modal-header {
+    display: grid;
+  }
+
+  .updated-potential-row strong {
+    justify-self: start;
+  }
+}
+
 
 .site-command-fact.fact-gap {
   border-color: rgba(211, 47, 47, 0.32);
