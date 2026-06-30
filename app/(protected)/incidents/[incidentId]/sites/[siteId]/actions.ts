@@ -75,11 +75,11 @@ function structureErrorPath(path: string, message: string) {
 
 function structureErrorMessage(message: string) {
   if (message.includes("Cannot remove apartment with active operational numbers")) {
-    return "לא ניתן להסיר דירה שמקושרים אליה מספרים מבצעיים פעילים.";
+    return "\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05DE\u05D7\u05D5\u05E7 \u05D9\u05D7\u05D9\u05D3\u05D4 \u05E9\u05DE\u05E7\u05D5\u05E9\u05E8\u05D9\u05DD \u05D0\u05DC\u05D9\u05D4 \u05DE\u05E1\u05E4\u05E8\u05D9\u05DD \u05DE\u05D1\u05E6\u05E2\u05D9\u05D9\u05DD \u05E4\u05E2\u05D9\u05DC\u05D9\u05DD.";
   }
 
   if (message.includes("Cannot remove apartment with important resident data")) {
-    return "לא ניתן להסיר דירה עם פרטי דייר אמיתיים. ניתן להסיר רק דירה שמכילה דיירים ריקים בלבד.";
+    return "\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05DE\u05D7\u05D5\u05E7 \u05D9\u05D7\u05D9\u05D3\u05D4 \u05E2\u05DD \u05E4\u05E8\u05D8\u05D9 \u05D3\u05D9\u05D9\u05E8 \u05D0\u05DE\u05D9\u05EA\u05D9\u05D9\u05DD. \u05E0\u05D9\u05EA\u05DF \u05DC\u05DE\u05D7\u05D5\u05E7 \u05E8\u05E7 \u05D9\u05D7\u05D9\u05D3\u05D4 \u05E9\u05DE\u05DB\u05D9\u05DC\u05D4 \u05D3\u05D9\u05D9\u05E8\u05D9\u05DD \u05E8\u05D9\u05E7\u05D9\u05DD \u05D1\u05DC\u05D1\u05D3.";
   }
 
   if (message.includes("closed or archived")) {
@@ -385,7 +385,7 @@ export async function splitApartmentUnit(formData: FormData) {
 
 export async function removeApartmentUnit(formData: FormData) {
   const path = sitePath(formData);
-  const unitId = requiredValue(formData, "unitId", "דירה");
+  const unitId = requiredValue(formData, "unitId", "\u05D9\u05D7\u05D9\u05D3\u05D4");
   const reason = nullableValue(formData, "reason");
   const supabase = createClient();
 

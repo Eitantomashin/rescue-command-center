@@ -1324,6 +1324,7 @@ export default async function SiteDetailsPage({
               const apartmentUnits = activeFloorUnits.filter(
                 (unit) => unit.zone_type === "apartment" || !unit.zone_type
               );
+              const removableUnits = activeFloorUnits;
 
               return (
                 <details
@@ -1382,20 +1383,20 @@ export default async function SiteDetailsPage({
                       </details>
 
                       <details className="structure-action-card">
-                        <summary>הסר דירה</summary>
+                        <summary>{"\u05DE\u05D7\u05E7 \u05D9\u05D7\u05D9\u05D3\u05D4"}</summary>
                         <form action={removeApartmentUnit} className="form-grid">
                           {hiddenContext(params.incidentId, params.siteId)}
                           <select className="input" name="unitId" required>
-                            <option value="">בחר דירה להסרה</option>
-                            {apartmentUnits.map((unit) => (
-                              <option key={`remove-${unit.id}`} value={unit.id}>
+                            <option value="">{"\u05D1\u05D7\u05E8 \u05D9\u05D7\u05D9\u05D3\u05D4 \u05DC\u05DE\u05D7\u05D9\u05E7\u05D4"}</option>
+                            {removableUnits.map((unit) => (
+                              <option key={"remove-" + unit.id} value={unit.id}>
                                 {unitDisplayLabel(unit)}
                               </option>
                             ))}
                           </select>
-                          <input className="input wide" name="reason" placeholder="סיבה להסרה" required />
-                          <p className="muted wide">הסרה תיחסם אם קיימים מספרים מבצעיים או פרטי דייר חשובים.</p>
-                          <button className="button secondary danger" type="submit" disabled={apartmentUnits.length === 0}>הסר דירה</button>
+                          <input className="input wide" name="reason" placeholder={"\u05E1\u05D9\u05D1\u05D4 \u05DC\u05DE\u05D7\u05D9\u05E7\u05D4"} required />
+                          <p className="muted wide">{"\u05D4\u05DE\u05D7\u05D9\u05E7\u05D4 \u05EA\u05D9\u05D7\u05E1\u05DD \u05D0\u05DD \u05E7\u05D9\u05D9\u05DE\u05D9\u05DD \u05DE\u05E1\u05E4\u05E8\u05D9\u05DD \u05DE\u05D1\u05E6\u05E2\u05D9\u05D9\u05DD \u05D0\u05D5 \u05E4\u05E8\u05D8\u05D9 \u05D3\u05D9\u05D9\u05E8 \u05D7\u05E9\u05D5\u05D1\u05D9\u05DD."}</p>
+                          <button className="button secondary danger" type="submit" disabled={removableUnits.length === 0}>{"\u05DE\u05D7\u05E7 \u05D9\u05D7\u05D9\u05D3\u05D4"}</button>
                         </form>
                       </details>
                     </div>
