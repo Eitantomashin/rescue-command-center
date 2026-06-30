@@ -1079,12 +1079,10 @@ export default async function IncidentDashboardPage({
               </form>
             ) : (
               <>
-                {lifecycle?.lifecycle_status !== "paused" ? (
-                  <form action={pauseIncident}>
-                    <input type="hidden" name="incidentId" value={summary.incident_id} />
-                    <button className="button secondary" type="submit">השהה אירוע</button>
-                  </form>
-                ) : null}
+                <form action={pauseIncident}>
+                  <input type="hidden" name="incidentId" value={summary.incident_id} />
+                  <button className="button secondary" type="submit">השהה אירוע</button>
+                </form>
                 <details className="archive-confirm-panel">
                   <summary className="button danger">סגירת פעילות באירוע</summary>
                   <form action={closeIncident} className="action-form">

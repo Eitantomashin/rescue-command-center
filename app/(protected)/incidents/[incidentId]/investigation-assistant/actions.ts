@@ -66,7 +66,7 @@ function compactSitrepSnapshot(snapshotValue: unknown) {
 }
 
 function questionTokens(question: string) {
-  return question.toLowerCase().split(/[^\p{L}\p{N}#]+/u).map((token) => token.trim()).filter((token) => token.length >= 2);
+  return question.toLowerCase().split(/[^A-Za-z0-9\u0590-\u05FF#]+/).map((token) => token.trim()).filter((token) => token.length >= 2);
 }
 
 function relevance(record: ContextRecord, tokens: string[]) {

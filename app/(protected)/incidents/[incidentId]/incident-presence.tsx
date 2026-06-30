@@ -196,7 +196,9 @@ function compactPresenceState(rawState: Record<string, PresenceUser[]>) {
       }
     });
 
-  return [...byUser.values()].sort((a, b) => a.displayName.localeCompare(b.displayName, "he"));
+  return Array.from(byUser.values()).sort((a, b) =>
+    a.displayName.localeCompare(b.displayName, "he")
+  );
 }
 
 function activePresenceUsers(users: PresenceUser[], now: number) {

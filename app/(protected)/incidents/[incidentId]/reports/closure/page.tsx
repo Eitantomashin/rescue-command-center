@@ -15,6 +15,14 @@ type ClosureReportRow = {
   created_at: string;
 };
 
+type PersonnelCounts = {
+  present: number;
+  enRoute: number;
+  unavailable: number;
+  inactive: number;
+  total: number;
+};
+
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -91,7 +99,7 @@ export default async function ClosureReportPage({
   const teams = arrayValue(snapshot.teams);
   const operationalNumbers = arrayValue(snapshot.operational_numbers).filter((person) => !booleanValue(person.is_merged));
   const personnel = arrayValue(snapshot.personnel);
-  const personnelCounts = personnel.reduce(
+  const personnelCounts = personnel.reduce<PersonnelCounts>(
     (counts, row) => {
       const status = textValue(row.attendance_status, "unavailable");
       counts.total += 1;

@@ -1113,7 +1113,7 @@ export default async function SiteDetailsPage({
       linkedResidentIds.has(person.id)
   );
   const personsById = new Map(persons.map((person) => [person.id, person]));
-  const matchedLinkedResidentsCount = [...linkedResidentIds].filter((personId) => personsById.has(personId)).length;
+  const matchedLinkedResidentsCount = Array.from(linkedResidentIds).filter((personId) => personsById.has(personId)).length;
   const linkedResidentsByPerson = new Map(
     linkedResidents
       .filter((resident) => resident.linked_person_id)

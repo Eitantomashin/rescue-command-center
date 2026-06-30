@@ -191,7 +191,7 @@ function teamOptions(rows: OperationalNumberRow[], activeTeam: number | null, te
     teamNumbers.add(activeTeam);
   }
 
-  return [...teamNumbers]
+  return Array.from(teamNumbers)
     .sort((a, b) => a - b)
     .map((number) => ({
       number,

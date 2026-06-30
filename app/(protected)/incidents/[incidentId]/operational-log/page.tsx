@@ -412,7 +412,7 @@ function eventOperationalNumbers(log: EventLogRow, persons: Map<string, PersonRo
     /operational\s+number\s*[:=]?\s*#?\s*(\d+)/gi
   ];
   explicitPatterns.forEach((pattern) => {
-    for (const match of explicitText.matchAll(pattern)) {
+    for (const match of Array.from(explicitText.matchAll(pattern))) {
       numbers.add(Number(match[1]));
     }
   });
