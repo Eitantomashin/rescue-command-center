@@ -8282,6 +8282,70 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
   font-weight: 750;
 }
 
+.site-correction-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.site-edit-panel,
+.site-cancel-panel {
+  max-width: min(100%, 620px);
+}
+
+.site-cancel-panel > summary.button {
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
+.inline-confirm-panel {
+  min-width: 180px;
+}
+
+.site-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.site-list-cancel-panel {
+  position: relative;
+}
+
+.site-list-cancel-panel .action-form {
+  min-width: min(360px, 80vw);
+}
+
+.inline-confirm-panel > summary {
+  list-style: none;
+}
+
+.inline-confirm-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cancelled-site-row {
+  color: #64748b;
+}
+
+.cancelled-site-row strong {
+  color: #334155;
+}
+
+.muted-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-end: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 @media (max-width: 1280px) {
   .war-room-top-grid.updated,
   .war-room-kpi-grid.secondary {

@@ -93,6 +93,14 @@ function structureErrorMessage(message: string) {
   return message || "לא ניתן להשלים את שינוי המבנה.";
 }
 
+function revalidateSiteSurfaces(incidentId: string, siteId: string) {
+  revalidatePath(`/incidents/${incidentId}`);
+  revalidatePath(`/incidents/${incidentId}/sites`);
+  revalidatePath(`/incidents/${incidentId}/sites/${siteId}`);
+  revalidatePath(`/incidents/${incidentId}/war-room`);
+  revalidatePath(`/incidents/${incidentId}/operational-log`);
+}
+
 function suffixList(formData: FormData) {
   const raw = value(formData, "suffixes");
   const suffixes = raw
@@ -122,6 +130,48 @@ async function getUnitContext(unitId: string) {
     floor_id: string;
     unit_number: string;
   };
+}
+
+export async function updateSiteDetails(formData: FormData) {
+  const path = sitePath(formData);
+  const incidentId = requiredValue(formData, "incidentId", "אירוע");
+  const siteId = requiredValue(formData, "siteId", "אתר");
+  const supabase = createClient();
+  const { error } = await supabase.rpc("update_site_safe_details", {
+    p_site_id: siteId,
+    p_name: nullableValue(formData, "siteName"),
+    p_site_type: requiredValue(formData, "siteType", "סוג אתר"),
+    p_city: nullableValue(formData, "city"),
+    p_street: requiredValue(formData, "street", "רחוב"),
+    p_house_number: requiredValue(formData, "houseNumber", "מספר בית"),
+    p_search_reason: nullableValue(formData, "searchReason"),
+    p_search_priority: nullableValue(formData, "searchPriority")
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidateSiteSurfaces(incidentId, siteId);
+  redirect(path);
+}
+
+export async function cancelSiteAction(formData: FormData) {
+  const incidentId = requiredValue(formData, "incidentId", "אירוע");
+  const siteId = requiredValue(formData, "siteId", "אתר");
+  const supabase = createClient();
+  const { error } = await supabase.rpc("cancel_site", {
+    p_site_id: siteId,
+    p_reason: requiredValue(formData, "reason", "סיבת ביטול"),
+    p_reason_other: nullableValue(formData, "reasonOther")
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidateSiteSurfaces(incidentId, siteId);
+  redirect(`/incidents/${incidentId}/sites`);
 }
 
 export async function createUnitResident(formData: FormData) {

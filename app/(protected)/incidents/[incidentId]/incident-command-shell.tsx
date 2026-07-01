@@ -111,6 +111,11 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
     return items;
   }
 
+  if (pathname === `${base}/cancelled-sites`) {
+    items.push({ label: "אתרים שבוטלו", href: pathname });
+    return items;
+  }
+
   if (pathname === `${base}/personnel`) {
     items.push({ label: "כח אדם באירוע", href: pathname });
     return items;

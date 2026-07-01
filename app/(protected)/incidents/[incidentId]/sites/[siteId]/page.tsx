@@ -13,6 +13,7 @@ import { closeSite, reopenSite } from "../../lifecycle-actions";
 import { CreateSearchSiteReportButton } from "../../reports/search-sites/create-search-site-report-button";
 import {
   addApartmentToFloor,
+  cancelSiteAction,
   clearUnit,
   completeSearchUnitAction,
   createGeneralAreaResident,
@@ -23,6 +24,7 @@ import {
   reopenClearedUnit,
   saveSearchUnit,
   splitApartmentUnit,
+  updateSiteDetails,
   updateUnitResident,
   updateUnitStatus
 } from "./actions";
@@ -64,8 +66,12 @@ type SiteRecordRow = {
   street: string | null;
   house_number: string | null;
   lifecycle_status: "open" | "paused" | "closed";
+  is_active: boolean;
+  is_cancelled?: boolean | null;
   site_type: string | null;
   search_status: string | null;
+  search_reason: string | null;
+  search_priority: string | null;
 };
 
 type FloorRow = {
@@ -612,6 +618,101 @@ function hiddenContext(incidentId: string, siteId: string, unitId?: string) {
   );
 }
 
+function SiteCorrectionControls({
+  incidentId,
+  site,
+  canEdit,
+  hasLinkedData
+}: {
+  incidentId: string;
+  site: SiteRecordRow;
+  canEdit: boolean;
+  hasLinkedData: boolean;
+}) {
+  if (!canEdit) {
+    return null;
+  }
+
+  return (
+    <div className="site-correction-controls">
+      <details className="create-number-panel site-edit-panel">
+        <summary className="button secondary">עריכת אתר</summary>
+        <form action={updateSiteDetails} className="action-form">
+          <input type="hidden" name="incidentId" value={incidentId} />
+          <input type="hidden" name="siteId" value={site.id} />
+          <strong>עריכת פרטי אתר</strong>
+          <div className="form-grid">
+            <label>
+              שם אתר
+              <input className="input" name="siteName" defaultValue={site.name ?? ""} />
+            </label>
+            <label>
+              סוג אתר
+              <select className="input" name="siteType" defaultValue={site.site_type ?? "rescue_site"} required>
+                <option value="rescue_site">אתר חילוץ</option>
+                <option value="search_site">אתר סריקה</option>
+              </select>
+            </label>
+            <label>
+              עיר
+              <input className="input" name="city" defaultValue={site.city ?? ""} />
+            </label>
+            <label>
+              רחוב
+              <input className="input" name="street" defaultValue={site.street ?? ""} required />
+            </label>
+            <label>
+              מספר בית
+              <input className="input" name="houseNumber" defaultValue={site.house_number ?? ""} required />
+            </label>
+            <label>
+              סיבת סריקה
+              <input className="input" name="searchReason" defaultValue={site.search_reason ?? ""} />
+            </label>
+            <label>
+              עדיפות סריקה
+              <input className="input" name="searchPriority" defaultValue={site.search_priority ?? ""} />
+            </label>
+          </div>
+          <button className="button" type="submit">שמור פרטי אתר</button>
+        </form>
+      </details>
+
+      <details className="create-number-panel site-cancel-panel">
+        <summary className="button danger">בטל אתר</summary>
+        <form action={cancelSiteAction} className="action-form">
+          <input type="hidden" name="incidentId" value={incidentId} />
+          <input type="hidden" name="siteId" value={site.id} />
+          <strong>ביטול אתר</strong>
+          <p className="warning-text">
+            האם לבטל את האתר? פעולה זו תסתיר את האתר מהדשבורדים והחישובים, אך תשמור את ההיסטוריה והנתונים המקושרים.
+          </p>
+          {hasLinkedData ? (
+            <p className="warning-text">
+              לאתר קיימים נתונים מקושרים. הביטול יסיר אותו מהתצוגות הפעילות אך לא ימחק את הנתונים.
+            </p>
+          ) : null}
+          <label>
+            סיבת ביטול
+            <select className="input" name="reason" required>
+              <option value="">בחר סיבה</option>
+              <option value="created_by_mistake">נוצר בטעות</option>
+              <option value="duplicate">כפילות</option>
+              <option value="wrong_site">אתר שגוי</option>
+              <option value="other">אחר</option>
+            </select>
+          </label>
+          <label>
+            פירוט אחר
+            <input className="input" name="reasonOther" placeholder="נדרש אם נבחר אחר" />
+          </label>
+          <button className="button danger" type="submit">בטל אתר</button>
+        </form>
+      </details>
+    </div>
+  );
+}
+
 function SearchSiteMobileWorkflow({
   incidentId,
   site,
@@ -620,6 +721,7 @@ function SearchSiteMobileWorkflow({
   searchResultsByUnit,
   summary,
   canEdit,
+  canCorrectSite,
   canCreateSearchReport,
   reportErrorMessage
 }: {
@@ -630,6 +732,7 @@ function SearchSiteMobileWorkflow({
   searchResultsByUnit: Map<string, SearchUnitRow>;
   summary: SearchSiteSummaryRow;
   canEdit: boolean;
+  canCorrectSite: boolean;
   canCreateSearchReport: boolean;
   reportErrorMessage?: string;
 }) {
@@ -676,6 +779,12 @@ function SearchSiteMobileWorkflow({
           <span className="site-type-badge search-site">אתר סריקה</span>
           <h1>{siteName}</h1>
           <p>{[site.street, site.house_number, site.city].filter(Boolean).join(" ")}</p>
+          <SiteCorrectionControls
+            incidentId={incidentId}
+            site={site}
+            canEdit={canCorrectSite}
+            hasLinkedData={summary.total_units > 0 || scannedUnits > 0}
+          />
         </div>
         <div className="search-site-hero-status">
           <span className={`search-status-badge search-site-live-${siteLiveStatus.tone}`}>{siteLiveStatus.label}</span>
@@ -909,12 +1018,12 @@ export default async function SiteDetailsPage({
 
   const { data: siteRecord, error: siteRecordError } = await supabase
     .from("sites")
-    .select("id,incident_id,name,city,street,house_number,lifecycle_status,site_type,search_status")
+    .select("id,incident_id,name,city,street,house_number,lifecycle_status,is_active,is_cancelled,site_type,search_status,search_reason,search_priority")
     .eq("incident_id", params.incidentId)
     .eq("id", params.siteId)
     .maybeSingle();
 
-  if (siteRecordError || !siteRecord) {
+  if (siteRecordError || !siteRecord || !siteRecord.is_active || siteRecord.is_cancelled) {
     notFound();
   }
 
@@ -927,6 +1036,7 @@ export default async function SiteDetailsPage({
       { data: unitRows, error: unitsError },
       { data: searchRows },
       { data: canEditSearch },
+      { data: canCorrectSite },
       { data: currentRole }
     ] = await Promise.all([
       supabase
@@ -951,6 +1061,7 @@ export default async function SiteDetailsPage({
         .eq("incident_id", params.incidentId)
         .eq("site_id", params.siteId),
       supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId }),
+      supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId }),
       supabase.rpc("current_user_role")
     ]);
 
@@ -979,6 +1090,7 @@ export default async function SiteDetailsPage({
         searchResultsByUnit={searchResultsByUnit}
         summary={liveSearchSummary}
         canEdit={Boolean(canEditSearch && initialSiteRecord.lifecycle_status !== "closed")}
+        canCorrectSite={Boolean(canCorrectSite && initialSiteRecord.lifecycle_status !== "closed")}
         canCreateSearchReport={["admin", "commander"].includes(String(currentRole ?? ""))}
         reportErrorMessage={searchParams?.searchReport === "error" ? decodeURIComponent(searchParams?.message ?? "") : undefined}
       />
@@ -1122,6 +1234,11 @@ export default async function SiteDetailsPage({
   const unlinkedPersons = persons.filter(
     (person) => !person.unit_id && !linkedResidentsByPerson.has(person.id)
   );
+  const siteHasLinkedData =
+    units.length > 0 ||
+    residents.length > 0 ||
+    generalResidents.length > 0 ||
+    dashboardPersons.some((person) => person.site_id === params.siteId);
   const activeGeneralResidents = generalResidents.filter((resident) => resident.is_active);
   const residentMatchesSearch = (resident: ResidentRow) => {
     if (!residentSearchQuery) {
@@ -1166,6 +1283,12 @@ export default async function SiteDetailsPage({
             <span className={`site-type-badge ${searchSite ? "search-site" : "rescue-site"}`}>{siteTypeLabel(siteType)}</span>
             {searchSite ? <span className="search-status-badge">{searchStatusLabel(searchStatus)}</span> : null}
           </div>
+          <SiteCorrectionControls
+            incidentId={params.incidentId}
+            site={initialSiteRecord}
+            canEdit={canEditThisSite}
+            hasLinkedData={siteHasLinkedData}
+          />
           {searchParams?.structureError ? (
             <p className="error structure-error-message">{searchParams.structureError}</p>
           ) : null}

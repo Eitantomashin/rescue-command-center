@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatNumber } from "@/lib/format";
 import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
+import { cancelSiteFromListAction } from "./actions";
 
 type SiteRow = {
   incident_id: string;
@@ -32,11 +33,20 @@ export default async function SitesPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: incident }, { data, error }, { data: siteMetadataRows }, { data: canManageSites }] = await Promise.all([
+  const [
+    { data: incident },
+    { data, error },
+    { data: siteMetadataRows },
+    { data: canManageSites },
+    { data: canCancelSites },
+    { data: currentRole }
+  ] = await Promise.all([
     supabase.from("incidents").select("id,name").eq("id", params.incidentId).maybeSingle(),
     supabase.from("site_dashboard_summary").select("*").eq("incident_id", params.incidentId).order("site_number", { ascending: true }),
     supabase.from("sites").select("id,site_type,search_status").eq("incident_id", params.incidentId).eq("is_active", true),
-    supabase.rpc("can_manage_sites", { p_incident_id: params.incidentId })
+    supabase.rpc("can_manage_sites", { p_incident_id: params.incidentId }),
+    supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId }),
+    supabase.rpc("current_user_role")
   ]);
 
   const siteMetadata = new Map(
@@ -57,6 +67,11 @@ export default async function SitesPage({
         </div>
 
         <div className="actions">
+          {currentRole === "admin" ? (
+            <Link className="button secondary" href={`/incidents/${params.incidentId}/cancelled-sites`}>
+              אתרים שבוטלו
+            </Link>
+          ) : null}
           {canManageSites ? (
           <Link className="button" href={`/incidents/${params.incidentId}/sites/new`}>
             הקמת אתר חדש
@@ -123,12 +138,45 @@ export default async function SitesPage({
                   <td>{formatNumber(site.gap_resolved_count)}</td>
                   <td className="table-emphasis">{formatNumber(site.operational_gap)}</td>
                   <td>
+                    <div className="site-list-actions">
                     <Link
                       className="button secondary"
                       href={`/incidents/${params.incidentId}/sites/${site.site_id}`}
                     >
                       פתיחת תמונת מבנה
                     </Link>
+                    {canCancelSites ? (
+                      <details className="inline-confirm-panel site-list-cancel-panel">
+                        <summary className="button danger">בטל אתר</summary>
+                        <form action={cancelSiteFromListAction} className="action-form">
+                          <input type="hidden" name="incidentId" value={params.incidentId} />
+                          <input type="hidden" name="siteId" value={site.site_id} />
+                          <strong>ביטול אתר</strong>
+                          <p className="warning-text">
+                            האם לבטל את האתר? פעולה זו תסתיר את האתר מהדשבורדים והחישובים, אך תשמור את ההיסטוריה והנתונים המקושרים.
+                          </p>
+                          <p className="warning-text">
+                            לאתר קיימים נתונים מקושרים. הביטול יסיר אותו מהתצוגות הפעילות אך לא ימחק את הנתונים.
+                          </p>
+                          <label>
+                            סיבת ביטול
+                            <select className="input" name="reason" required>
+                              <option value="">בחר סיבה</option>
+                              <option value="created_by_mistake">נוצר בטעות</option>
+                              <option value="duplicate">כפילות</option>
+                              <option value="wrong_site">אתר שגוי</option>
+                              <option value="other">אחר</option>
+                            </select>
+                          </label>
+                          <label>
+                            פירוט אחר
+                            <input className="input" name="reasonOther" placeholder="נדרש אם נבחר אחר" />
+                          </label>
+                          <button className="button danger" type="submit">אשר ביטול אתר</button>
+                        </form>
+                      </details>
+                    ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
