@@ -12,6 +12,7 @@ import {
   mergeOperationalNumbers,
   openOperationalTeam
 } from "./actions";
+import { ForcedOperationalNumberForm } from "./forced-operational-number-form";
 
 const defaultTeams = [
   { number: 1, label: operationalTeamLabel(1) },
@@ -410,6 +411,13 @@ export default async function OperationalNumbersPage({
                 {!defaultStatusId ? <p className="error">לא נמצא סטטוס ברירת מחדל נעדר.</p> : null}
               </form>
             </details>
+
+            <ForcedOperationalNumberForm
+              incidentId={params.incidentId}
+              siteId={params.siteId}
+              teams={teams}
+              activeTeam={activeTeam}
+            />
 
             <details className="create-number-panel add-team-panel">
               <summary className="button secondary">הוסף צוות</summary>

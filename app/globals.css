@@ -8266,6 +8266,22 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
   font-weight: 950;
 }
 
+.force-number-panel > summary.button {
+  border-color: rgba(249, 168, 37, 0.55);
+  color: #7a4a00;
+  background: #fff7e0;
+}
+
+.force-number-panel .warning-text {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(249, 168, 37, 0.36);
+  border-radius: 8px;
+  color: #7a4a00;
+  background: #fff8e8;
+  font-weight: 750;
+}
+
 @media (max-width: 1280px) {
   .war-room-top-grid.updated,
   .war-room-kpi-grid.secondary {

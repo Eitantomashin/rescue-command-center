@@ -153,6 +153,118 @@ export async function createOperationalNumber(formData: FormData) {
   redirect(pagePath(incidentId, siteId, personId as string, teamNumber));
 }
 
+export async function createForcedOperationalNumber(formData: FormData) {
+  const incidentId = requiredValue(formData, "incidentId", "אירוע");
+  const siteId = requiredValue(formData, "siteId", "אתר");
+  const teamNumber = positiveInteger(formData, "teamNumber", "צוות");
+  const operationalNumber = positiveInteger(formData, "operationalNumber", "מספר מבצעי מבוקש");
+  const reason = requiredValue(formData, "reason", "סיבת פתיחה מאולצת");
+  const statusId = await defaultPersonStatusId(incidentId);
+  const supabase = createClient();
+
+  const { data: personId, error } = await supabase.rpc("create_forced_operational_number", {
+    p_incident_id: incidentId,
+    p_site_id: siteId,
+    p_team_number: teamNumber,
+    p_operational_number: operationalNumber,
+    p_status_id: statusId,
+    p_reason: reason,
+    p_information_source_type: DEFAULT_SOURCE_TYPE,
+    p_confidence_level: DEFAULT_CONFIDENCE,
+    p_reported_at: new Date().toISOString()
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(pagePath(incidentId, siteId));
+  revalidatePath(`/incidents/${incidentId}`);
+  revalidatePath(`/incidents/${incidentId}/war-room`);
+  revalidatePath(`/incidents/${incidentId}/operational-log`);
+  revalidatePath(`/incidents/${incidentId}/sites/${siteId}`);
+  redirect(pagePath(incidentId, siteId, personId as string, teamNumber));
+}
+
+export type ForcedOperationalNumberState = {
+  error: string | null;
+  success: string | null;
+};
+
+function forcedOperationalNumberErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("already exists") ||
+    normalized.includes("duplicate") ||
+    normalized.includes("unique")
+  ) {
+    return "המספר המבצעי כבר קיים באירוע ולא ניתן לפתוח אותו שוב.";
+  }
+
+  if (
+    normalized.includes("not valid for team") ||
+    normalized.includes("expected team_number") ||
+    normalized.includes("range")
+  ) {
+    return "המספר המבצעי אינו תואם לצוות שנבחר.";
+  }
+
+  if (normalized.includes("reason") || normalized.includes("required") || normalized.includes("שדה חובה")) {
+    return "יש להזין סיבת פתיחה מאולצת.";
+  }
+
+  return "לא ניתן לפתוח את המספר המבצעי המאולץ. בדוק את הפרטים ונסה שוב.";
+}
+
+export async function createForcedOperationalNumberWithState(
+  _previousState: ForcedOperationalNumberState,
+  formData: FormData
+): Promise<ForcedOperationalNumberState> {
+  let incidentId = "";
+  let siteId = "";
+  let teamNumber = 0;
+  let personId: string | null = null;
+
+  try {
+    incidentId = requiredValue(formData, "incidentId", "אירוע");
+    siteId = requiredValue(formData, "siteId", "אתר");
+    teamNumber = positiveInteger(formData, "teamNumber", "צוות");
+    const operationalNumber = positiveInteger(formData, "operationalNumber", "מספר מבצעי מבוקש");
+    const reason = requiredValue(formData, "reason", "סיבת פתיחה מאולצת");
+    const statusId = await defaultPersonStatusId(incidentId);
+    const supabase = createClient();
+
+    const { data, error } = await supabase.rpc("create_forced_operational_number", {
+      p_incident_id: incidentId,
+      p_site_id: siteId,
+      p_team_number: teamNumber,
+      p_operational_number: operationalNumber,
+      p_status_id: statusId,
+      p_reason: reason,
+      p_information_source_type: DEFAULT_SOURCE_TYPE,
+      p_confidence_level: DEFAULT_CONFIDENCE,
+      p_reported_at: new Date().toISOString()
+    });
+
+    if (error) {
+      return { error: forcedOperationalNumberErrorMessage(error.message), success: null };
+    }
+
+    personId = data as string;
+  } catch (error) {
+    return { error: forcedOperationalNumberErrorMessage(error), success: null };
+  }
+
+  revalidatePath(pagePath(incidentId, siteId));
+  revalidatePath(`/incidents/${incidentId}`);
+  revalidatePath(`/incidents/${incidentId}/war-room`);
+  revalidatePath(`/incidents/${incidentId}/operational-log`);
+  revalidatePath(`/incidents/${incidentId}/sites/${siteId}`);
+  redirect(pagePath(incidentId, siteId, personId, teamNumber));
+}
+
 export async function updateOperationalPersonName(formData: FormData) {
   const incidentId = requiredValue(formData, "incidentId", "incidentId");
   const siteId = requiredValue(formData, "siteId", "siteId");
