@@ -391,6 +391,41 @@ export async function updateUnitResident(formData: FormData) {
   redirect(path);
 }
 
+export async function linkImportedResidentToUnitResident(formData: FormData) {
+  const path = sitePath(formData);
+  const importedResidentId = requiredValue(formData, "importedResidentId", "דייר מיובא");
+  const residentId = requiredValue(formData, "residentId", "דייר");
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("link_imported_site_resident", {
+    p_imported_resident_id: importedResidentId,
+    p_resident_id: residentId
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(path, "page");
+  redirect(path);
+}
+
+export async function releaseImportedResidentLink(formData: FormData) {
+  const path = sitePath(formData);
+  const importedResidentId = requiredValue(formData, "importedResidentId", "דייר מיובא");
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("release_imported_site_resident_link", {
+    p_imported_resident_id: importedResidentId
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(path, "page");
+  redirect(path);
+}
 export async function addApartmentToFloor(formData: FormData) {
   const path = sitePath(formData);
   const floorId = requiredValue(formData, "floorId", "קומה");

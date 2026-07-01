@@ -2,7 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatNumber } from "@/lib/format";
 import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
-import { cancelSiteFromListAction, updateSiteFromListAction } from "./actions";
+import { cancelSiteFromListAction, importSiteResidentListAction, updateSiteFromListAction } from "./actions";
+import {
+  ImportedSiteResidentsTable,
+  SiteResidentImportForm,
+  type ImportedSiteResidentListRow
+} from "./imported-site-residents-table";
 
 type SiteRow = {
   incident_id: string;
@@ -29,9 +34,11 @@ type SiteRow = {
 };
 
 export default async function SitesPage({
-  params
+  params,
+  searchParams
 }: {
   params: { incidentId: string };
+  searchParams?: { residentImport?: string; count?: string; siteId?: string };
 }) {
   const supabase = createClient();
 
@@ -39,6 +46,7 @@ export default async function SitesPage({
     { data: incident },
     { data, error },
     { data: siteMetadataRows },
+    { data: importedResidentRows },
     { data: canManageSites },
     { data: canCancelSites },
     { data: currentRole }
@@ -50,6 +58,12 @@ export default async function SitesPage({
       .select("id,site_type,search_status,search_reason,search_priority")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true),
+    supabase
+      .from("imported_site_residents")
+      .select("id,site_id,floor,apartment,first_name,last_name,gender,age,phone,notes,linked_resident_id")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false }),
     supabase.rpc("can_manage_sites", { p_incident_id: params.incidentId }),
     supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId }),
     supabase.rpc("current_user_role")
@@ -72,6 +86,18 @@ export default async function SitesPage({
     search_status: siteMetadata.get(site.site_id)?.search_status ?? null,
     search_reason: siteMetadata.get(site.site_id)?.search_reason ?? null,
     search_priority: siteMetadata.get(site.site_id)?.search_priority ?? null
+  }));
+  const siteLabelById = new Map(
+    sites.map((site) => [
+      site.site_id,
+      site.name ?? `אתר ${site.site_number} - ${site.street} ${site.house_number}`
+    ])
+  );
+  const importedResidents: ImportedSiteResidentListRow[] = ((importedResidentRows ?? []) as Array<
+    Omit<ImportedSiteResidentListRow, "site_label"> & { site_id: string }
+  >).map((row) => ({
+    ...row,
+    site_label: siteLabelById.get(row.site_id) ?? "אתר לא ידוע"
   }));
 
   return (
@@ -102,6 +128,12 @@ export default async function SitesPage({
       {error ? (
         <section className="panel">
           <p className="error">לא ניתן לטעון אתרים: {error.message}</p>
+        </section>
+      ) : null}
+
+      {searchParams?.residentImport === "success" ? (
+        <section className="panel success-panel">
+          <p>רשימת הדיירים נטענה בהצלחה. נוספו {formatNumber(Number(searchParams.count ?? 0))} רשומות.</p>
         </section>
       ) : null}
 
@@ -206,6 +238,14 @@ export default async function SitesPage({
                       </details>
                     ) : null}
                     {canCancelSites ? (
+                      <SiteResidentImportForm
+                        action={importSiteResidentListAction}
+                        incidentId={params.incidentId}
+                        siteId={site.site_id}
+                        siteLabel={site.name ?? `אתר ${site.site_number}`}
+                      />
+                    ) : null}
+                    {canCancelSites ? (
                       <details className="inline-confirm-panel site-list-cancel-panel">
                         <summary className="button danger">בטל אתר</summary>
                         <form action={cancelSiteFromListAction} className="action-form">
@@ -244,6 +284,8 @@ export default async function SitesPage({
           </table>
         )}
       </section>
+
+      <ImportedSiteResidentsTable rows={importedResidents} />
     </main>
   );
 }

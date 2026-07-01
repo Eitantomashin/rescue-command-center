@@ -20,6 +20,8 @@ import {
   createUnitResident,
   deleteEmptyPlaceholderResident,
   linkExistingPersonToResident,
+  linkImportedResidentToUnitResident,
+  releaseImportedResidentLink,
   removeApartmentUnit,
   reopenClearedUnit,
   saveSearchUnit,
@@ -28,6 +30,7 @@ import {
   updateUnitResident,
   updateUnitStatus
 } from "./actions";
+import { ImportedResidentLinkPicker, type ImportedResidentOption } from "./imported-resident-link-picker";
 
 type SiteSummaryRow = {
   incident_id: string;
@@ -1116,7 +1119,8 @@ export default async function SiteDetailsPage({
     { data: allStatusRows, error: statusesError },
     { data: siteLifecycle },
     { data: canControlLifecycle },
-    { data: canEditOperational }
+    { data: canEditOperational },
+    { data: currentRole }
   ] = await Promise.all([
     supabase
       .from("floors")
@@ -1145,7 +1149,8 @@ export default async function SiteDetailsPage({
       .eq("id", params.siteId)
       .maybeSingle(),
     supabase.rpc("can_control_incident_lifecycle", { p_incident_id: params.incidentId }),
-    supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId })
+    supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId }),
+    supabase.rpc("current_user_role")
   ]);
 
   const floors = (floorRows ?? []) as FloorRow[];
@@ -1156,13 +1161,17 @@ export default async function SiteDetailsPage({
   const searchStatus = siteMetadata?.search_status ?? site.search_status ?? null;
   const searchSite = isSearchSite({ site_type: siteType });
   const canEditThisSite = Boolean(canEditOperational && siteLifecycleStatus !== "closed");
+  const canReleaseImportedResidentLinks = ["admin", "commander", "system_administrator", "incident_commander"].includes(
+    String(currentRole ?? "")
+  );
   const unitIds = units.map((unit) => unit.id);
 
   const [
     { data: residentRows },
     { data: generalResidentRows },
     { data: personRows },
-    { data: linkedResidentRows }
+    { data: linkedResidentRows },
+    { data: importedResidentRows }
   ] =
     await Promise.all([
       unitIds.length > 0
@@ -1192,13 +1201,26 @@ export default async function SiteDetailsPage({
         .select("id,site_id,unit_id,first_name,last_name,gender,age,phone,status_id,linked_person_id,is_active,notes")
         .eq("incident_id", params.incidentId)
         .not("linked_person_id", "is", null)
-        .order("last_name", { ascending: true })
+        .order("last_name", { ascending: true }),
+      supabase
+        .from("imported_site_residents")
+        .select("id,floor,apartment,first_name,last_name,gender,age,phone,notes,linked_resident_id")
+        .eq("incident_id", params.incidentId)
+        .eq("site_id", params.siteId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
     ]);
 
   const residents = (residentRows ?? []) as ResidentRow[];
   const generalResidents = (generalResidentRows ?? []) as ResidentRow[];
   const dashboardPersons = (personRows ?? []) as PersonRow[];
   const linkedResidents = (linkedResidentRows ?? []) as ResidentRow[];
+  const importedResidents = (importedResidentRows ?? []) as ImportedResidentOption[];
+  const importedResidentByResidentId = new Map(
+    importedResidents
+      .filter((row) => row.linked_resident_id)
+      .map((row) => [row.linked_resident_id as string, row])
+  );
   const allStatuses = (allStatusRows ?? []) as StatusRow[];
   const statuses = new Map(allStatuses.map((status) => [status.id, status]));
   const unitStatuses = statusOptions(allStatuses, "unit");
@@ -1736,6 +1758,17 @@ export default async function SiteDetailsPage({
                                             </button>
                                           </form>
 
+                                          <ImportedResidentLinkPicker
+                                            rows={importedResidents}
+                                            action={linkImportedResidentToUnitResident}
+                                            releaseAction={releaseImportedResidentLink}
+                                            incidentId={params.incidentId}
+                                            siteId={params.siteId}
+                                            residentId={resident.id}
+                                            linkedImportedResident={importedResidentByResidentId.get(resident.id) ?? null}
+                                            canRelease={canReleaseImportedResidentLinks}
+                                          />
+
                                           <form action={linkExistingPersonToResident} className="resident-link-form wide-link-form">
                                             {hiddenContext(params.incidentId, params.siteId)}
                                             <input type="hidden" name="residentId" value={resident.id} />
@@ -1940,6 +1973,17 @@ export default async function SiteDetailsPage({
                         שמור דייר
                       </button>
                     </form>
+
+                    <ImportedResidentLinkPicker
+                      rows={importedResidents}
+                      action={linkImportedResidentToUnitResident}
+                      releaseAction={releaseImportedResidentLink}
+                      incidentId={params.incidentId}
+                      siteId={params.siteId}
+                      residentId={resident.id}
+                      linkedImportedResident={importedResidentByResidentId.get(resident.id) ?? null}
+                      canRelease={canReleaseImportedResidentLinks}
+                    />
 
                     <form action={linkExistingPersonToResident} className="resident-link-form wide-link-form">
                       {hiddenContext(params.incidentId, params.siteId)}
