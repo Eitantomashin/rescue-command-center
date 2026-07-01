@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatNumber } from "@/lib/format";
 import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
-import { cancelSiteFromListAction } from "./actions";
+import { cancelSiteFromListAction, updateSiteFromListAction } from "./actions";
 
 type SiteRow = {
   incident_id: string;
@@ -24,6 +24,8 @@ type SiteRow = {
   operational_gap: number;
   site_type?: string | null;
   search_status?: string | null;
+  search_reason?: string | null;
+  search_priority?: string | null;
 };
 
 export default async function SitesPage({
@@ -43,19 +45,33 @@ export default async function SitesPage({
   ] = await Promise.all([
     supabase.from("incidents").select("id,name").eq("id", params.incidentId).maybeSingle(),
     supabase.from("site_dashboard_summary").select("*").eq("incident_id", params.incidentId).order("site_number", { ascending: true }),
-    supabase.from("sites").select("id,site_type,search_status").eq("incident_id", params.incidentId).eq("is_active", true),
+    supabase
+      .from("sites")
+      .select("id,site_type,search_status,search_reason,search_priority")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true),
     supabase.rpc("can_manage_sites", { p_incident_id: params.incidentId }),
     supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId }),
     supabase.rpc("current_user_role")
   ]);
 
   const siteMetadata = new Map(
-    ((siteMetadataRows ?? []) as Array<{ id: string; site_type: string | null; search_status: string | null }>).map((site) => [site.id, site])
+    (
+      (siteMetadataRows ?? []) as Array<{
+        id: string;
+        site_type: string | null;
+        search_status: string | null;
+        search_reason: string | null;
+        search_priority: string | null;
+      }>
+    ).map((site) => [site.id, site])
   );
   const sites = ((data ?? []) as SiteRow[]).map((site) => ({
     ...site,
     site_type: siteMetadata.get(site.site_id)?.site_type ?? "rescue_site",
-    search_status: siteMetadata.get(site.site_id)?.search_status ?? null
+    search_status: siteMetadata.get(site.site_id)?.search_status ?? null,
+    search_reason: siteMetadata.get(site.site_id)?.search_reason ?? null,
+    search_priority: siteMetadata.get(site.site_id)?.search_priority ?? null
   }));
 
   return (
@@ -145,6 +161,50 @@ export default async function SitesPage({
                     >
                       פתיחת תמונת מבנה
                     </Link>
+                    {canCancelSites ? (
+                      <details className="inline-confirm-panel site-list-edit-panel">
+                        <summary className="button secondary">עריכת אתר</summary>
+                        <form action={updateSiteFromListAction} className="action-form">
+                          <input type="hidden" name="incidentId" value={params.incidentId} />
+                          <input type="hidden" name="siteId" value={site.site_id} />
+                          <strong>עריכת פרטי אתר</strong>
+                          <div className="form-grid">
+                            <label>
+                              שם האתר
+                              <input className="input" name="siteName" defaultValue={site.name ?? ""} />
+                            </label>
+                            <label>
+                              סוג האתר
+                              <select className="input" name="siteType" defaultValue={site.site_type ?? "rescue_site"} required>
+                                <option value="rescue_site">אתר חילוץ</option>
+                                <option value="search_site">אתר סריקה</option>
+                              </select>
+                            </label>
+                            <label>
+                              עיר / מיקום
+                              <input className="input" name="city" defaultValue={site.city ?? ""} />
+                            </label>
+                            <label>
+                              רחוב / כתובת
+                              <input className="input" name="street" defaultValue={site.street ?? ""} required />
+                            </label>
+                            <label>
+                              מספר / סימון
+                              <input className="input" name="houseNumber" defaultValue={site.house_number ?? ""} required />
+                            </label>
+                            <label>
+                              עדיפות סריקה
+                              <input className="input" name="searchPriority" defaultValue={site.search_priority ?? ""} />
+                            </label>
+                            <label className="wide">
+                              הערות / פרטים
+                              <textarea className="input" name="siteDetails" defaultValue={site.search_reason ?? ""} rows={3} />
+                            </label>
+                          </div>
+                          <button className="button" type="submit">שמור אתר</button>
+                        </form>
+                      </details>
+                    ) : null}
                     {canCancelSites ? (
                       <details className="inline-confirm-panel site-list-cancel-panel">
                         <summary className="button danger">בטל אתר</summary>

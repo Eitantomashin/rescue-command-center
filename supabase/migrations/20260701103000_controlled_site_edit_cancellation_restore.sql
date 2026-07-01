@@ -98,7 +98,7 @@ begin
       city = nullif(btrim(p_city), ''),
       street = nullif(btrim(coalesce(p_street, v_site.street)), ''),
       house_number = nullif(btrim(coalesce(p_house_number, v_site.house_number)), ''),
-      search_reason = case when v_site_type = 'search_site' then nullif(btrim(p_search_reason), '') else search_reason end,
+      search_reason = nullif(btrim(p_search_reason), ''),
       search_priority = case when v_site_type = 'search_site' then nullif(btrim(p_search_priority), '') else search_priority end,
       search_status = case when v_site_type = 'search_site' then coalesce(search_status, 'not_started') else search_status end,
       updated_by = v_actor_id

@@ -8309,10 +8309,12 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
   align-items: flex-start;
 }
 
+.site-list-edit-panel,
 .site-list-cancel-panel {
   position: relative;
 }
 
+.site-list-edit-panel .action-form,
 .site-list-cancel-panel .action-form {
   min-width: min(360px, 80vw);
 }
