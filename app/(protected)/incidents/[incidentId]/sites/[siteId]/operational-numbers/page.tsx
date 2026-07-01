@@ -6,6 +6,7 @@ import { operationalTeamLabel, operationalTeamRange } from "@/lib/operational-te
 import { CollaborativeLockSection } from "../../../collaborative-lock";
 import { ScreenPresenceIndicator } from "../../../incident-presence";
 import {
+  cancelOperationalNumber,
   createOperationalNumber,
   createOperationalReport,
   mergeOperationalNumbers,
@@ -298,6 +299,17 @@ export default async function OperationalNumbersPage({
     : { data: [], error: null };
 
   const reports = (reportRows ?? []) as ReportRow[];
+  const selectedHasLinkedOperationalData = selectedPerson
+    ? reports.length > 0 ||
+      Boolean(
+        selectedPerson.resident_id ||
+          selectedPerson.unit_number ||
+          selectedPerson.latest_reported_at ||
+          selectedPerson.latest_source_type ||
+          selectedPerson.latest_grid_cell ||
+          selectedPerson.latest_notes
+      )
+    : false;
   const nextNumber = activeTeam ? nextNumberForTeam(numbers, activeTeam) : null;
   const defaultStatusId = personStatuses.find((status) => status.status_key === "missing")?.id ?? "";
 
@@ -610,6 +622,40 @@ export default async function OperationalNumbersPage({
                     </div>
                     <button className="button secondary" type="submit">
                       אחד מספרים
+                    </button>
+                  </form>
+                </details>
+              ) : null}
+
+              {canEditOperational && !selectedPerson.is_merged ? (
+                <details className="create-number-panel cancel-number-panel" key={`cancel-${selectedPerson.person_id}`}>
+                  <summary className="button danger">בטל מספר מבצעי</summary>
+                  <form action={cancelOperationalNumber} className="action-form report-form">
+                    {hiddenContext(params.incidentId, params.siteId)}
+                    <input type="hidden" name="personId" value={selectedPerson.person_id} />
+                    <input type="hidden" name="teamNumber" value={selectedPerson.team_number} />
+                    <strong>כיצד תרצה לבטל את המספר המבצעי?</strong>
+                    {selectedHasLinkedOperationalData ? (
+                      <p className="error">
+                        למספר המבצעי קיימים דיווחים ונתונים מקושרים. ביטול המספר יסיר אותו מהחישובים אך ישמור את ההיסטוריה.
+                      </p>
+                    ) : null}
+                    <label>
+                      סיבת ביטול
+                      <select className="input" name="cancellationReason" defaultValue="created_by_mistake" required>
+                        <option value="created_by_mistake">נוצר בטעות</option>
+                        <option value="duplicate">כפילות</option>
+                        <option value="opened_by_mistake">נפתח בטעות</option>
+                        <option value="other">אחר</option>
+                      </select>
+                    </label>
+                    <label>
+                      פירוט נוסף אם נבחר אחר
+                      <input className="input" name="cancellationReasonOther" placeholder="הזן סיבת ביטול" />
+                    </label>
+                    <p className="muted">המספר לא יימחק. ההיסטוריה, הדיווחים והלוגים יישמרו לתחקור ובקרה.</p>
+                    <button className="button danger" type="submit">
+                      אשר ביטול מספר מבצעי
                     </button>
                   </form>
                 </details>

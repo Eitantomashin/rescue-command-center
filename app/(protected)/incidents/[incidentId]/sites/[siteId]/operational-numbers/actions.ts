@@ -226,6 +226,32 @@ export async function mergeOperationalNumbers(formData: FormData) {
   redirect(pagePath(incidentId, siteId, primaryPersonId as string));
 }
 
+export async function cancelOperationalNumber(formData: FormData) {
+  const incidentId = requiredValue(formData, "incidentId", "אירוע");
+  const siteId = requiredValue(formData, "siteId", "אתר");
+  const personId = requiredValue(formData, "personId", "מספר מבצעי");
+  const teamNumber = positiveInteger(formData, "teamNumber", "צוות");
+  const reason = requiredValue(formData, "cancellationReason", "סיבת ביטול");
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("cancel_operational_number", {
+    p_person_id: personId,
+    p_reason: reason,
+    p_reason_other: nullableValue(formData, "cancellationReasonOther")
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(pagePath(incidentId, siteId, null, teamNumber));
+  revalidatePath(`/incidents/${incidentId}`);
+  revalidatePath(`/incidents/${incidentId}/war-room`);
+  revalidatePath(`/incidents/${incidentId}/operational-log`);
+  revalidatePath(`/incidents/${incidentId}/sites/${siteId}`);
+  redirect(pagePath(incidentId, siteId, null, teamNumber));
+}
+
 export async function openOperationalTeam(formData: FormData) {
   const incidentId = requiredValue(formData, "incidentId", "אירוע");
   const siteId = requiredValue(formData, "siteId", "אתר");
