@@ -192,7 +192,7 @@ export function SiteCreationWizard({
     setZones((current) => {
       const kept = current.filter((zone) => nextLevels.has(zone.level));
       const existingLevels = new Set(kept.map((zone) => zone.level));
-      const additions = [...nextLevels]
+      const additions = Array.from(nextLevels)
         .filter((level) => !existingLevels.has(level))
         .map((level) => ({
           id: `zone-${level}-default`,

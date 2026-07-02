@@ -174,14 +174,14 @@ export function buildSitrepDelta(current: SitrepSnapshot, previous?: SitrepSnaps
     }
   });
 
-  const anchorGroups = new Set([...currentStatusCounts.keys(), ...previousStatusCounts.keys()]);
+  const anchorGroups = new Set([...Array.from(currentStatusCounts.keys()), ...Array.from(previousStatusCounts.keys())]);
   const anchor = Array.from(anchorGroups).map((group) => ({
     group,
     label: STATUS_GROUP_LABELS[group] ?? group,
     value: numeric(previousStatusCounts.get(group) ?? 0, currentStatusCounts.get(group) ?? 0)
   }));
 
-  const sites = Array.from(new Set([...currentSites.keys(), ...previousSites.keys()])).map((siteId) => {
+  const sites = Array.from(new Set([...Array.from(currentSites.keys()), ...Array.from(previousSites.keys())])).map((siteId) => {
     const currentSite = currentSites.get(siteId);
     const previousSite = previousSites.get(siteId);
     const name = textValue(currentSite?.name, textValue(previousSite?.name, `אתר ${numberValue(currentSite?.site_number ?? previousSite?.site_number)}`));
@@ -194,7 +194,7 @@ export function buildSitrepDelta(current: SitrepSnapshot, previous?: SitrepSnaps
     };
   });
 
-  const teams = Array.from(new Set([...currentTeamCounts.keys(), ...previousTeamCounts.keys()]))
+  const teams = Array.from(new Set([...Array.from(currentTeamCounts.keys()), ...Array.from(previousTeamCounts.keys())]))
     .sort((a, b) => a - b)
     .map((teamNumber) => ({
       teamNumber,

@@ -56,7 +56,7 @@ export function compareSnapshots(current: SitrepSnapshot, previous?: SitrepSnaps
   const changes: string[] = [];
   const currentCounts = statusCounts(current);
   const previousCounts = statusCounts(previous);
-  const groups = new Set([...currentCounts.keys(), ...previousCounts.keys()]);
+  const groups = new Set([...Array.from(currentCounts.keys()), ...Array.from(previousCounts.keys())]);
 
   groups.forEach((group) => {
     const difference = (currentCounts.get(group) ?? 0) - (previousCounts.get(group) ?? 0);

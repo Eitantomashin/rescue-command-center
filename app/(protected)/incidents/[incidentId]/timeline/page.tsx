@@ -78,7 +78,7 @@ function operationalNumbers(row: TimelineRow) {
   const explicitText = `${row.title} ${row.description ?? ""}`;
   const patterns = [/#\s*(\d+)/g, /מספר\s+מבצעי\s*[:=]?\s*#?\s*(\d+)/g, /operational\s+number\s*[:=]?\s*#?\s*(\d+)/gi];
   patterns.forEach((pattern) => {
-    for (const match of explicitText.matchAll(pattern)) values.add(Number(match[1]));
+    Array.from(explicitText.matchAll(pattern)).forEach((match) => values.add(Number(match[1])));
   });
   return values;
 }
