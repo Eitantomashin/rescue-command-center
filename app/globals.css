@@ -8361,6 +8361,73 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
   gap: 12px;
 }
 
+.imported-residents-site-list {
+  display: grid;
+  gap: 12px;
+}
+
+.imported-residents-site-section {
+  border: 1px solid #dfe7f3;
+  border-radius: 8px;
+  background: #f8fbff;
+  overflow: hidden;
+}
+
+.imported-residents-site-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #f6f9ff 0%, #eef5ff 100%);
+  border-bottom: 1px solid transparent;
+}
+
+.imported-residents-site-section[open] .imported-residents-site-summary {
+  border-bottom-color: #dfe7f3;
+}
+
+.imported-residents-site-title {
+  color: var(--brand-primary);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.imported-residents-site-counts {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.imported-residents-site-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.imported-residents-site-tools {
+  align-items: center;
+}
+
+.imported-residents-site-tools h3 {
+  margin: 0 0 4px;
+  color: var(--brand-primary);
+}
+
+@media (max-width: 720px) {
+  .imported-residents-site-summary,
+  .imported-residents-site-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .imported-residents-site-counts {
+    white-space: normal;
+  }
+}
+
 .import-preview {
   display: grid;
   gap: 8px;
@@ -8568,4 +8635,49 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     flex-direction: column;
     align-items: stretch;
   }
+}
+.floor-card > .floor-summary-bar,
+.general-area-summary {
+  background: linear-gradient(135deg, #fbf8ff 0%, #f1f6ff 100%);
+  border-bottom: 1px solid rgba(107, 70, 193, 0.24);
+  box-shadow: inset 0 -1px 0 rgba(65, 96, 180, 0.12);
+}
+
+.floor-card > .floor-summary-bar {
+  border: 1px solid rgba(107, 70, 193, 0.2);
+  border-radius: 8px 8px 0 0;
+}
+
+.floor-summary-title h3,
+.general-area-summary h2 {
+  color: #4c357f;
+  font-weight: 900;
+}
+
+.floor-summary-title .muted,
+.general-area-summary .muted {
+  color: #5f6f8f;
+  font-weight: 700;
+}
+
+.floor-card > .floor-summary-bar .floor-tone-dot,
+.general-area-summary .floor-tone-dot {
+  background: #7c3aed;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.14);
+}
+
+.municipal-linked-resident-summary,
+.imported-linked-summary .linked-resident-summary-text {
+  color: #6b46c1 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0;
+}
+
+.resident-display-row .municipal-linked-resident-summary {
+  font-size: 17px;
+}
+
+.imported-linked-summary {
+  border-color: rgba(107, 70, 193, 0.26);
+  background: linear-gradient(135deg, #fbf8ff 0%, #f5f0ff 100%);
 }

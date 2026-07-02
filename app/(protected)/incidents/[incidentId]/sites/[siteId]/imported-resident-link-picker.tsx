@@ -33,11 +33,6 @@ function genderLabel(gender: string | null) {
   return "לא ידוע";
 }
 
-function locationLabel(row: ImportedResidentOption) {
-  return [row.floor ? `קומה ${row.floor}` : "קומה לא ידועה", row.apartment ? `דירה ${row.apartment}` : "דירה לא ידועה"]
-    .filter(Boolean)
-    .join(" • ");
-}
 
 function searchableText(row: ImportedResidentOption) {
   return [
@@ -93,6 +88,7 @@ export function ImportedResidentLinkPicker({
   siteId,
   residentId,
   linkedImportedResident,
+  linkedResidentSummary,
   canRelease
 }: {
   rows: ImportedResidentOption[];
@@ -102,6 +98,7 @@ export function ImportedResidentLinkPicker({
   siteId: string;
   residentId: string;
   linkedImportedResident: ImportedResidentOption | null;
+  linkedResidentSummary: string | null;
   canRelease: boolean;
 }) {
   const [query, setQuery] = useState("");
@@ -123,8 +120,7 @@ export function ImportedResidentLinkPicker({
       {linkedImportedResident ? (
         <div className="imported-linked-summary">
           <span className="status-badge success">משויך לרשימה</span>
-          <strong>{fullName(linkedImportedResident)}</strong>
-          <span>{locationLabel(linkedImportedResident)}</span>
+          <strong className="linked-resident-summary-text">{linkedResidentSummary ?? fullName(linkedImportedResident)}</strong>
           {canRelease ? (
             <form action={releaseAction}>
               <input type="hidden" name="incidentId" value={incidentId} />

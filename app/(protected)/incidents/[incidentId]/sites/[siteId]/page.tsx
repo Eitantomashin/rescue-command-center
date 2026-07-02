@@ -31,6 +31,7 @@ import {
   updateUnitStatus
 } from "./actions";
 import { ImportedResidentLinkPicker, type ImportedResidentOption } from "./imported-resident-link-picker";
+import { OperationalNumberLinkForm, type OperationalNumberLinkOption } from "./operational-number-link-form";
 
 type SiteSummaryRow = {
   incident_id: string;
@@ -408,6 +409,10 @@ function linkedPersonStatusLabel(statuses: Map<string, StatusRow>, linkedPerson:
 
 function displayName(person: Pick<PersonRow | ResidentRow, "first_name" | "last_name">) {
   return [person.first_name, person.last_name].filter(Boolean).join(" ") || "שם לא ידוע";
+}
+
+function hasResidentName(resident: ResidentRow) {
+  return [resident.first_name, resident.last_name].some((value) => Boolean(value?.trim()));
 }
 
 function personLabel(person: PersonRow, linkedResident?: ResidentRow | null) {
@@ -1201,6 +1206,7 @@ export default async function SiteDetailsPage({
         .select("id,site_id,unit_id,first_name,last_name,gender,age,phone,status_id,linked_person_id,is_active,notes")
         .eq("incident_id", params.incidentId)
         .not("linked_person_id", "is", null)
+        .eq("is_active", true)
         .order("last_name", { ascending: true }),
       supabase
         .from("imported_site_residents")
@@ -1235,15 +1241,20 @@ export default async function SiteDetailsPage({
   }, new Map());
 
   const residentsByUnit = groupByUnit(residents);
+  const activeSiteResidents = [...residents, ...generalResidents].filter((resident) => resident.is_active);
+  const residentIdsForSite = new Set(activeSiteResidents.map((resident) => resident.id));
+  const unitIdsForSite = new Set(unitIds);
   const linkedResidentIds = new Set(
-    [...residents, ...generalResidents]
+    activeSiteResidents
       .filter((resident) => resident.linked_person_id)
       .map((resident) => resident.linked_person_id as string)
   );
   const persons = dashboardPersons.filter(
     (person) =>
       person.site_id === params.siteId ||
-      (person.resident_id !== null && linkedResidentIds.has(person.id)) ||
+      (person.site_id === null && person.unit_id === null && person.resident_id === null) ||
+      (person.unit_id !== null && unitIdsForSite.has(person.unit_id)) ||
+      (person.resident_id !== null && residentIdsForSite.has(person.resident_id)) ||
       linkedResidentIds.has(person.id)
   );
   const personsById = new Map(persons.map((person) => [person.id, person]));
@@ -1691,12 +1702,14 @@ export default async function SiteDetailsPage({
                                           !linkedResidentsByPerson.has(person.id))
                                     );
                                     const residentEditKey = residentEditVersion(resident);
+                                    const linkedImportedResident = importedResidentByResidentId.get(resident.id) ?? null;
+                                    const residentSummaryLine = residentLine(statuses, resident, linkedPerson);
 
                                     return (
                                       <li className={`resident-item treatment-${state}`} key={resident.id}>
                                         <div className="resident-display-row">
                                           <div>
-                                            <strong>{residentLine(statuses, resident, linkedPerson)}</strong>
+                                            <strong className={hasResidentName(resident) ? "municipal-linked-resident-summary" : undefined}>{residentSummaryLine}</strong>
                                             <div className="resident-meta-badges">
                                               {linkedPerson ? (
                                                 <span className="operational-number-badge prominent">
@@ -1765,35 +1778,22 @@ export default async function SiteDetailsPage({
                                             incidentId={params.incidentId}
                                             siteId={params.siteId}
                                             residentId={resident.id}
-                                            linkedImportedResident={importedResidentByResidentId.get(resident.id) ?? null}
+                                            linkedImportedResident={linkedImportedResident}
+                                            linkedResidentSummary={residentSummaryLine}
                                             canRelease={canReleaseImportedResidentLinks}
                                           />
 
-                                          <form action={linkExistingPersonToResident} className="resident-link-form wide-link-form">
-                                            {hiddenContext(params.incidentId, params.siteId)}
-                                            <input type="hidden" name="residentId" value={resident.id} />
-                                            <select
-                                              className="input"
-                                              name="personId"
-                                              required
-                                              defaultValue={resident.linked_person_id ?? ""}
-                                              disabled={availablePeople.length === 0}
-                                            >
-                                              <option value="">קישור למספר מבצעי</option>
-                                              {availablePeople.map((person) => (
-                                                <option key={person.id} value={person.id}>
-                                                  {personLabel(person, linkedResidentsByPerson.get(person.id))}
-                                                </option>
-                                              ))}
-                                            </select>
-                                            <button
-                                              className="button secondary"
-                                              type="submit"
-                                              disabled={availablePeople.length === 0}
-                                            >
-                                              עדכן מספר מבצעי
-                                            </button>
-                                          </form>
+                                          <OperationalNumberLinkForm
+                                            action={linkExistingPersonToResident}
+                                            incidentId={params.incidentId}
+                                            siteId={params.siteId}
+                                            residentId={resident.id}
+                                            defaultPersonId={resident.linked_person_id}
+                                            options={availablePeople.map((person): OperationalNumberLinkOption => ({
+                                              id: person.id,
+                                              label: personLabel(person, linkedResidentsByPerson.get(person.id))
+                                            }))}
+                                          />
 
                                                             </CollaborativeLockSection>
                   </details>
@@ -1921,12 +1921,14 @@ export default async function SiteDetailsPage({
                   (person.id === resident.linked_person_id || !linkedResidentsByPerson.has(person.id))
               );
               const residentEditKey = residentEditVersion(resident);
+              const linkedImportedResident = importedResidentByResidentId.get(resident.id) ?? null;
+              const residentSummaryLine = residentLine(statuses, resident, linkedPerson);
 
               return (
                 <li className={`resident-item treatment-${state}`} key={resident.id}>
                   <div className="resident-display-row">
                   <div>
-                    <strong>{residentLine(statuses, resident, linkedPerson)}</strong>
+                    <strong className={hasResidentName(resident) ? "municipal-linked-resident-summary" : undefined}>{residentSummaryLine}</strong>
                     <div className="resident-meta-badges">
                       {linkedPerson ? (
                         <span className="operational-number-badge prominent">
@@ -1981,31 +1983,22 @@ export default async function SiteDetailsPage({
                       incidentId={params.incidentId}
                       siteId={params.siteId}
                       residentId={resident.id}
-                      linkedImportedResident={importedResidentByResidentId.get(resident.id) ?? null}
+                      linkedImportedResident={linkedImportedResident}
+                      linkedResidentSummary={residentSummaryLine}
                       canRelease={canReleaseImportedResidentLinks}
                     />
 
-                    <form action={linkExistingPersonToResident} className="resident-link-form wide-link-form">
-                      {hiddenContext(params.incidentId, params.siteId)}
-                      <input type="hidden" name="residentId" value={resident.id} />
-                      <select
-                        className="input"
-                        name="personId"
-                        required
-                        defaultValue={resident.linked_person_id ?? ""}
-                        disabled={availablePeople.length === 0}
-                      >
-                        <option value="">קישור למספר מבצעי</option>
-                        {availablePeople.map((person) => (
-                          <option key={person.id} value={person.id}>
-                            {personLabel(person, linkedResidentsByPerson.get(person.id))}
-                          </option>
-                        ))}
-                      </select>
-                      <button className="button secondary" type="submit" disabled={availablePeople.length === 0}>
-                        עדכן מספר מבצעי
-                      </button>
-                    </form>
+                    <OperationalNumberLinkForm
+                      action={linkExistingPersonToResident}
+                      incidentId={params.incidentId}
+                      siteId={params.siteId}
+                      residentId={resident.id}
+                      defaultPersonId={resident.linked_person_id}
+                      options={availablePeople.map((person): OperationalNumberLinkOption => ({
+                        id: person.id,
+                        label: personLabel(person, linkedResidentsByPerson.get(person.id))
+                      }))}
+                    />
 
                                       </CollaborativeLockSection>
                   </details>

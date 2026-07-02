@@ -175,31 +175,114 @@ export function SiteResidentImportForm({
   );
 }
 
-export function ImportedSiteResidentsTable({ rows }: { rows: ImportedSiteResidentListRow[] }) {
+function searchText(row: ImportedSiteResidentListRow) {
+  return [
+    row.floor,
+    row.apartment,
+    row.first_name,
+    row.last_name,
+    genderLabel(row.gender),
+    row.age?.toString(),
+    row.phone,
+    row.notes,
+    row.linked_resident_id ? "משויך" : "פנוי"
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function ImportedResidentsSiteSection({ siteLabel, rows }: { siteLabel: string; rows: ImportedSiteResidentListRow[] }) {
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
+  const linkedCount = rows.filter((row) => row.linked_resident_id).length;
+  const freeCount = rows.length - linkedCount;
   const filteredRows = useMemo(() => {
     if (!normalizedQuery) return rows;
-
-    return rows.filter((row) =>
-      [
-        row.site_label,
-        row.floor,
-        row.apartment,
-        row.first_name,
-        row.last_name,
-        genderLabel(row.gender),
-        row.age?.toString(),
-        row.phone,
-        row.notes,
-        row.linked_resident_id ? "משויך" : "פנוי"
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedQuery)
-    );
+    return rows.filter((row) => searchText(row).includes(normalizedQuery));
   }, [normalizedQuery, rows]);
+
+  return (
+    <details className="imported-residents-site-section">
+      <summary className="imported-residents-site-summary">
+        <span className="imported-residents-site-title">{siteLabel} - רשימת דיירים מיובאת</span>
+        <span className="imported-residents-site-counts">
+          {rows.length} דיירים | {linkedCount} משויכים | {freeCount} פנויים
+        </span>
+      </summary>
+      <div className="imported-residents-site-body">
+        <div className="section-heading imported-residents-site-tools">
+          <div>
+            <h3>{siteLabel} - רשימת דיירים מיובאת</h3>
+            <p className="muted">{filteredRows.length} מתוך {rows.length} רשומות</p>
+          </div>
+          <input
+            className="input"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="חיפוש לפי קומה, דירה, שם, טלפון, הערות או סטטוס"
+          />
+        </div>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>קומה</th>
+                <th>דירה</th>
+                <th>שם</th>
+                <th>שם משפחה</th>
+                <th>מין</th>
+                <th>גיל</th>
+                <th>טלפון</th>
+                <th>הערות</th>
+                <th>סטטוס שיוך</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="muted">לא נמצאו רשומות תואמות לחיפוש.</td>
+                </tr>
+              ) : (
+                filteredRows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.floor || "-"}</td>
+                    <td>{row.apartment || "-"}</td>
+                    <td>{row.first_name || "-"}</td>
+                    <td>{row.last_name || "-"}</td>
+                    <td>{genderLabel(row.gender)}</td>
+                    <td>{row.age ?? "-"}</td>
+                    <td>{row.phone || "-"}</td>
+                    <td>{row.notes || "-"}</td>
+                    <td>
+                      <span className={`status-badge ${row.linked_resident_id ? "success" : "neutral"}`}>
+                        {row.linked_resident_id ? "משויך" : "פנוי"}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+export function ImportedSiteResidentsTable({ rows }: { rows: ImportedSiteResidentListRow[] }) {
+  const groupedRows = useMemo(() => {
+    const grouped = new Map<string, { siteLabel: string; rows: ImportedSiteResidentListRow[] }>();
+
+    rows.forEach((row) => {
+      const current = grouped.get(row.site_id) ?? { siteLabel: row.site_label, rows: [] };
+      current.rows.push(row);
+      grouped.set(row.site_id, current);
+    });
+
+    return Array.from(grouped.entries()).sort(([, first], [, second]) => first.siteLabel.localeCompare(second.siteLabel, "he"));
+  }, [rows]);
 
   if (rows.length === 0) {
     return null;
@@ -210,53 +293,13 @@ export function ImportedSiteResidentsTable({ rows }: { rows: ImportedSiteResiden
       <div className="section-heading">
         <div>
           <h2>רשימות דיירים מיובאות</h2>
-          <p className="muted">{filteredRows.length} מתוך {rows.length} רשומות</p>
+          <p className="muted">{groupedRows.length} אתרים | {rows.length} רשומות</p>
         </div>
-        <input
-          className="input"
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="חיפוש לפי שם, דירה, טלפון או הערות"
-        />
       </div>
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>אתר</th>
-              <th>קומה</th>
-              <th>דירה</th>
-              <th>שם</th>
-              <th>שם משפחה</th>
-              <th>מין</th>
-              <th>גיל</th>
-              <th>טלפון</th>
-              <th>הערות</th>
-              <th>סטטוס שיוך</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRows.map((row) => (
-              <tr key={row.id}>
-                <td>{row.site_label}</td>
-                <td>{row.floor || "-"}</td>
-                <td>{row.apartment || "-"}</td>
-                <td>{row.first_name || "-"}</td>
-                <td>{row.last_name || "-"}</td>
-                <td>{genderLabel(row.gender)}</td>
-                <td>{row.age ?? "-"}</td>
-                <td>{row.phone || "-"}</td>
-                <td>{row.notes || "-"}</td>
-                <td>
-                  <span className={`status-badge ${row.linked_resident_id ? "success" : "neutral"}`}>
-                    {row.linked_resident_id ? "משויך" : "פנוי"}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="imported-residents-site-list">
+        {groupedRows.map(([siteId, group]) => (
+          <ImportedResidentsSiteSection key={siteId} siteLabel={group.siteLabel} rows={group.rows} />
+        ))}
       </div>
     </section>
   );
