@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
@@ -23,6 +23,23 @@ const defaultTeams = [
 
 const sourceTypes = ["חפ\"ק", "אוכלוסיה", "משטרה", "מד\"א", "כב\"ה", "פיקוד העורף", "עירייה", "מחלצים", "אחר"];
 const confidenceLevels = ["מאומת", "גבוהה", "בינונית", "נמוכה", "לא ידוע"];
+
+const operationalPersonStatusList = [
+  { key: "unknown", label: "לא ידוע" },
+  { key: "missing", label: "נעדר" },
+  { key: "trapped_located_not_yet_rescued", label: "לכוד אותר וטרם חולץ" },
+  { key: "injured_evacuated_to_ccp", label: "פצוע פונה לנאפ\"ל" },
+  { key: "injured_evacuated_from_site", label: "פצוע פונה מהאתר" },
+  { key: "fatality_trapped", label: "הרוג לכוד" },
+  { key: "fatality_evacuated", label: "הרוג פונה" },
+  { key: "located_outside_site", label: "אותר מחוץ לאתר" },
+  { key: "rescued", label: "חולץ" },
+  { key: "duplicate_cancelled", label: "כפילות/בוטל" }
+];
+
+const operationalPersonStatusOrder = new Map(
+  operationalPersonStatusList.map((status, index) => [status.key, { ...status, order: index }])
+);
 
 type SearchParams = {
   team?: string;
@@ -202,11 +219,17 @@ function teamOptions(rows: OperationalNumberRow[], activeTeam: number | null, te
 }
 
 function statusOptions(statuses: StatusRow[]) {
-  return [...statuses].sort(
-    (a, b) =>
-      (a.display_order ?? 9999) - (b.display_order ?? 9999) ||
-      a.hebrew_label.localeCompare(b.hebrew_label, "he")
-  );
+  return statuses
+    .filter((status) => operationalPersonStatusOrder.has(status.status_key))
+    .map((status) => ({
+      ...status,
+      hebrew_label: operationalPersonStatusOrder.get(status.status_key)?.label ?? status.hebrew_label
+    }))
+    .sort(
+      (a, b) =>
+        (operationalPersonStatusOrder.get(a.status_key)?.order ?? 9999) -
+        (operationalPersonStatusOrder.get(b.status_key)?.order ?? 9999)
+    );
 }
 
 export default async function OperationalNumbersPage({
