@@ -8681,3 +8681,54 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
   border-color: rgba(107, 70, 193, 0.26);
   background: linear-gradient(135deg, #fbf8ff 0%, #f5f0ff 100%);
 }
+
+.admin-status-add-form,
+.admin-status-row-form {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-status-add-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: flex-end;
+  margin-top: 14px;
+}
+
+.admin-status-add-form label,
+.admin-status-row-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  color: #16324f;
+}
+
+.admin-statuses-table td > strong,
+.admin-statuses-table td > .muted {
+  display: block;
+}
+
+.admin-status-actions {
+  display: grid;
+  gap: 8px;
+  min-width: min(560px, 74vw);
+}
+
+.admin-status-row-form {
+  grid-template-columns: minmax(150px, 1.3fr) minmax(88px, 0.6fr) minmax(110px, 0.8fr) auto;
+  align-items: center;
+}
+
+.admin-statuses-table .muted-row {
+  opacity: 0.72;
+}
+
+@media (max-width: 1100px) {
+  .admin-status-add-form,
+  .admin-status-row-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-status-actions {
+    min-width: 0;
+  }
+}

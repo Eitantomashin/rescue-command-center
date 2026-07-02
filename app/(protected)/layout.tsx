@@ -37,6 +37,7 @@ export default async function ProtectedLayout({
           <Link href="/incidents">אירועים</Link>
           <Link href="/personnel">כ&quot;א יחידתי</Link>
           {systemRole === "admin" ? <Link href="/admin/users">{"\u05e0\u05d9\u05d4\u05d5\u05dc \u05de\u05e9\u05ea\u05de\u05e9\u05d9\u05dd"}</Link> : null}
+          {systemRole === "admin" ? <Link href="/admin/statuses">{"\u05e0\u05d9\u05d4\u05d5\u05dc \u05e1\u05d8\u05d8\u05d5\u05e1\u05d9\u05dd \u05de\u05d1\u05e6\u05e2\u05d9\u05d9\u05dd"}</Link> : null}
         </nav>
 
         <div className="header-ops-summary" aria-label="סיכום מערכת">

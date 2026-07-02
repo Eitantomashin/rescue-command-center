@@ -1,6 +1,10 @@
--- Operational person status list update.
--- Adds the missing "fatality_trapped" status and keeps dashboard grouping aligned.
--- Existing person/report rows are not migrated or rewritten.
+-- Operational person status dictionary foundation.
+-- Changes affect future dropdown selections only. Existing persons, reports,
+-- histories and EventLogs keep their saved status ids/labels.
+
+alter table public.status_types
+  add column if not exists disabled_at timestamptz,
+  add column if not exists disabled_by uuid references public.profiles(id);
 
 insert into public.status_types (
   incident_id,
@@ -45,10 +49,31 @@ set hebrew_label = case status_key
     when 'rescued' then 9
     when 'duplicate_cancelled' then 10
     else sort_order
-  end
+  end,
+  is_active = true,
+  disabled_at = null,
+  disabled_by = null
 where category = 'person'
   and incident_id is null
   and status_key in (
+    'unknown',
+    'missing',
+    'trapped_located_not_yet_rescued',
+    'injured_evacuated_to_ccp',
+    'injured_evacuated_from_site',
+    'fatality_trapped',
+    'fatality_evacuated',
+    'located_outside_site',
+    'rescued',
+    'duplicate_cancelled'
+  );
+
+update public.status_types
+set is_active = false,
+    disabled_at = coalesce(disabled_at, now())
+where category = 'person'
+  and incident_id is null
+  and status_key not in (
     'unknown',
     'missing',
     'trapped_located_not_yet_rescued',
