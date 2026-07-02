@@ -13,6 +13,7 @@ import {
   openOperationalTeam
 } from "./actions";
 import { ForcedOperationalNumberForm } from "./forced-operational-number-form";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 const defaultTeams = [
   { number: 1, label: operationalTeamLabel(1) },
@@ -406,9 +407,7 @@ export default async function OperationalNumbersPage({
                       : "המספר יחושב לפי הצוות"}
                   </div>
                 </div>
-                <button className="button" type="submit" disabled={(activeTeam !== null && !nextNumber) || !defaultStatusId}>
-                  צור מספר מבצעי
-                </button>
+                <OperationalLoadingButton className="button" label={"\u05e6\u05d5\u05e8 \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"} loadingLabel={"\u05d9\u05d5\u05e6\u05e8..."} disabled={(activeTeam !== null && !nextNumber) || !defaultStatusId} />
                 {!defaultStatusId ? <p className="error">לא נמצא סטטוס ברירת מחדל נעדר.</p> : null}
               </form>
             </details>
@@ -604,9 +603,7 @@ export default async function OperationalNumbersPage({
                       </select>
                       <textarea className="input wide" name="notes" placeholder="הערות" rows={3} />
                     </div>
-                    <button className="button" type="submit" disabled={personStatuses.length === 0}>
-                      שמור דיווח
-                    </button>
+                    <OperationalLoadingButton className="button" label={"\u05e9\u05de\u05d5\u05e8 \u05d3\u05d9\u05d5\u05d5\u05d7"} loadingLabel={"\u05e9\u05d5\u05de\u05e8..."} disabled={personStatuses.length === 0} />
                   </form>
                 </>
               )}
@@ -663,9 +660,7 @@ export default async function OperationalNumbersPage({
                       <input className="input" name="cancellationReasonOther" placeholder="הזן סיבת ביטול" />
                     </label>
                     <p className="muted">המספר לא יימחק. ההיסטוריה, הדיווחים והלוגים יישמרו לתחקור ובקרה.</p>
-                    <button className="button danger" type="submit">
-                      אשר ביטול מספר מבצעי
-                    </button>
+                    <OperationalLoadingButton className="button danger" label={"\u05d1\u05d8\u05dc \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"} loadingLabel={"\u05de\u05d1\u05d8\u05dc..."} />
                   </form>
                 </details>
               ) : null}

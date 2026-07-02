@@ -8732,3 +8732,31 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     min-width: 0;
   }
 }
+
+.operational-loading-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.operational-loading-button:disabled,
+.operational-loading-button[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.operational-loading-spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 999px;
+  animation: operational-loading-spin 0.75s linear infinite;
+}
+
+@keyframes operational-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -2,6 +2,7 @@
 
 import * as XLSX from "xlsx";
 import { useMemo, useState, type ChangeEvent } from "react";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 export type ImportedSiteResidentListRow = {
   id: string;
@@ -167,9 +168,7 @@ export function SiteResidentImportForm({
             {previewRows.length > 8 ? <p className="muted">ועוד {previewRows.length - 8} רשומות בקובץ</p> : null}
           </div>
         ) : null}
-        <button className="button" type="submit" disabled={previewRows.length === 0 || Boolean(error)}>
-          אשר ייבוא רשימה
-        </button>
+        <OperationalLoadingButton className="button" label={"\u05d0\u05e9\u05e8 \u05d9\u05d9\u05d1\u05d5\u05d0 \u05e8\u05e9\u05d9\u05de\u05d4"} loadingLabel={"\u05de\u05d9\u05d9\u05d1\u05d0..."} disabled={previewRows.length === 0 || Boolean(error)} />
       </form>
     </details>
   );

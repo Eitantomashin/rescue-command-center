@@ -32,6 +32,7 @@ import {
 } from "./actions";
 import { ImportedResidentLinkPicker, type ImportedResidentOption } from "./imported-resident-link-picker";
 import { OperationalNumberLinkForm, type OperationalNumberLinkOption } from "./operational-number-link-form";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type SiteSummaryRow = {
   incident_id: string;
@@ -682,7 +683,7 @@ function SiteCorrectionControls({
               <input className="input" name="searchPriority" defaultValue={site.search_priority ?? ""} />
             </label>
           </div>
-          <button className="button" type="submit">שמור פרטי אתר</button>
+          <OperationalLoadingButton className="button" label={"\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea\u05e8"} loadingLabel={"\u05e9\u05d5\u05de\u05e8..."} />
         </form>
       </details>
 
@@ -714,7 +715,7 @@ function SiteCorrectionControls({
             פירוט אחר
             <input className="input" name="reasonOther" placeholder="נדרש אם נבחר אחר" />
           </label>
-          <button className="button danger" type="submit">בטל אתר</button>
+          <OperationalLoadingButton className="button danger" label={"\u05d0\u05e9\u05e8 \u05d1\u05d9\u05d8\u05d5\u05dc \u05d0\u05ea\u05e8"} loadingLabel={"\u05de\u05d1\u05d8\u05dc..."} />
         </form>
       </details>
     </div>
@@ -1766,9 +1767,7 @@ export default async function SiteDetailsPage({
                                             <input className="input" name="phone" defaultValue={resident.phone ?? ""} placeholder="טלפון" />
                                             <input type="hidden" name="statusId" value={resident.status_id ?? ""} />
                                             <input className="input wide" name="notes" defaultValue={editableResidentNotes(resident.notes)} placeholder="הערות" />
-                                            <button className="button secondary" type="submit">
-                                              שמור דייר
-                                            </button>
+                                            <OperationalLoadingButton className="button secondary" label={"\u05e9\u05de\u05d5\u05e8 \u05d3\u05d9\u05d9\u05e8"} loadingLabel={"\u05e9\u05d5\u05de\u05e8..."} />
                                           </form>
 
                                           <ImportedResidentLinkPicker
@@ -1819,9 +1818,7 @@ export default async function SiteDetailsPage({
                                   <input className="input" name="phone" placeholder="טלפון" />
                                   <input className="input" name="notes" placeholder="הערה" />
                                 </div>
-                                <button className="button" type="submit">
-                                  הוסף דייר
-                                </button>
+                                <OperationalLoadingButton className="button" label={"\u05d4\u05d5\u05e1\u05e3 \u05d3\u05d9\u05d9\u05e8"} loadingLabel={"\u05d9\u05d5\u05e6\u05e8..."} />
                               </form>
 
                               <form action={updateUnitStatus} className="action-form">
@@ -1971,9 +1968,7 @@ export default async function SiteDetailsPage({
                       <input className="input" name="phone" defaultValue={resident.phone ?? ""} placeholder="טלפון" />
                       <input type="hidden" name="statusId" value={resident.status_id ?? ""} />
                       <input className="input wide" name="notes" defaultValue={editableResidentNotes(resident.notes)} placeholder="הערות" />
-                      <button className="button secondary" type="submit">
-                        שמור דייר
-                      </button>
+                      <OperationalLoadingButton className="button secondary" label={"\u05e9\u05de\u05d5\u05e8 \u05d3\u05d9\u05d9\u05e8"} loadingLabel={"\u05e9\u05d5\u05de\u05e8..."} />
                     </form>
 
                     <ImportedResidentLinkPicker

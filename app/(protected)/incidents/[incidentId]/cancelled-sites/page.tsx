@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import { siteTypeLabel } from "@/lib/site-display";
 import { restoreCancelledSiteAction } from "./actions";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type CancelledSiteRow = {
   id: string;
@@ -120,9 +121,7 @@ export default async function CancelledSitesPage({
                         <p className="warning-text">
                           האם להחזיר את האתר לפעילות? האתר יחזור לדשבורדים, לחישובים ולמסכי הניהול.
                         </p>
-                        <button className="button secondary" type="submit">
-                          אשר שחזור
-                        </button>
+                        <OperationalLoadingButton className="button secondary" label={"\u05d0\u05e9\u05e8 \u05e9\u05d7\u05d6\u05d5\u05e8"} loadingLabel={"\u05de\u05e9\u05d7\u05d6\u05e8..."} />
                       </form>
                     </details>
                   </td>

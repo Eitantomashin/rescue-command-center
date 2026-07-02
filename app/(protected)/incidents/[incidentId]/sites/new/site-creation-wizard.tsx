@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { createSiteFromWizard } from "./actions";
 import { formatNumber } from "@/lib/format";
 import { operationalTeamLabel, parseOperationalTeamNumber } from "@/lib/operational-teams";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type ZoneType =
   | "apartment"
@@ -693,9 +694,7 @@ export function SiteCreationWizard({
             תיווצר תמונת מבנה מלאה עם {formatNumber(levels.length)} מפלסים, {formatNumber(totalZones)} אזורים, {formatNumber(initialPotential)} רשומות פוטנציאל ראשוני ו-{formatNumber(selectedTeams.length)} צוותים משויכים.
           </p>
           {selectedTeams.length === 0 ? <p className="error">יש לבחור לפחות צוות אחד לפני יצירת האתר.</p> : null}
-          <button className="button" type="submit" disabled={zones.length === 0 || initialPotential < 0 || selectedTeams.length === 0}>
-            צור אתר
-          </button>
+          <OperationalLoadingButton className="button" label={"\u05e6\u05d5\u05e8 \u05d0\u05ea\u05e8"} loadingLabel={"\u05d9\u05d5\u05e6\u05e8..."} disabled={zones.length === 0 || initialPotential < 0 || selectedTeams.length === 0} />
         </section>
       ) : null}
 

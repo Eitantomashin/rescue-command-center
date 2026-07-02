@@ -1,10 +1,11 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormState } from "react-dom";
 import {
   createForcedOperationalNumberWithState,
   type ForcedOperationalNumberState
 } from "./actions";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type TeamOption = {
   number: number;
@@ -24,13 +25,7 @@ const initialState: ForcedOperationalNumberState = {
 };
 
 function SubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <button className="button secondary" type="submit" disabled={pending}>
-      {pending ? "פותח..." : "פתח מספר מאולץ"}
-    </button>
-  );
+  return <OperationalLoadingButton className="button secondary" label={"\u05e4\u05ea\u05d7 \u05de\u05e1\u05e4\u05e8 \u05de\u05d0\u05d5\u05dc\u05e5"} loadingLabel={"\u05e4\u05d5\u05ea\u05d7..."} />;
 }
 
 export function ForcedOperationalNumberForm({

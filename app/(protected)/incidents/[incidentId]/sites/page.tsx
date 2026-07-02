@@ -8,6 +8,7 @@ import {
   SiteResidentImportForm,
   type ImportedSiteResidentListRow
 } from "./imported-site-residents-table";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type SiteRow = {
   incident_id: string;
@@ -233,7 +234,7 @@ export default async function SitesPage({
                               <textarea className="input" name="siteDetails" defaultValue={site.search_reason ?? ""} rows={3} />
                             </label>
                           </div>
-                          <button className="button" type="submit">שמור אתר</button>
+                          <OperationalLoadingButton className="button" label={"\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea\u05e8"} loadingLabel={"\u05e9\u05d5\u05de\u05e8..."} />
                         </form>
                       </details>
                     ) : null}
@@ -272,7 +273,7 @@ export default async function SitesPage({
                             פירוט אחר
                             <input className="input" name="reasonOther" placeholder="נדרש אם נבחר אחר" />
                           </label>
-                          <button className="button danger" type="submit">אשר ביטול אתר</button>
+                          <OperationalLoadingButton className="button danger" label={"\u05d0\u05e9\u05e8 \u05d1\u05d9\u05d8\u05d5\u05dc \u05d0\u05ea\u05e8"} loadingLabel={"\u05de\u05d1\u05d8\u05dc..."} />
                         </form>
                       </details>
                     ) : null}

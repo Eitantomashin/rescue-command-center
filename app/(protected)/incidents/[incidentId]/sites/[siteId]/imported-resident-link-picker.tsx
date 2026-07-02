@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 export type ImportedResidentOption = {
   id: string;
@@ -126,9 +127,7 @@ export function ImportedResidentLinkPicker({
               <input type="hidden" name="incidentId" value={incidentId} />
               <input type="hidden" name="siteId" value={siteId} />
               <input type="hidden" name="importedResidentId" value={linkedImportedResident.id} />
-              <button className="button secondary" type="submit">
-                שחרר שיוך דייר
-              </button>
+              <OperationalLoadingButton className="button secondary" label={"\u05e9\u05d7\u05e8\u05e8 \u05e9\u05d9\u05d5\u05da \u05d3\u05d9\u05d9\u05e8"} loadingLabel={"\u05de\u05e9\u05d9\u05d9\u05da..."} />
             </form>
           ) : null}
         </div>
@@ -187,9 +186,7 @@ export function ImportedResidentLinkPicker({
                                     <input type="hidden" name="siteId" value={siteId} />
                                     <input type="hidden" name="residentId" value={residentId} />
                                     <input type="hidden" name="importedResidentId" value={row.id} />
-                                    <button className="button" type="submit">
-                                      בחר דייר
-                                    </button>
+                                    <OperationalLoadingButton className="button" label={"\u05d1\u05d7\u05e8 \u05d3\u05d9\u05d9\u05e8"} loadingLabel={"\u05de\u05e9\u05d9\u05d9\u05da..."} />
                                   </form>
                                 )}
                               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 export type OperationalNumberLinkOption = {
   id: string;
@@ -45,9 +46,7 @@ export function OperationalNumberLinkForm({
           </option>
         ))}
       </select>
-      <button className="button secondary" type="submit" disabled={!selectedPersonId || !hasOptions}>
-        עדכן מספר מבצעי
-      </button>
+      <OperationalLoadingButton className="button secondary" label={"\u05e2\u05d3\u05db\u05df \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"} loadingLabel={"\u05de\u05e2\u05d3\u05db\u05df..."} disabled={!selectedPersonId || !hasOptions} />
     </form>
   );
 }
