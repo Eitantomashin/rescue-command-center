@@ -8760,3 +8760,466 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     transform: rotate(360deg);
   }
 }
+
+/* Casualty status dashboard */
+.casualties-dashboard-page {
+  display: grid;
+  gap: 18px;
+  direction: rtl;
+}
+
+.casualties-dashboard-hero {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid rgba(22, 53, 89, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(238, 246, 255, 0.92));
+  box-shadow: 0 18px 40px rgba(15, 35, 64, 0.08);
+}
+
+.casualties-dashboard-hero span,
+.section-eyebrow {
+  color: var(--brand-primary);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.casualties-dashboard-hero h1 {
+  margin: 6px 0 8px;
+  color: #0f2642;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.05;
+  font-weight: 950;
+}
+
+.casualties-dashboard-hero p {
+  margin: 0;
+  color: var(--muted-text);
+  font-weight: 700;
+}
+
+.casualty-hero-total {
+  min-width: 220px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 35, 64, 0.16);
+  background: #10233d;
+  color: #fff;
+}
+
+.casualty-hero-total span {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 14px;
+}
+
+.casualty-hero-total strong {
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1;
+}
+
+.casualty-status-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.casualty-status-card {
+  position: relative;
+  min-height: 132px;
+  display: grid;
+  align-content: space-between;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(15, 35, 64, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  color: #0f2642;
+  text-decoration: none;
+  box-shadow: 0 12px 28px rgba(15, 35, 64, 0.07);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.casualty-status-card:hover,
+.casualty-status-card:focus-visible,
+.casualty-status-card.active {
+  transform: translateY(-2px);
+  border-color: currentColor;
+  box-shadow: 0 18px 34px rgba(15, 35, 64, 0.13);
+  outline: none;
+}
+
+.casualty-status-card > span:not(.casualty-status-icon) {
+  max-width: calc(100% - 48px);
+  color: #10233d;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.casualty-status-card strong {
+  font-size: clamp(34px, 4.2vw, 50px);
+  line-height: 1;
+  font-weight: 950;
+}
+
+.casualty-status-card small {
+  color: var(--muted-text);
+  font-weight: 800;
+}
+
+.casualty-status-icon {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: currentColor;
+  color: #fff;
+  font-weight: 950;
+}
+
+.casualty-status-total { color: #10233d; background: linear-gradient(135deg, #10233d, #1d3b63); }
+.casualty-status-total > span:not(.casualty-status-icon),
+.casualty-status-total strong,
+.casualty-status-total small { color: #fff; }
+.casualty-status-total .casualty-status-icon { background: rgba(255,255,255,0.14); }
+.casualty-status-card.tone-gray { color: #64748b; background: linear-gradient(135deg, #fff, #f8fafc); }
+.casualty-status-card.tone-orange { color: #f58220; background: linear-gradient(135deg, #fff, #fff7ed); }
+.casualty-status-card.tone-red { color: #d32f2f; background: linear-gradient(135deg, #fff, #fff2f2); }
+.casualty-status-card.tone-yellow { color: #d89400; background: linear-gradient(135deg, #fff, #fff8df); }
+.casualty-status-card.tone-green { color: #2e7d32; background: linear-gradient(135deg, #fff, #effaf1); }
+.casualty-status-card.tone-black { color: #111827; background: linear-gradient(135deg, #fff, #f3f4f6); }
+.casualty-status-card.tone-blue { color: #1e6bd6; background: linear-gradient(135deg, #fff, #eff6ff); }
+
+.casualty-drilldown-panel,
+.casualty-person-details,
+.casualty-timeline-card {
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(15, 35, 64, 0.07);
+}
+
+.casualty-drilldown-table table {
+  min-width: 860px;
+}
+
+.casualty-drilldown-table tr.selected-row td {
+  background: rgba(37, 99, 235, 0.08);
+  border-block-color: rgba(37, 99, 235, 0.22);
+}
+
+.casualty-person-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.casualty-detail-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 900;
+}
+
+.casualty-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 0;
+}
+
+.casualty-detail-grid div {
+  padding: 12px;
+  border: 1px solid rgba(15, 35, 64, 0.1);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.casualty-detail-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.casualty-detail-grid dt {
+  color: var(--muted-text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.casualty-detail-grid dd {
+  margin: 4px 0 0;
+  color: #10233d;
+  font-size: 17px;
+  font-weight: 850;
+}
+
+.casualty-timeline-card h2 {
+  margin-top: 0;
+  color: #10233d;
+}
+
+.casualty-timeline-list {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0 18px 0 0;
+  list-style: none;
+}
+
+.casualty-timeline-list::before {
+  content: "";
+  position: absolute;
+  inset-block: 4px;
+  right: 4px;
+  width: 2px;
+  background: rgba(37, 99, 235, 0.18);
+}
+
+.casualty-timeline-list li {
+  position: relative;
+  padding: 12px;
+  border: 1px solid rgba(15, 35, 64, 0.1);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.casualty-timeline-list li::before {
+  content: "";
+  position: absolute;
+  right: -20px;
+  top: 18px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow: 0 0 0 4px #eff6ff;
+}
+
+.casualty-timeline-list time,
+.casualty-timeline-list span {
+  display: block;
+  color: var(--muted-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.casualty-timeline-list strong {
+  display: block;
+  margin-top: 4px;
+  color: #10233d;
+  font-weight: 950;
+}
+
+.casualty-timeline-list p {
+  margin: 6px 0 0;
+  color: #334155;
+}
+
+@media (max-width: 900px) {
+  .casualties-dashboard-hero,
+  .casualty-person-layout {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .casualty-hero-total {
+    min-height: 120px;
+  }
+
+  .casualty-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Shared command dashboard drill-down workflow */
+.command-dashboard-workflow {
+  display: grid;
+  gap: 16px;
+}
+
+.command-dashboard-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.42fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.command-drilldown-panel {
+  min-width: 0;
+}
+
+.command-table-tools {
+  display: flex;
+  align-items: end;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.command-table-tools label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted-text);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.command-table-tools input,
+.command-table-tools select {
+  min-height: 38px;
+  min-width: min(240px, 70vw);
+  border: 1px solid rgba(15, 35, 64, 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #10233d;
+  font-weight: 750;
+}
+
+.command-details-drawer {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 14px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fbff, #ffffff);
+  box-shadow: 0 18px 42px rgba(15, 35, 64, 0.12);
+}
+
+.command-details-drawer-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.command-details-drawer-header span {
+  color: var(--brand-primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.command-details-drawer-header h2 {
+  margin: 4px 0 0;
+  color: #10233d;
+  font-size: clamp(20px, 2vw, 28px);
+  font-weight: 950;
+}
+
+.command-details-drawer-header button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(15, 35, 64, 0.16);
+  border-radius: 50%;
+  background: #fff;
+  color: #10233d;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.command-status-badge {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: #eef2ff;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.command-status-badge.tone-red { background: #fee2e2; color: #b91c1c; }
+.command-status-badge.tone-gray { background: #f1f5f9; color: #475569; }
+.command-status-badge.tone-green { background: #dcfce7; color: #166534; }
+.command-status-badge.tone-orange { background: #ffedd5; color: #c2410c; }
+
+.command-detail-grid {
+  grid-template-columns: 1fr;
+}
+
+.command-quick-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.command-quick-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  text-decoration: none;
+  font-weight: 900;
+}
+
+.command-timeline-section {
+  padding: 0;
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+}
+
+.command-loading-state,
+.command-empty-state {
+  border: 1px dashed rgba(15, 35, 64, 0.18);
+  border-radius: 10px;
+  padding: 14px;
+  background: #f8fafc;
+  color: var(--muted-text);
+  font-weight: 850;
+  text-align: center;
+}
+
+.command-status-overview .casualty-status-card {
+  cursor: pointer;
+  text-align: start;
+}
+
+.command-status-overview .casualty-status-card.active {
+  box-shadow: 0 18px 34px rgba(15, 35, 64, 0.14), inset 0 0 0 2px currentColor;
+}
+
+@media (max-width: 1100px) {
+  .command-dashboard-main {
+    grid-template-columns: 1fr;
+  }
+
+  .command-details-drawer {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .command-table-tools {
+    align-items: stretch;
+  }
+
+  .command-table-tools label,
+  .command-table-tools input,
+  .command-table-tools select {
+    width: 100%;
+    min-width: 0;
+  }
+}

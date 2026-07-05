@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatNumber } from "@/lib/format";
+import { operationalTeamLabel } from "@/lib/operational-teams";
 import { DashboardSiteCommandSummary, type SiteAnalysisRow } from "./dashboard-site-command-summary-v2";
-import { OperationalStatusOverview, type OperationalStatusSiteBreakdown, type OperationalStatusTile } from "./operational-status-overview";
+import { CommandStatusDashboard, type CommandStatusDefinition, type CommandStatusRow } from "./command-dashboard/command-status-dashboard";
+import { loadOperationalPersonCommandTimeline } from "./command-dashboard/actions";
 import { CreateSitrepButton } from "./sitreps/create-sitrep-button";
 import type { PersonnelTeamItem } from "./personnel-team-drilldown";
 import { PersonnelTeamCommandWidget } from "./personnel-team-command-widget";
@@ -12,6 +14,7 @@ export type DashboardScopeOperationalNumber = {
   personId: string;
   siteId: string | null;
   operationalNumber: number;
+  teamNumber: number | null;
   firstName: string | null;
   lastName: string | null;
   residentFirstName: string | null;
@@ -20,6 +23,11 @@ export type DashboardScopeOperationalNumber = {
   currentStatusLabel: string | null;
   latestReportStatusLabel: string | null;
   latestReportedAt: string | null;
+  latestSourcePhone?: string | null;
+  latestNotes?: string | null;
+  latestGridCell?: string | null;
+  floorNumber?: number | null;
+  unitNumber?: string | null;
   dashboardStatusGroup: string | null;
   mergedOperationalNumbers?: number[] | null;
 };
@@ -44,14 +52,14 @@ type ActivityClockParts = {
   currentLabel: string;
 };
 
-const STATUS_GROUPS = [
-  { group: "missing_unknown", label: "נעדר / לא ידוע", tone: "blue" },
-  { group: "trapped_located_not_yet_rescued", label: "לכוד שאותר וטרם חולץ", tone: "orange" },
-  { group: "rescued", label: "מחולצים", tone: "green" },
-  { group: "evacuated", label: "פונו", tone: "green" },
-  { group: "located_outside_site", label: "אותרו מחוץ לאתר", tone: "green" },
-  { group: "deceased", label: "נפטרים", tone: "red" }
-] as const;
+const STATUS_GROUPS: CommandStatusDefinition[] = [
+  { id: "missing_unknown", label: "\u05e0\u05e2\u05d3\u05e8 / \u05dc\u05d0 \u05d9\u05d3\u05d5\u05e2", tone: "blue", icon: "?" },
+  { id: "trapped_located_not_yet_rescued", label: "\u05dc\u05db\u05d5\u05d3 \u05e9\u05d0\u05d5\u05ea\u05e8 \u05d5\u05d8\u05e8\u05dd \u05d7\u05d5\u05dc\u05e5", tone: "orange", icon: "!" },
+  { id: "rescued", label: "\u05de\u05d7\u05d5\u05dc\u05e6\u05d9\u05dd", tone: "green", icon: "?" },
+  { id: "evacuated", label: "\u05e4\u05d5\u05e0\u05d4", tone: "green", icon: "?" },
+  { id: "located_outside_site", label: "\u05d4\u05d5\u05e6\u05d0\u05d5 \u05de\u05d7\u05d5\u05e5 \u05dc\u05d0\u05ea\u05e8", tone: "green", icon: "?" },
+  { id: "deceased", label: "\u05e0\u05e4\u05d8\u05e8\u05d9\u05dd", tone: "red", icon: "?" }
+];
 
 function latestDate(rows: Array<string | null | undefined>) {
   const timestamps = rows
@@ -165,42 +173,34 @@ function statusBreakdown(operationalNumbers: DashboardScopeOperationalNumber[], 
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "he"));
 }
 
-function statusTile(
-  operationalNumbers: DashboardScopeOperationalNumber[],
-  sitesById: Map<string, SiteAnalysisRow>,
-  group: string,
-  label: string,
-  tone: string
-): OperationalStatusTile {
-  const details = statusBreakdown(operationalNumbers, group);
-  const filteredNumbers = operationalNumbers.filter((person) => person.dashboardStatusGroup === group);
-  const siteBreakdown = filteredNumbers.reduce((map, person) => {
-    const site = person.siteId ? sitesById.get(person.siteId) : null;
-    const siteName = site?.name ?? "ללא אתר";
-    const current: OperationalStatusSiteBreakdown = map.get(person.siteId ?? "none") ?? {
-      siteId: person.siteId,
-      siteName,
-      count: 0,
-      people: []
-    };
-    current.count += 1;
-    current.people.push({
-      operationalNumber: person.operationalNumber,
-      statusLabel: person.latestReportStatusLabel?.trim() || person.currentStatusLabel?.trim() || person.currentStatusKey?.trim() || "לא ידוע",
-      personName: operationalPersonName(person)
-    });
-    map.set(person.siteId ?? "none", current);
-    return map;
-  }, new Map<string, OperationalStatusSiteBreakdown>());
+function floorApartmentLabel(person: DashboardScopeOperationalNumber) {
+  const parts: string[] = [];
+  if (person.floorNumber !== null && person.floorNumber !== undefined) parts.push("\u05e7\u05d5\u05de\u05d4 " + person.floorNumber);
+  if (person.unitNumber) parts.push("\u05d3\u05d9\u05e8\u05d4 " + person.unitNumber);
+  if (person.latestGridCell && parts.length === 0) parts.push(person.latestGridCell);
+  return parts.join(" / ") || null;
+}
 
-  return {
-    group,
-    label,
-    tone,
-    details,
-    siteBreakdown: Array.from(siteBreakdown.values()).sort((a, b) => b.count - a.count || a.siteName.localeCompare(b.siteName, "he")),
-    value: details.reduce((sum, row) => sum + row.count, 0)
-  };
+function statusDashboardRows(incidentId: string, operationalNumbers: DashboardScopeOperationalNumber[], sitesById: Map<string, SiteAnalysisRow>): CommandStatusRow[] {
+  return operationalNumbers.map((person) => {
+    const site = person.siteId ? sitesById.get(person.siteId) : null;
+    return {
+      personId: person.personId,
+      statusId: person.dashboardStatusGroup ?? "missing_unknown",
+      statusLabel: person.latestReportStatusLabel?.trim() || person.currentStatusLabel?.trim() || person.currentStatusKey?.trim() || "\u05dc\u05d0 \u05d9\u05d3\u05d5\u05e2",
+      operationalNumber: person.operationalNumber,
+      name: operationalPersonName(person),
+      siteName: site?.name ?? null,
+      floorApartment: floorApartmentLabel(person),
+      assignedTeam: person.teamNumber ? operationalTeamLabel(person.teamNumber) : null,
+      lastUpdatedAt: person.latestReportedAt,
+      phone: person.latestSourcePhone ?? null,
+      notes: person.latestNotes ?? null,
+      siteHref: site ? site.structureHref : null,
+      teamHref: person.teamNumber ? "/incidents/" + incidentId + "/personnel" : null,
+      operationalNumberHref: site ? site.operationalNumbersHref + "?personId=" + person.personId : null
+    };
+  });
 }
 
 export function DashboardCommandScope({
@@ -242,9 +242,7 @@ export function DashboardCommandScope({
   const visiblePersonnelTeams = scopedTeams(personnelTeams, visiblePersonIds);
   const visibleMergedGroups = mergedNumberGroups(visibleOperationalNumbers);
   const sitesById = useMemo(() => new Map(sites.map((site) => [site.siteId, site])), [sites]);
-  const visibleTiles = STATUS_GROUPS.map((status) =>
-    statusTile(visibleOperationalNumbers, sitesById, status.group, status.label, status.tone)
-  );
+  const anchorRows = statusDashboardRows(incidentId, visibleOperationalNumbers, sitesById);
   const clockParts = activityClockParts(now, openedAt);
   const kpis: CommandKpi[] = [
     {
@@ -392,7 +390,14 @@ export function DashboardCommandScope({
             {anchorOpen ? "סגור" : "פתח"}
           </button>
         </div>
-        {anchorOpen ? <OperationalStatusOverview tiles={visibleTiles} /> : null}
+        {anchorOpen ? (
+          <CommandStatusDashboard
+            statuses={STATUS_GROUPS}
+            rows={anchorRows}
+            initialStatusId={STATUS_GROUPS[0].id}
+            loadTimeline={(personId) => loadOperationalPersonCommandTimeline(incidentId, personId)}
+          />
+        ) : null}
       </section>
 
       <DashboardSiteCommandSummary sites={visibleSites} />

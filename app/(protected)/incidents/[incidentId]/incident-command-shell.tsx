@@ -101,6 +101,11 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
     return items;
   }
 
+  if (pathname === `${base}/casualties-dashboard`) {
+    items.push({ label: "\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3 \u05e0\u05e4\u05d2\u05e2\u05d9\u05dd", href: pathname });
+    return items;
+  }
+
   if (pathname === `${base}/operational-log`) {
     items.push({ label: "יומן מבצעי כללי", href: pathname });
     return items;
@@ -216,6 +221,10 @@ export function IncidentCommandShell({
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/war-room`)}`} href={`${base}/war-room`}>
             <span className="nav-icon" aria-hidden="true">{"\uD83D\uDDA5\uFE0F"}</span>
             <span className="nav-label">{"\u05de\u05e1\u05da \u05d7\u05de\u05f4\u05dc"}</span>
+          </Link>
+          <Link className={`incident-nav-item${activeClass(pathname, `${base}/casualties-dashboard`)}`} href={`${base}/casualties-dashboard`}>
+            <span className="nav-icon" aria-hidden="true">{"\u26d1"}</span>
+            <span className="nav-label">{"\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3 \u05e0\u05e4\u05d2\u05e2\u05d9\u05dd"}</span>
           </Link>
           <Link className={`incident-nav-item${activeClass(pathname, `${base}/operational-log`)}`} href={`${base}/operational-log`}>
             <span className="nav-icon" aria-hidden="true">📝</span>

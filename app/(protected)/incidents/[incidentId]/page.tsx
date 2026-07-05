@@ -119,6 +119,9 @@ type OperationalNumberRow = {
   latest_grid_cell: string | null;
   latest_reported_at: string | null;
   latest_notes: string | null;
+  latest_source_phone: string | null;
+  floor_number: number | null;
+  unit_number: string | null;
   dashboard_status_group: string | null;
   is_merged: boolean;
   merged_operational_numbers: number[] | null;
@@ -580,7 +583,7 @@ export default async function IncidentDashboardPage({
     supabase
       .from("operational_numbers_dashboard")
       .select(
-        "person_id,site_id,operational_number,team_number,first_name,last_name,resident_first_name,resident_last_name,current_status_key,current_status_label,latest_report_status_label,latest_grid_cell,latest_reported_at,latest_notes,dashboard_status_group,is_merged,merged_operational_numbers"
+        "person_id,site_id,operational_number,team_number,first_name,last_name,resident_first_name,resident_last_name,current_status_key,current_status_label,latest_report_status_label,latest_grid_cell,latest_reported_at,latest_source_phone,latest_notes,floor_number,unit_number,dashboard_status_group,is_merged,merged_operational_numbers"
       )
       .eq("incident_id", params.incidentId),
     supabase
@@ -996,6 +999,7 @@ export default async function IncidentDashboardPage({
     personId: person.person_id,
     siteId: person.site_id,
     operationalNumber: person.operational_number,
+    teamNumber: person.team_number,
     firstName: person.first_name,
     lastName: person.last_name,
     residentFirstName: person.resident_first_name,
@@ -1004,6 +1008,11 @@ export default async function IncidentDashboardPage({
     currentStatusLabel: person.current_status_label,
     latestReportStatusLabel: person.latest_report_status_label,
     latestReportedAt: person.latest_reported_at,
+    latestSourcePhone: person.latest_source_phone,
+    latestNotes: person.latest_notes,
+    latestGridCell: person.latest_grid_cell,
+    floorNumber: person.floor_number,
+    unitNumber: person.unit_number,
     dashboardStatusGroup: person.dashboard_status_group,
     mergedOperationalNumbers: person.merged_operational_numbers ?? []
   }));
