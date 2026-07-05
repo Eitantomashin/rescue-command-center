@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
 import { CommandDashboardHeader, CommandStatusDashboard, type CommandStatusDefinition, type CommandStatusRow } from "../command-dashboard/command-status-dashboard";
-import { loadOperationalPersonCommandTimeline } from "../command-dashboard/actions";
 
 type IncidentRow = { id: string; name: string; opened_at: string | null };
 type SiteRow = { id: string; site_number: number; name: string | null; street: string | null; house_number: string | null };
@@ -124,7 +123,7 @@ export default async function CasualtiesDashboardPage({ params }: { params: { in
         totalLabel={"\u05e1\u05d4\u05f4\u05db \u05de\u05e1\u05e4\u05e8\u05d9\u05dd \u05de\u05d1\u05e6\u05e2\u05d9\u05d9\u05dd"}
         totalValue={rows.length}
       />
-      <CommandStatusDashboard statuses={STATUS_DEFINITIONS} rows={rows} initialStatusId="trapped_located" loadTimeline={(personId) => loadOperationalPersonCommandTimeline(params.incidentId, personId)} />
+      <CommandStatusDashboard statuses={STATUS_DEFINITIONS} rows={rows} initialStatusId="trapped_located" incidentId={params.incidentId} />
     </main>
   );
 }

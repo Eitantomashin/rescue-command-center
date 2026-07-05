@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useMemo, useState, useTransition } from "react";
 import { formatDateTime, formatNumber } from "@/lib/format";
-import type { CommandTimelineEvent } from "./actions";
+import { loadOperationalPersonCommandTimeline, type CommandTimelineEvent } from "./actions";
 
 export type CommandStatusDefinition = { id: string; label: string; tone: string; icon?: string };
 export type CommandStatusRow = {
@@ -30,7 +30,7 @@ type Props = {
   statuses: CommandStatusDefinition[];
   rows: CommandStatusRow[];
   initialStatusId?: string | null;
-  loadTimeline: (personId: string) => Promise<CommandTimelineEvent[]>;
+  incidentId: string;
 };
 
 function text(value: string | null | undefined) {
@@ -160,7 +160,7 @@ export function CasualtyDetailsDrawer({ row, timeline, loading, onClose }: { row
   );
 }
 
-export function CommandStatusDashboard({ statuses, rows, initialStatusId = null, loadTimeline }: Props) {
+export function CommandStatusDashboard({ statuses, rows, initialStatusId = null, incidentId }: Props) {
   const [selectedStatusId, setSelectedStatusId] = useState<string | null>(initialStatusId);
   const [selectedRow, setSelectedRow] = useState<CommandStatusRow | null>(null);
   const [timeline, setTimeline] = useState<CommandTimelineEvent[]>([]);
@@ -178,7 +178,7 @@ export function CommandStatusDashboard({ statuses, rows, initialStatusId = null,
     setSelectedRow(row);
     setTimeline([]);
     startTransition(async () => {
-      try { setTimeline(await loadTimeline(row.personId)); } catch { setTimeline([]); }
+      try { setTimeline(await loadOperationalPersonCommandTimeline(incidentId, row.personId)); } catch { setTimeline([]); }
     });
   }
 

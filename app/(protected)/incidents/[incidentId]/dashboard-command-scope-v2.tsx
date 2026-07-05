@@ -5,7 +5,6 @@ import { formatNumber } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
 import { DashboardSiteCommandSummary, type SiteAnalysisRow } from "./dashboard-site-command-summary-v2";
 import { CommandStatusDashboard, type CommandStatusDefinition, type CommandStatusRow } from "./command-dashboard/command-status-dashboard";
-import { loadOperationalPersonCommandTimeline } from "./command-dashboard/actions";
 import { CreateSitrepButton } from "./sitreps/create-sitrep-button";
 import type { PersonnelTeamItem } from "./personnel-team-drilldown";
 import { PersonnelTeamCommandWidget } from "./personnel-team-command-widget";
@@ -390,7 +389,7 @@ export function DashboardCommandScope({
           statuses={STATUS_GROUPS}
           rows={anchorRows}
           initialStatusId={null}
-          loadTimeline={(personId) => loadOperationalPersonCommandTimeline(incidentId, personId)}
+          incidentId={incidentId}
         />
       </section>
 
