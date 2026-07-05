@@ -9631,3 +9631,29 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     grid-template-columns: 1fr;
   }
 }
+
+/* Site status drilldown action column */
+.site-status-detail-panel .compact-analysis-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.site-status-detail-panel .compact-analysis-table th,
+.site-status-detail-panel .compact-analysis-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.site-status-detail-panel .compact-analysis-table .command-action-col,
+.site-status-detail-panel .compact-analysis-table .command-action-cell {
+  width: 118px;
+  min-width: 118px;
+  text-align: center;
+  overflow: visible;
+}
+
+.site-status-detail-panel .command-details-button {
+  width: 100%;
+  max-width: 102px;
+}

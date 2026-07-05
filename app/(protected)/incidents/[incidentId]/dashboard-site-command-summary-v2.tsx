@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { CasualtyDetailsDrawer, type CommandStatusRow } from "./command-dashboard/command-status-dashboard";
+import { loadOperationalPersonCommandTimeline } from "./command-dashboard/actions";
+import type { CommandTimelineEvent } from "./command-dashboard/actions";
 
 export type SiteUnitAnalysisRow = {
   id: string;
@@ -187,8 +190,38 @@ function DeltaBadge({ value }: { value: number | null }) {
 
 export function DashboardSiteCommandSummary({ sites }: { sites: SiteAnalysisRow[] }) {
   const [openStatus, setOpenStatus] = useState<{ siteId: string; label: string } | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<CommandStatusRow | null>(null);
+  const [timeline, setTimeline] = useState<CommandTimelineEvent[]>([]);
+  const [isTimelinePending, startTimelineTransition] = useTransition();
   const [potentialDetailSite, setPotentialDetailSite] = useState<SiteAnalysisRow | null>(null);
   const [gapDetailSite, setGapDetailSite] = useState<SiteAnalysisRow | null>(null);
+
+  function openPersonDetails(site: SiteAnalysisRow, person: SiteStatusPersonRow) {
+    const row: CommandStatusRow = {
+      personId: person.personId,
+      statusId: person.statusLabel,
+      statusLabel: person.statusLabel,
+      operationalNumber: person.operationalNumber,
+      name: person.fullName,
+      siteName: site.name,
+      floorApartment: person.gridCell,
+      assignedTeam: person.teamLabel,
+      lastUpdatedAt: person.latestReportedAt,
+      notes: person.latestNotes,
+      siteHref: site.structureHref,
+      teamHref: null,
+      operationalNumberHref: site.operationalNumbersHref + "?personId=" + person.personId
+    };
+    setSelectedPerson(row);
+    setTimeline([]);
+    startTimelineTransition(async () => {
+      try {
+        setTimeline(await loadOperationalPersonCommandTimeline(site.structureHref.split("/")[2] ?? "", person.personId));
+      } catch {
+        setTimeline([]);
+      }
+    });
+  }
 
   return (
     <section className="panel section-spaced site-decision-panel">
@@ -198,6 +231,8 @@ export function DashboardSiteCommandSummary({ sites }: { sites: SiteAnalysisRow[
           <p className="muted">תמונת מצב תפעולית מלאה לפי אתר, כולל דלתא מול חיתוך המצב האחרון.</p>
         </div>
       </div>
+
+      <CasualtyDetailsDrawer row={selectedPerson} timeline={timeline} loading={isTimelinePending} onClose={() => setSelectedPerson(null)} />
 
       {sites.length === 0 ? (
         <p className="muted">לא נמצאו אתרים להצגה.</p>
@@ -289,7 +324,8 @@ export function DashboardSiteCommandSummary({ sites }: { sites: SiteAnalysisRow[
                             <th>תא שטח</th>
                             <th>זמן עדכון אחרון</th>
                             <th>הערות</th>
-                          </tr>
+
+                            <th className="command-action-col">{"\u05e4\u05e2\u05d5\u05dc\u05d4"}</th></tr>
                         </thead>
                         <tbody>
                           {activeStatus.people.map((person) => (
@@ -301,6 +337,11 @@ export function DashboardSiteCommandSummary({ sites }: { sites: SiteAnalysisRow[
                               <td>{person.gridCell ?? "-"}</td>
                               <td>{person.latestReportedAt ? formatDateTime(person.latestReportedAt) : "לא עודכן"}</td>
                               <td>{person.latestNotes ?? "-"}</td>
+                              <td className="command-action-cell">
+                                <button className="small-action-button command-details-button" type="button" onClick={() => openPersonDetails(site, person)}>
+                                  {"\u05e6\u05e4\u05d4 \u05d1\u05e4\u05e8\u05d8\u05d9\u05dd"}
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
