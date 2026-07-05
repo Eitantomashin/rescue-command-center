@@ -9468,3 +9468,166 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     grid-template-columns: 1fr;
   }
 }
+
+/* Command dashboard compact operational layout */
+.command-status-overview {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.command-status-overview .casualty-status-card {
+  min-height: 94px;
+  padding: 10px 12px;
+  gap: 6px;
+}
+
+.command-status-overview .casualty-status-card > span:not(.casualty-status-icon) {
+  max-width: calc(100% - 34px);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.command-status-overview .casualty-status-card strong {
+  font-size: clamp(26px, 2.6vw, 38px);
+}
+
+.command-status-overview .casualty-status-card small {
+  font-size: 11px;
+}
+
+.command-status-overview .casualty-status-icon {
+  top: 10px;
+  left: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.command-dashboard-main {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.command-drilldown-panel {
+  width: 100%;
+  margin-top: 0;
+}
+
+.command-drilldown-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.command-close-detail {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 94px;
+  flex: 0 0 auto;
+}
+
+.command-drilldown-table {
+  width: 100%;
+  overflow-x: visible;
+}
+
+.command-drilldown-table table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.command-drilldown-table th,
+.command-drilldown-table td {
+  padding: 9px 8px;
+  white-space: nowrap;
+}
+
+.command-drilldown-table th:nth-child(1),
+.command-drilldown-table td:nth-child(1) { width: 10%; }
+.command-drilldown-table th:nth-child(2),
+.command-drilldown-table td:nth-child(2) { width: 15%; }
+.command-drilldown-table th:nth-child(3),
+.command-drilldown-table td:nth-child(3) { width: 15%; }
+.command-drilldown-table th:nth-child(4),
+.command-drilldown-table td:nth-child(4) { width: 14%; }
+.command-drilldown-table th:nth-child(5),
+.command-drilldown-table td:nth-child(5) { width: 13%; }
+.command-drilldown-table th:nth-child(6),
+.command-drilldown-table td:nth-child(6) { width: 17%; }
+.command-drilldown-table .command-action-col,
+.command-drilldown-table .command-action-cell { width: 116px; min-width: 116px; }
+
+.command-details-button {
+  max-width: 96px;
+  min-height: 30px;
+  font-size: 12px;
+}
+
+.command-details-drawer {
+  position: fixed;
+  top: 96px;
+  left: 24px;
+  right: auto;
+  z-index: 80;
+  width: min(640px, calc(100vw - 48px));
+  max-height: calc(100vh - 128px);
+  overflow: auto;
+  border-color: rgba(37, 99, 235, 0.34);
+  box-shadow: 0 24px 72px rgba(15, 35, 64, 0.24);
+}
+
+.command-details-drawer::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(15, 23, 42, 0.08);
+  pointer-events: none;
+}
+
+@media (max-width: 1280px) {
+  .command-status-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .command-status-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-status-overview .casualty-status-card {
+    min-height: 88px;
+  }
+
+  .command-drilldown-heading {
+    display: grid;
+    gap: 10px;
+  }
+
+  .command-close-detail {
+    justify-self: start;
+  }
+
+  .command-drilldown-table {
+    overflow: visible;
+  }
+
+  .command-details-drawer {
+    top: 12px;
+    left: 12px;
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+}
+
+@media (max-width: 480px) {
+  .command-status-overview {
+    grid-template-columns: 1fr;
+  }
+}

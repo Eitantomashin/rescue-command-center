@@ -147,7 +147,7 @@ export function CasualtyDetailsDrawer({ row, timeline, loading, onClose }: { row
   if (!row) return null;
   const originalReportHref = timeline.find((item) => item.href)?.href ?? null;
   return (
-    <aside className="command-details-drawer" aria-label="\u05e4\u05e8\u05d8\u05d9 \u05e0\u05e4\u05d2\u05e2">
+    <aside className="command-details-drawer" role="dialog" aria-modal="true" aria-label="\u05e4\u05e8\u05d8\u05d9 \u05e0\u05e4\u05d2\u05e2">
       <div className="command-details-drawer-header">
         <div><span>{"\u05e9\u05dc\u05d1 3 \u00b7 \u05e4\u05e8\u05d8\u05d9 \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</span><h2>{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"} #{formatNumber(row.operationalNumber)}</h2></div>
         <button type="button" onClick={onClose} aria-label="\u05e1\u05d2\u05d5\u05e8">{"\u00d7"}</button>
@@ -187,8 +187,8 @@ export function CommandStatusDashboard({ statuses, rows, initialStatusId = null,
       <StatusOverviewCards statuses={statuses} rows={rows} selectedStatusId={selectedStatusId} onSelect={(id) => { setSelectedStatusId(id); setSelectedRow(null); setTimeline([]); }} />
       {selectedStatus ? (
         <div className="command-dashboard-main">
-          <StatusDrilldownTable title={`${selectedStatus.label} (${formatNumber(selectedRows.length)})`} rows={selectedRows} selectedPersonId={selectedRow?.personId ?? null} onClose={closeDrilldown} onDetails={openDetails} />
           <CasualtyDetailsDrawer row={selectedRow} timeline={timeline} loading={isPending} onClose={() => setSelectedRow(null)} />
+          <StatusDrilldownTable title={`${selectedStatus.label} (${formatNumber(selectedRows.length)})`} rows={selectedRows} selectedPersonId={selectedRow?.personId ?? null} onClose={closeDrilldown} onDetails={openDetails} />
         </div>
       ) : null}
     </div>
