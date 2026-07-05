@@ -221,7 +221,6 @@ export function DashboardCommandScope({
   personnelTeams: PersonnelTeamItem[];
 }) {
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
-  const [anchorOpen, setAnchorOpen] = useState(true);
   const [openKpi, setOpenKpi] = useState<string | null>(null);
   const selectedSite = sites.find((site) => site.siteId === selectedSiteId) ?? null;
   const visibleSites = selectedSite ? [selectedSite] : sites;
@@ -386,18 +385,13 @@ export function DashboardCommandScope({
             <h2>טבלת עוגן</h2>
             <p className="muted">פירוק לפי הסטטוס המבצעי העדכני</p>
           </div>
-          <button className="button compact secondary" type="button" onClick={() => setAnchorOpen((value) => !value)}>
-            {anchorOpen ? "סגור" : "פתח"}
-          </button>
         </div>
-        {anchorOpen ? (
-          <CommandStatusDashboard
-            statuses={STATUS_GROUPS}
-            rows={anchorRows}
-            initialStatusId={STATUS_GROUPS[0].id}
-            loadTimeline={(personId) => loadOperationalPersonCommandTimeline(incidentId, personId)}
-          />
-        ) : null}
+        <CommandStatusDashboard
+          statuses={STATUS_GROUPS}
+          rows={anchorRows}
+          initialStatusId={null}
+          loadTimeline={(personId) => loadOperationalPersonCommandTimeline(incidentId, personId)}
+        />
       </section>
 
       <DashboardSiteCommandSummary sites={visibleSites} />

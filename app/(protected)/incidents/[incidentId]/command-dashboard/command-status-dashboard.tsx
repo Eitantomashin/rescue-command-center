@@ -29,7 +29,7 @@ type SortKey = "number" | "name" | "site" | "team" | "updated";
 type Props = {
   statuses: CommandStatusDefinition[];
   rows: CommandStatusRow[];
-  initialStatusId: string;
+  initialStatusId?: string | null;
   loadTimeline: (personId: string) => Promise<CommandTimelineEvent[]>;
 };
 
@@ -67,7 +67,7 @@ export function CommandDashboardHeader({ eyebrow, title, description, totalLabel
   );
 }
 
-export function StatusOverviewCards({ statuses, rows, selectedStatusId, onSelect }: { statuses: CommandStatusDefinition[]; rows: CommandStatusRow[]; selectedStatusId: string; onSelect: (id: string) => void }) {
+export function StatusOverviewCards({ statuses, rows, selectedStatusId, onSelect }: { statuses: CommandStatusDefinition[]; rows: CommandStatusRow[]; selectedStatusId: string | null; onSelect: (id: string) => void }) {
   return (
     <section className="casualty-status-overview command-status-overview" aria-label="\u05ea\u05de\u05d5\u05e0\u05ea \u05de\u05e6\u05d1">
       {statuses.map((status) => {
@@ -78,7 +78,7 @@ export function StatusOverviewCards({ statuses, rows, selectedStatusId, onSelect
             <span className="casualty-status-icon">{status.icon ?? "\u25cf"}</span>
             <span>{status.label}</span>
             <strong>{formatNumber(count)}</strong>
-            <small>{"\u05dc\u05d7\u05e5 \u05dc\u05e4\u05d9\u05e8\u05d5\u05d8"}</small>
+            <small>{active ? "\u05e4\u05d9\u05e8\u05d5\u05d8 \u05e4\u05ea\u05d5\u05d7" : "\u05dc\u05d7\u05e5 \u05dc\u05e4\u05d9\u05e8\u05d5\u05d8"}</small>
           </button>
         );
       })}
@@ -86,7 +86,7 @@ export function StatusOverviewCards({ statuses, rows, selectedStatusId, onSelect
   );
 }
 
-export function StatusDrilldownTable({ title, rows, selectedPersonId, onDetails }: { title: string; rows: CommandStatusRow[]; selectedPersonId: string | null; onDetails: (row: CommandStatusRow) => void }) {
+export function StatusDrilldownTable({ title, rows, selectedPersonId, onClose, onDetails }: { title: string; rows: CommandStatusRow[]; selectedPersonId: string | null; onClose: () => void; onDetails: (row: CommandStatusRow) => void }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("number");
   const normalizedQuery = query.trim().toLocaleLowerCase("he");
@@ -105,23 +105,30 @@ export function StatusDrilldownTable({ title, rows, selectedPersonId, onDetails 
 
   return (
     <section className="panel casualty-drilldown-panel command-drilldown-panel">
-      <div className="section-heading-row">
+      <div className="section-heading-row command-drilldown-heading">
         <div>
           <p className="section-eyebrow">{"\u05e9\u05dc\u05d1 2 \u00b7 \u05d3\u05e8\u05d9\u05dc \u05d3\u05d0\u05d5\u05df \u05dc\u05e4\u05d9 \u05e1\u05d8\u05d8\u05d5\u05e1"}</p>
           <h2>{title}</h2>
         </div>
-        <div className="command-table-tools">
-          <label><span>{"\u05d7\u05d9\u05e4\u05d5\u05e9"}</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={"\u05d7\u05e4\u05e9 \u05de\u05e1\u05e4\u05e8, \u05e9\u05dd, \u05d0\u05ea\u05e8..."} /></label>
-          <label><span>{"\u05de\u05d9\u05d5\u05df"}</span><select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)}><option value="number">{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</option><option value="name">{"\u05e9\u05dd"}</option><option value="site">{"\u05d0\u05ea\u05e8"}</option><option value="team">{"\u05e6\u05d5\u05d5\u05ea"}</option><option value="updated">{"\u05e2\u05d3\u05db\u05d5\u05df \u05d0\u05d7\u05e8\u05d5\u05df"}</option></select></label>
-        </div>
+        <button className="button compact secondary command-close-detail" type="button" onClick={onClose}>{"\u05e1\u05d2\u05d5\u05e8 \u05e4\u05d9\u05e8\u05d5\u05d8"}</button>
       </div>
-      <div className="responsive-table casualty-drilldown-table">
+      <div className="command-table-tools">
+        <label><span>{"\u05d7\u05d9\u05e4\u05d5\u05e9"}</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={"\u05d7\u05e4\u05e9 \u05de\u05e1\u05e4\u05e8, \u05e9\u05dd, \u05d0\u05ea\u05e8..."} /></label>
+        <label><span>{"\u05de\u05d9\u05d5\u05df"}</span><select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)}><option value="number">{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</option><option value="name">{"\u05e9\u05dd"}</option><option value="site">{"\u05d0\u05ea\u05e8"}</option><option value="team">{"\u05e6\u05d5\u05d5\u05ea"}</option><option value="updated">{"\u05e2\u05d3\u05db\u05d5\u05df \u05d0\u05d7\u05e8\u05d5\u05df"}</option></select></label>
+      </div>
+      <div className="responsive-table casualty-drilldown-table command-drilldown-table">
         <table>
-          <thead><tr><th>{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</th><th>{"\u05e9\u05dd"}</th><th>{"\u05d0\u05ea\u05e8"}</th><th>{"\u05e7\u05d5\u05de\u05d4 / \u05d3\u05d9\u05e8\u05d4"}</th><th>{"\u05e9\u05d9\u05d5\u05da"}</th><th>{"\u05d6\u05de\u05df \u05e2\u05d3\u05db\u05d5\u05df \u05d0\u05d7\u05e8\u05d5\u05df"}</th><th>{"\u05e4\u05e2\u05d5\u05dc\u05d4"}</th></tr></thead>
+          <thead><tr><th>{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</th><th>{"\u05e9\u05dd"}</th><th>{"\u05d0\u05ea\u05e8"}</th><th>{"\u05e7\u05d5\u05de\u05d4 / \u05d3\u05d9\u05e8\u05d4"}</th><th>{"\u05e9\u05d9\u05d5\u05da"}</th><th>{"\u05d6\u05de\u05df \u05e2\u05d3\u05db\u05d5\u05df \u05d0\u05d7\u05e8\u05d5\u05df"}</th><th className="command-action-col">{"\u05e4\u05e2\u05d5\u05dc\u05d4"}</th></tr></thead>
           <tbody>
             {filteredRows.length ? filteredRows.map((row) => (
               <tr key={row.personId} className={selectedPersonId === row.personId ? "selected-row" : ""}>
-                <td><strong>#{formatNumber(row.operationalNumber)}</strong></td><td>{text(row.name)}</td><td>{text(row.siteName)}</td><td>{text(row.floorApartment)}</td><td>{text(row.assignedTeam)}</td><td>{row.lastUpdatedAt ? formatDateTime(row.lastUpdatedAt) : "\u2014"}</td><td><button className="small-action-button" type="button" onClick={() => onDetails(row)}>{"\u05e6\u05e4\u05d4 \u05d1\u05e4\u05e8\u05d8\u05d9\u05dd"}</button></td>
+                <td data-label="\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"><strong>#{formatNumber(row.operationalNumber)}</strong></td>
+                <td data-label="\u05e9\u05dd">{text(row.name)}</td>
+                <td data-label="\u05d0\u05ea\u05e8">{text(row.siteName)}</td>
+                <td data-label="\u05e7\u05d5\u05de\u05d4 / \u05d3\u05d9\u05e8\u05d4">{text(row.floorApartment)}</td>
+                <td data-label="\u05e9\u05d9\u05d5\u05da">{text(row.assignedTeam)}</td>
+                <td data-label="\u05e2\u05d3\u05db\u05d5\u05df \u05d0\u05d7\u05e8\u05d5\u05df">{row.lastUpdatedAt ? formatDateTime(row.lastUpdatedAt) : "\u2014"}</td>
+                <td className="command-action-cell"><button className="small-action-button command-details-button" type="button" onClick={() => onDetails(row)}>{"\u05e6\u05e4\u05d4 \u05d1\u05e4\u05e8\u05d8\u05d9\u05dd"}</button></td>
               </tr>
             )) : <tr><td colSpan={7}>No casualties in this status.</td></tr>}
           </tbody>
@@ -133,7 +140,7 @@ export function StatusDrilldownTable({ title, rows, selectedPersonId, onDetails 
 
 export function OperationalTimeline({ events, loading }: { events: CommandTimelineEvent[]; loading: boolean }) {
   if (loading) return <div className="command-loading-state">{"\u05d8\u05d5\u05e2\u05df \u05e6\u05d9\u05e8 \u05d6\u05de\u05df..."}</div>;
-  return <ol className="casualty-timeline-list">{events.length ? events.map((item) => <li key={item.id}><time>{item.timeLabel ?? (item.time ? formatDateTime(item.time) : "\u2014")}</time><strong>{item.title}</strong>{item.description ? <p>{item.description}</p> : null}{item.source ? <span>{item.source}</span> : null}{item.actor ? <span>{item.actor}</span> : null}{item.remarks ? <p>{item.remarks}</p> : null}</li>) : <li><strong>{"\u05d0\u05d9\u05df \u05d4\u05d9\u05e1\u05d8\u05d5\u05e8\u05d9\u05d4 \u05d6\u05de\u05d9\u05e0\u05d4"}</strong></li>}</ol>;
+  return <ol className="casualty-timeline-list command-timeline-list">{events.length ? events.map((item) => <li key={item.id}><time>{item.timeLabel ?? (item.time ? formatDateTime(item.time) : "\u2014")}</time><strong>{item.title}</strong>{item.source ? <span>{item.source}</span> : null}{item.actor ? <span>{item.actor}</span> : null}{item.description ? <p>{item.description}</p> : null}{item.remarks ? <p>{item.remarks}</p> : null}</li>) : <li><strong>{"\u05d0\u05d9\u05df \u05d4\u05d9\u05e1\u05d8\u05d5\u05e8\u05d9\u05d4 \u05d6\u05de\u05d9\u05e0\u05d4"}</strong></li>}</ol>;
 }
 
 export function CasualtyDetailsDrawer({ row, timeline, loading, onClose }: { row: CommandStatusRow | null; timeline: CommandTimelineEvent[]; loading: boolean; onClose: () => void }) {
@@ -141,22 +148,31 @@ export function CasualtyDetailsDrawer({ row, timeline, loading, onClose }: { row
   const originalReportHref = timeline.find((item) => item.href)?.href ?? null;
   return (
     <aside className="command-details-drawer" aria-label="\u05e4\u05e8\u05d8\u05d9 \u05e0\u05e4\u05d2\u05e2">
-      <div className="command-details-drawer-header"><div><span>{"\u05e9\u05dc\u05d1 3 \u00b7 \u05e4\u05e8\u05d8\u05d9 \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</span><h2>{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"} #{formatNumber(row.operationalNumber)}</h2></div><button type="button" onClick={onClose} aria-label="\u05e1\u05d2\u05d5\u05e8">×</button></div>
+      <div className="command-details-drawer-header">
+        <div><span>{"\u05e9\u05dc\u05d1 3 \u00b7 \u05e4\u05e8\u05d8\u05d9 \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</span><h2>{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"} #{formatNumber(row.operationalNumber)}</h2></div>
+        <button type="button" onClick={onClose} aria-label="\u05e1\u05d2\u05d5\u05e8">{"\u00d7"}</button>
+      </div>
       <StatusBadge tone="red">{row.statusLabel}</StatusBadge>
-      <dl className="casualty-detail-grid command-detail-grid"><div><dt>{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</dt><dd>#{formatNumber(row.operationalNumber)}</dd></div><div><dt>{"\u05e9\u05dd"}</dt><dd>{text(row.name)}</dd></div><div><dt>{"\u05e1\u05d8\u05d8\u05d5\u05e1 \u05e0\u05d5\u05db\u05d7\u05d9"}</dt><dd>{row.statusLabel}</dd></div><div><dt>{"\u05d0\u05ea\u05e8"}</dt><dd>{text(row.siteName)}</dd></div><div><dt>{"\u05e7\u05d5\u05de\u05d4 / \u05d3\u05d9\u05e8\u05d4"}</dt><dd>{text(row.floorApartment)}</dd></div><div><dt>{"\u05e9\u05d9\u05d5\u05da"}</dt><dd>{text(row.assignedTeam)}</dd></div><div><dt>{"\u05d8\u05dc\u05e4\u05d5\u05df"}</dt><dd>{text(row.phone)}</dd></div><div><dt>{"\u05e2\u05d3\u05db\u05d5\u05df \u05d0\u05d7\u05e8\u05d5\u05df"}</dt><dd>{row.lastUpdatedAt ? formatDateTime(row.lastUpdatedAt) : "\u2014"}</dd></div><div className="wide"><dt>{"\u05d4\u05e2\u05e8\u05d5\u05ea"}</dt><dd>{text(row.notes)}</dd></div></dl>
-      <div className="command-quick-nav">{row.siteHref ? <Link href={row.siteHref}>{"\u05e4\u05ea\u05d7 \u05d0\u05ea\u05e8"}</Link> : null}{row.teamHref ? <Link href={row.teamHref}>{"\u05e4\u05ea\u05d7 \u05e6\u05d5\u05d5\u05ea"}</Link> : null}{row.operationalNumberHref ? <Link href={row.operationalNumberHref}>{"\u05e4\u05ea\u05d7 \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</Link> : null}{originalReportHref ? <Link href={originalReportHref}>{"\u05e4\u05ea\u05d7 \u05d3\u05d9\u05d5\u05d5\u05d7 \u05de\u05e7\u05d5\u05e8"}</Link> : null}</div>
-      <section className="casualty-timeline-card command-timeline-section"><h2>{"\u05e6\u05d9\u05e8 \u05d6\u05de\u05df \u05de\u05d1\u05e6\u05e2\u05d9"}</h2><OperationalTimeline events={timeline} loading={loading} /></section>
+      <section className="command-details-section"><h3>{"\u05e4\u05e8\u05d8\u05d9\u05dd \u05de\u05e8\u05db\u05d6\u05d9\u05d9\u05dd"}</h3><dl className="command-detail-grid"><div><dt>{"\u05e9\u05dd"}</dt><dd>{text(row.name)}</dd></div><div><dt>{"\u05e1\u05d8\u05d8\u05d5\u05e1 \u05e0\u05d5\u05db\u05d7\u05d9"}</dt><dd>{row.statusLabel}</dd></div><div><dt>{"\u05d0\u05ea\u05e8"}</dt><dd>{text(row.siteName)}</dd></div><div><dt>{"\u05e7\u05d5\u05de\u05d4 / \u05d3\u05d9\u05e8\u05d4"}</dt><dd>{text(row.floorApartment)}</dd></div><div><dt>{"\u05e9\u05d9\u05d5\u05da / \u05e6\u05d5\u05d5\u05ea"}</dt><dd>{text(row.assignedTeam)}</dd></div><div><dt>{"\u05d8\u05dc\u05e4\u05d5\u05df"}</dt><dd>{text(row.phone)}</dd></div><div><dt>{"\u05e2\u05d3\u05db\u05d5\u05df \u05d0\u05d7\u05e8\u05d5\u05df"}</dt><dd>{row.lastUpdatedAt ? formatDateTime(row.lastUpdatedAt) : "\u2014"}</dd></div><div className="wide"><dt>{"\u05d4\u05e2\u05e8\u05d5\u05ea"}</dt><dd>{text(row.notes)}</dd></div></dl></section>
+      <section className="command-details-section"><h3>{"\u05e0\u05d9\u05d5\u05d5\u05d8 \u05de\u05d4\u05d9\u05e8"}</h3><div className="command-quick-nav">{row.siteHref ? <Link href={row.siteHref}>{"\u05d0\u05ea\u05e8"}</Link> : null}{row.teamHref ? <Link href={row.teamHref}>{"\u05e6\u05d5\u05d5\u05ea / \u05db\u05d5\u05d7"}</Link> : null}{row.operationalNumberHref ? <Link href={row.operationalNumberHref}>{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</Link> : null}{originalReportHref ? <Link href={originalReportHref}>{"\u05d3\u05d9\u05d5\u05d5\u05d7 \u05de\u05e7\u05d5\u05e8"}</Link> : null}</div></section>
+      <section className="command-details-section command-timeline-section"><h3>{"\u05e6\u05d9\u05e8 \u05d6\u05de\u05df \u05de\u05d1\u05e6\u05e2\u05d9"}</h3><OperationalTimeline events={timeline} loading={loading} /></section>
     </aside>
   );
 }
 
-export function CommandStatusDashboard({ statuses, rows, initialStatusId, loadTimeline }: Props) {
-  const [selectedStatusId, setSelectedStatusId] = useState(initialStatusId);
+export function CommandStatusDashboard({ statuses, rows, initialStatusId = null, loadTimeline }: Props) {
+  const [selectedStatusId, setSelectedStatusId] = useState<string | null>(initialStatusId);
   const [selectedRow, setSelectedRow] = useState<CommandStatusRow | null>(null);
   const [timeline, setTimeline] = useState<CommandTimelineEvent[]>([]);
   const [isPending, startTransition] = useTransition();
-  const selectedStatus = statuses.find((status) => status.id === selectedStatusId) ?? statuses[0];
-  const selectedRows = rows.filter((row) => row.statusId === selectedStatus.id);
+  const selectedStatus = statuses.find((status) => status.id === selectedStatusId) ?? null;
+  const selectedRows = selectedStatus ? rows.filter((row) => row.statusId === selectedStatus.id) : [];
+
+  function closeDrilldown() {
+    setSelectedStatusId(null);
+    setSelectedRow(null);
+    setTimeline([]);
+  }
 
   function openDetails(row: CommandStatusRow) {
     setSelectedRow(row);
@@ -166,5 +182,15 @@ export function CommandStatusDashboard({ statuses, rows, initialStatusId, loadTi
     });
   }
 
-  return <div className="command-dashboard-workflow"><StatusOverviewCards statuses={statuses} rows={rows} selectedStatusId={selectedStatus.id} onSelect={(id) => { setSelectedStatusId(id); setSelectedRow(null); }} /><div className="command-dashboard-main"><StatusDrilldownTable title={`${selectedStatus.label} (${formatNumber(selectedRows.length)})`} rows={selectedRows} selectedPersonId={selectedRow?.personId ?? null} onDetails={openDetails} /><CasualtyDetailsDrawer row={selectedRow} timeline={timeline} loading={isPending} onClose={() => setSelectedRow(null)} /></div></div>;
+  return (
+    <div className="command-dashboard-workflow">
+      <StatusOverviewCards statuses={statuses} rows={rows} selectedStatusId={selectedStatusId} onSelect={(id) => { setSelectedStatusId(id); setSelectedRow(null); setTimeline([]); }} />
+      {selectedStatus ? (
+        <div className="command-dashboard-main">
+          <StatusDrilldownTable title={`${selectedStatus.label} (${formatNumber(selectedRows.length)})`} rows={selectedRows} selectedPersonId={selectedRow?.personId ?? null} onClose={closeDrilldown} onDetails={openDetails} />
+          <CasualtyDetailsDrawer row={selectedRow} timeline={timeline} loading={isPending} onClose={() => setSelectedRow(null)} />
+        </div>
+      ) : null}
+    </div>
+  );
 }
