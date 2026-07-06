@@ -352,7 +352,7 @@ export function IncidentCommandShell({
       </aside>
 
       <div className={`incident-command-content${isCommanderDashboard ? " commander-dashboard-content" : ""}`}>
-        {!isWarRoom ? (
+        {isCommanderDashboard ? (
         <section className="incident-ops-strip operational-status-strip" aria-label="סיכום מבצעי">
           <div className="status-strip-item status-strip-critical">
             <span>🔴 פער מבצעי</span>
