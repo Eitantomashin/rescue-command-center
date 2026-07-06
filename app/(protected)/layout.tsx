@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CommandActionPanel } from "./command-action-panel";
 import { signOut } from "@/app/login/actions";
 import { BrandImage } from "@/app/brand-image";
 import { CurrentTime } from "@/app/current-time";
@@ -68,7 +67,6 @@ export default async function ProtectedLayout({
         </form>
       </header>
 
-      <CommandActionPanel systemRole={typeof systemRole === "string" ? systemRole : null} />
       {children}
     </>
   );

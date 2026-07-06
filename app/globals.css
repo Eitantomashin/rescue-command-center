@@ -260,13 +260,62 @@ textarea {
 }
 
 .command-action-panel {
-  position: fixed;
+  position: sticky;
   top: 96px;
-  right: 16px;
-  z-index: 30;
+  align-self: start;
   display: grid;
   gap: 8px;
   width: 190px;
+  transition: width 180ms ease, transform 180ms ease;
+}
+
+.command-action-panel.collapsed {
+  width: 46px;
+}
+
+.command-action-panel-body {
+  display: grid;
+  gap: 8px;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 140ms ease;
+}
+
+.command-action-panel-body > strong {
+  color: #6f6f76;
+  font-size: 14px;
+  text-align: center;
+}
+
+.command-action-panel.collapsed .command-action-panel-body {
+  pointer-events: none;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.command-action-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  width: 42px;
+  height: 68px;
+  border: 1px solid rgba(245, 130, 32, 0.65);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+  color: var(--brand-secondary);
+  cursor: pointer;
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.command-action-toggle:hover {
+  border-color: var(--brand-secondary);
+  background: #fff7ef;
 }
 
 .command-action-button {
@@ -306,6 +355,15 @@ textarea {
   margin: 0 auto;
   padding: 20px 0 32px;
   direction: ltr;
+}
+
+.incident-command-layout.has-quick-actions {
+  grid-template-columns: 300px minmax(0, 1fr) 190px;
+  width: min(1690px, calc(100% - 32px));
+}
+
+.incident-command-layout.has-quick-actions.quick-actions-collapsed {
+  grid-template-columns: 300px minmax(0, 1fr) 46px;
 }
 
 .incident-nav-tree,
@@ -696,7 +754,7 @@ textarea {
 }
 
 .commander-dashboard-page {
-  width: min(1240px, calc(100% - 32px));
+  width: 100%;
 }
 
 .commander-dashboard-page > .section-spaced {
@@ -3716,6 +3774,11 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .incident-command-layout.has-quick-actions,
+  .incident-command-layout.has-quick-actions.quick-actions-collapsed {
+    grid-template-columns: 1fr;
+  }
+
   .incident-nav-tree {
     position: static;
     max-height: none;
@@ -6660,6 +6723,11 @@ textarea {
     grid-template-columns: 1fr;
     width: min(100% - 24px, 100%);
     padding-top: 12px;
+  }
+
+  .incident-command-layout.has-quick-actions,
+  .incident-command-layout.has-quick-actions.quick-actions-collapsed {
+    grid-template-columns: 1fr;
   }
 
   .incident-nav-tree {

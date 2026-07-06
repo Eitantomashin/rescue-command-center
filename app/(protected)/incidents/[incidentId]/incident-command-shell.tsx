@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { CommandActionPanel } from "../../command-action-panel";
 import { formatNumber } from "@/lib/format";
 import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
 
@@ -38,6 +40,8 @@ export type IncidentShellSummary = {
   operational_numbers_located_outside_site_count?: number | null;
   operational_numbers_deceased_count?: number | null;
 };
+
+const quickActionsStorageKey = "quick-actions-panel";
 
 function siteLabel(site: IncidentShellSite) {
   if (site.name?.trim()) {
@@ -179,17 +183,21 @@ export function IncidentCommandShell({
   incident,
   sites,
   summary,
+  systemRole,
   children
 }: {
   incident: IncidentShellIncident;
   sites: IncidentShellSite[];
   summary: IncidentShellSummary;
+  systemRole: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const base = `/incidents/${incident.id}`;
   const isCommanderDashboard = pathname === base;
   const isWarRoom = pathname === `${base}/war-room`;
+  const canShowQuickActions = systemRole === "admin" || systemRole === "commander";
+  const [quickActionsExpanded, setQuickActionsExpanded] = useState(true);
   const activeOperationalNumbers = summary.active_operational_numbers_count ?? summary.gap_resolved_count ?? 0;
   const completedOperationalNumbers =
     (summary.operational_numbers_rescued_count ?? 0) +
@@ -205,8 +213,23 @@ export function IncidentCommandShell({
     pathname.startsWith(`${base}/reports/closure`) ||
     pathname.startsWith(`${base}/reports/search-sites`);
 
+  useEffect(() => {
+    const savedState = window.localStorage.getItem(quickActionsStorageKey);
+    if (savedState === "collapsed") {
+      setQuickActionsExpanded(false);
+    } else if (savedState === "expanded") {
+      setQuickActionsExpanded(true);
+    }
+  }, []);
+
+  function toggleQuickActions() {
+    const nextState = !quickActionsExpanded;
+    setQuickActionsExpanded(nextState);
+    window.localStorage.setItem(quickActionsStorageKey, nextState ? "expanded" : "collapsed");
+  }
+
   return (
-    <div className="incident-command-layout">
+    <div className={`incident-command-layout${canShowQuickActions ? " has-quick-actions" : ""}${quickActionsExpanded ? "" : " quick-actions-collapsed"}`}>
       <aside className="incident-nav-tree" aria-label="ניווט אירוע">
         <div className="incident-nav-header">
           <span className="nav-icon nav-icon-incident" aria-hidden="true">!</span>
@@ -389,6 +412,14 @@ export function IncidentCommandShell({
         ) : null}
         {children}
       </div>
+      {canShowQuickActions ? (
+        <CommandActionPanel
+          incidentId={incident.id}
+          isExpanded={quickActionsExpanded}
+          onToggle={toggleQuickActions}
+          systemRole={systemRole}
+        />
+      ) : null}
     </div>
   );
 }

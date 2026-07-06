@@ -143,6 +143,7 @@ export default async function IncidentLayout({
             operational_numbers_deceased_count: 0
           }
         }
+        systemRole={typeof currentRole === "string" ? currentRole : null}
       >
         <RealtimeRefresh incidentId={params.incidentId} />
         {children}
