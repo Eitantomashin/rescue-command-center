@@ -2375,26 +2375,34 @@ textarea {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 18px;
-  border-bottom: 4px solid var(--brand-secondary);
+  gap: 18px;
+  padding-bottom: 11px;
+  border-bottom: 3px solid var(--brand-secondary);
+}
+
+.sitrep-document-header > div:first-child {
+  display: grid;
+  gap: 2px;
 }
 
 .sitrep-document-header h1 {
-  margin: 2px 0 5px;
+  margin: 0;
   color: var(--brand-primary);
-  font-size: 2rem;
+  font-size: clamp(1.75rem, 2.8vw, 2.35rem);
+  line-height: 1.1;
 }
 
 .sitrep-document-header h2 {
   margin: 0;
-  font-size: 1.25rem;
+  color: #66788a;
+  font-size: 1rem;
+  font-weight: 800;
 }
 
 .sitrep-header-details,
 .sitrep-site-metrics {
   display: grid;
-  gap: 7px;
+  gap: 6px;
   margin: 0;
 }
 
@@ -2402,7 +2410,15 @@ textarea {
 .sitrep-site-metrics div {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
+  gap: 14px;
+}
+
+.sitrep-header-details {
+  min-width: min(360px, 42vw);
+  grid-template-columns: 1fr;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: #f7f9fc;
 }
 
 .sitrep-header-details dt,
@@ -2474,6 +2490,198 @@ textarea {
   background: #e8eef5;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.sitrep-operational-summary {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid rgba(22, 50, 79, 0.13);
+  border-inline-start: 5px solid var(--brand-secondary);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 8px 20px rgba(22, 50, 79, 0.06);
+  break-inside: avoid;
+}
+
+.sitrep-operational-summary > strong {
+  color: var(--brand-primary);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.sitrep-operational-summary > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.sitrep-operational-summary span {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 74px;
+  padding: 12px;
+  border: 1px solid rgba(22, 50, 79, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #263d55;
+  break-inside: avoid;
+}
+
+.sitrep-operational-summary i {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #eef3f8;
+  color: #526579;
+  font-style: normal;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.sitrep-operational-summary b {
+  min-width: 0;
+  text-align: right;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.sitrep-operational-summary em {
+  color: var(--brand-primary);
+  font-style: normal;
+  font-size: 1.9rem;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.sitrep-operational-summary .tone-red {
+  border-color: rgba(211, 47, 47, 0.18);
+}
+
+.sitrep-operational-summary .tone-red i,
+.sitrep-operational-summary .tone-red em {
+  color: #c62828;
+}
+
+.sitrep-operational-summary .tone-red i {
+  background: #ffebee;
+}
+
+.sitrep-operational-summary .tone-orange {
+  border-color: rgba(245, 124, 0, 0.18);
+}
+
+.sitrep-operational-summary .tone-orange i,
+.sitrep-operational-summary .tone-orange em {
+  color: #d97706;
+}
+
+.sitrep-operational-summary .tone-orange i {
+  background: #fff3e0;
+}
+
+.sitrep-operational-summary .tone-green {
+  border-color: rgba(46, 125, 50, 0.18);
+}
+
+.sitrep-operational-summary .tone-green i,
+.sitrep-operational-summary .tone-green em {
+  color: #2e7d32;
+}
+
+.sitrep-operational-summary .tone-green i {
+  background: #e8f5e9;
+}
+
+.sitrep-operational-summary .tone-blue {
+  border-color: rgba(21, 101, 192, 0.18);
+}
+
+.sitrep-operational-summary .tone-blue i,
+.sitrep-operational-summary .tone-blue em {
+  color: #1565c0;
+}
+
+.sitrep-operational-summary .tone-blue i {
+  background: #e8f1fb;
+}
+
+.sitrep-operational-summary .tone-dark {
+  border-color: rgba(38, 50, 56, 0.22);
+}
+
+.sitrep-operational-summary .tone-dark i,
+.sitrep-operational-summary .tone-dark em {
+  color: #263238;
+}
+
+.sitrep-operational-summary .tone-dark i {
+  background: #eceff1;
+}
+
+.sitrep-operational-groups {
+  display: grid;
+  gap: 16px;
+}
+
+.sitrep-operational-status-group {
+  break-inside: avoid;
+}
+
+.sitrep-operational-status-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  color: var(--brand-primary);
+  font-size: 1.05rem;
+}
+
+.sitrep-operational-status-group h3::before {
+  content: "";
+  width: 4px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--brand-secondary);
+}
+
+.sitrep-operational-table {
+  table-layout: fixed;
+}
+
+.sitrep-operational-table th,
+.sitrep-operational-table td {
+  vertical-align: top;
+}
+
+.sitrep-operational-table th:nth-child(1),
+.sitrep-operational-table td:nth-child(1) {
+  width: 74px;
+  white-space: nowrap;
+}
+
+.sitrep-operational-table th:nth-child(5),
+.sitrep-operational-table td:nth-child(5),
+.sitrep-operational-table th:nth-child(6),
+.sitrep-operational-table td:nth-child(6) {
+  width: 118px;
+}
+
+.sitrep-notes-column,
+.sitrep-notes-cell {
+  width: 30%;
+}
+
+.sitrep-notes-cell {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .sitrep-text-section {
@@ -2983,6 +3191,20 @@ textarea {
 
   .sitrep-document-header {
     flex-direction: column;
+  }
+
+  .sitrep-header-details {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sitrep-operational-summary > div {
+    grid-template-columns: 1fr;
+  }
+
+  .sitrep-operational-table {
+    table-layout: auto;
+    min-width: 760px;
   }
 
   .sitrep-delta-sections {
@@ -6178,6 +6400,39 @@ textarea {
 
   .sitrep-table {
     font-size: 10pt;
+  }
+
+  .sitrep-document-header {
+    gap: 10px;
+    padding-bottom: 8px;
+  }
+
+  .sitrep-document-header h1 {
+    font-size: 20pt;
+  }
+
+  .sitrep-document-header h2 {
+    font-size: 10pt;
+  }
+
+  .sitrep-header-details {
+    min-width: 0;
+    padding: 6px 8px;
+    background: #f7f9fc !important;
+  }
+
+  .sitrep-operational-status-group {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .sitrep-operational-table {
+    table-layout: fixed;
+  }
+
+  .sitrep-notes-cell {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
   }
 
   .timeline-layout {

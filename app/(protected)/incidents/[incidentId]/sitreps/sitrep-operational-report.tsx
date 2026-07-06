@@ -1,6 +1,7 @@
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
 import { STATUS_GROUP_LABELS, type NumericDelta, type SitrepDelta } from "./sitrep-delta";
+import { groupOperationalNumbersByStatus } from "./sitrep-operational-number-groups";
 import { numberValue, textValue, type SituationReportRow } from "./sitrep-types";
 
 const INCIDENT_TYPES: Record<string, string> = {
@@ -15,11 +16,6 @@ function DeltaIndicator({ delta, inverse = false }: { delta: NumericDelta; inver
 }
 
 function siteName(site: Record<string, unknown>) { return textValue(site.name, `אתר ${numberValue(site.site_number)}`); }
-function personName(person: Record<string, unknown>) {
-  const direct = [person.first_name, person.last_name].map((value) => textValue(value, "")).filter(Boolean).join(" ");
-  const resident = [person.resident_first_name, person.resident_last_name].map((value) => textValue(value, "")).filter(Boolean).join(" ");
-  return direct || resident || "שם לא ידוע";
-}
 function teamLabel(team: Record<string, unknown>) {
   const number = numberValue(team.team_number);
   return operationalTeamLabel(number, textValue(team.name, ""));
@@ -32,10 +28,11 @@ export function SitrepOperationalReport({ report, delta, canEditMeeting = false 
   const { snapshot } = report;
   const siteDeltas = new Map(delta.sites.map((site) => [site.siteId, site]));
   const teamDeltas = new Map(delta.teams.map((team) => [team.teamNumber, team]));
+  const operationalNumberGroups = groupOperationalNumbersByStatus(snapshot);
 
   return <article className="sitrep-document" dir="rtl">
     <header className="sitrep-document-header">
-      <div><p className="eyebrow">דוח פיקודי</p><h1>חיתוך מצב #{report.report_number}</h1><h2>{snapshot.incident.name}</h2></div>
+      <div><p className="eyebrow">דוח פיקודי</p><h1>{snapshot.incident.name}</h1><h2>דוח חיתוך מצב #{report.report_number}</h2></div>
       <dl className="sitrep-header-details">
         <div><dt>סוג אירוע</dt><dd>{INCIDENT_TYPES[snapshot.incident.incident_type ?? ""] ?? snapshot.incident.incident_type ?? "-"}</dd></div>
         <div><dt>פתיחת האירוע</dt><dd>{formatDateTime(snapshot.incident.opened_at)}</dd></div>
@@ -98,10 +95,21 @@ export function SitrepOperationalReport({ report, delta, canEditMeeting = false 
       })}</tbody>
     </table></div></section>
 
-    <section className="sitrep-section"><h2>מספרים מבצעיים</h2><div className="table-wrap"><table className="table sitrep-table">
-      <thead><tr><th>מספר</th><th>שם</th><th>סטטוס</th><th>צוות</th><th>אתר</th><th>הערות</th></tr></thead>
-      <tbody>{snapshot.operational_numbers.map((person) => <tr key={textValue(person.person_id, String(person.operational_number))}><td><strong>#{numberValue(person.operational_number)}</strong></td><td>{personName(person)}</td><td>{textValue(person.latest_report_status_label, textValue(person.current_status_label, "לא ידוע"))}</td><td>{operationalTeamLabel(numberValue(person.team_number))}</td><td>{textValue(person.site_name, "ללא אתר")}</td><td>{textValue(person.latest_notes)}</td></tr>)}</tbody>
-    </table></div></section>
+    <section className="sitrep-section"><h2>מספרים מבצעיים</h2>
+      <div className="sitrep-operational-summary">
+        <strong>סה״כ מספרים מבצעיים: {formatNumber(snapshot.operational_numbers.length)}</strong>
+        <div>{operationalNumberGroups.map((group) => <span className={`tone-${group.tone}`} key={group.status}><i aria-hidden="true">{group.icon}</i><b>{group.status}</b><em>{formatNumber(group.rows.length)}</em></span>)}</div>
+      </div>
+      <div className="sitrep-operational-groups">{operationalNumberGroups.map((group) => (
+        <section className="sitrep-operational-status-group" key={group.status}>
+          <h3>{group.status} ({formatNumber(group.rows.length)})</h3>
+          <div className="table-wrap"><table className="table sitrep-table sitrep-operational-table">
+            <thead><tr><th>מספר</th><th>שם</th><th>צוות</th><th>אתר</th><th>נפתח</th><th>עודכן</th><th className="sitrep-notes-column">הערות</th></tr></thead>
+            <tbody>{group.rows.map((person) => <tr key={person.key}><td><strong>#{person.operationalNumber}</strong></td><td>{person.name}</td><td>{person.team}</td><td>{person.site}</td><td>{person.openedAt}</td><td>{person.updatedAt}</td><td className="sitrep-notes-cell">{person.notes}</td></tr>)}</tbody>
+          </table></div>
+        </section>
+      ))}</div>
+    </section>
 
     <section className="sitrep-section sitrep-delta-intelligence"><h2>שינויים מאז חיתוך מצב קודם</h2>
       {!delta.hasPrevious ? <p className="muted">זהו חיתוך המצב הראשון.</p> : <div className="sitrep-delta-sections">
