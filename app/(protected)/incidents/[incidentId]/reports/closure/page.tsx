@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { saveClosureReportText } from "../../lifecycle-actions";
@@ -228,7 +229,7 @@ export default async function ClosureReportPage({
               לקחים ראשוניים
               <textarea className="input" name="lessonsLearned" rows={5} defaultValue={report.lessons_learned ?? ""} />
             </label>
-            <button className="button" type="submit">שמור השלמת דוח</button>
+            <OperationalLoadingButton className="button" label="שמור השלמת דוח" loadingLabel="שומר..." />
           </form>
         </section>
       ) : null}

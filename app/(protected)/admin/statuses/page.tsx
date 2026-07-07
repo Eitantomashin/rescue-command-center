@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import { addOperationalStatus, toggleOperationalStatus, updateOperationalStatus } from "./actions";
@@ -115,7 +116,7 @@ export default async function AdminOperationalStatusesPage({
             <span>{text.key}</span>
             <input className="input" name="statusKey" placeholder="optional_internal_key" />
           </label>
-          <button className="button" type="submit">{text.add}</button>
+          <OperationalLoadingButton className="button" label={text.add} loadingLabel="יוצר..." />
         </form>
       </section>
 
@@ -160,14 +161,16 @@ export default async function AdminOperationalStatusesPage({
                       <input className="input" name="label" defaultValue={status.hebrew_label} required />
                       <input className="input" name="sortOrder" type="number" min={1} defaultValue={status.sort_order ?? 999} required />
                       <input className="input" name="color" defaultValue={colorValue(status.color)} placeholder={text.color} />
-                      <button className="button secondary" type="submit">{text.save}</button>
+                      <OperationalLoadingButton className="button secondary" label={text.save} loadingLabel="שומר..." />
                     </form>
                     <form action={toggleOperationalStatus}>
                       <input type="hidden" name="statusId" value={status.id} />
                       <input type="hidden" name="nextActive" value={status.is_active ? "false" : "true"} />
-                      <button className={status.is_active ? "button danger" : "button secondary"} type="submit">
-                        {status.is_active ? text.deactivate : text.reactivate}
-                      </button>
+                      <OperationalLoadingButton
+                        className={status.is_active ? "button danger" : "button secondary"}
+                        label={status.is_active ? text.deactivate : text.reactivate}
+                        loadingLabel="מעדכן..."
+                      />
                     </form>
                   </div>
                 </td>

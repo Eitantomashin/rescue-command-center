@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { BrandImage } from "@/app/brand-image";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { signIn } from "./actions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -48,9 +49,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
           {searchParams.error ? <p className="error">פרטי ההתחברות אינם תקינים.</p> : null}
 
-          <button className="button" type="submit">
-            כניסה למערכת
-          </button>
+          <OperationalLoadingButton className="button" label={"כניסה למערכת"} loadingLabel={"טוען..."} />
         </form>
       </section>
     </main>

@@ -9,6 +9,7 @@ import {
   personnelRoleLabel
 } from "../../../personnel/personnel-options";
 import { setEventPersonnelStatus } from "./actions";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type PersonnelRow = {
   id: string;
@@ -194,7 +195,7 @@ export default async function IncidentPersonnelPage({
                       <select className="input" name="attendanceStatus" defaultValue={person.attendanceStatus}>
                         <PersonnelStatusOptions />
                       </select>
-                      <button className="button secondary" type="submit">עדכן</button>
+                      <OperationalLoadingButton className="button secondary" label="עדכן" loadingLabel="מעדכן..." />
                     </form>
                     </CollaborativeLockSection>
                   </div>

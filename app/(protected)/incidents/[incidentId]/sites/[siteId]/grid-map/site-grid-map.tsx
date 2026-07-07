@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { MouseEvent } from "react";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
 import { CollaborativeLockBanner, useCollaborativeLock } from "../../../collaborative-lock";
@@ -844,7 +845,7 @@ export function SiteGridMap({
               </label>
             ) : null}
             <textarea className="input wide" name="notes" defaultValue={isEditingExisting && editingObject ? editingObject.notes ?? "" : ""} placeholder="הערות" rows={3} />
-            <button className="button" type="submit">שמור</button>
+            <OperationalLoadingButton className="button" label="שמור" loadingLabel="שומר..." />
             </fieldset>
             <button className="button secondary" type="button" onClick={() => { setDraftObject(null); setEditingObject(null); }}>
               ביטול

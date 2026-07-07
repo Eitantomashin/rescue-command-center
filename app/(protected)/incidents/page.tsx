@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import { archiveIncident, permanentlyDeleteIncident, restoreIncident } from "./actions";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type IncidentRow = {
   id: string;
@@ -154,9 +155,7 @@ export default async function IncidentsPage({
                             <strong>{incident.name}</strong>
                             <p className="muted">{text.archiveConfirm}</p>
                             <input className="input" name="confirmationName" placeholder={text.confirmPlaceholder} required />
-                            <button className="button danger" type="submit">
-                              {text.archive}
-                            </button>
+                            <OperationalLoadingButton className="button danger" label={text.archive} loadingLabel={"\u05de\u05e2\u05d3\u05db\u05df..."} />
                           </form>
                         </details>
                       ) : null}
@@ -164,9 +163,7 @@ export default async function IncidentsPage({
                         <>
                           <form action={restoreIncident}>
                             <input type="hidden" name="incidentId" value={incident.id} />
-                            <button className="button secondary" type="submit">
-                              {text.restore}
-                            </button>
+                            <OperationalLoadingButton className="button secondary" label={text.restore} loadingLabel={"\u05de\u05e9\u05d7\u05d6\u05e8..."} />
                           </form>
                           <details className="archive-confirm-panel">
                             <summary className="button danger">{text.permanentDelete}</summary>
@@ -177,9 +174,7 @@ export default async function IncidentsPage({
                               <p className="error">{text.permanentDeleteWarning}</p>
                               <p className="muted">{text.archiveConfirm}</p>
                               <input className="input" name="confirmationName" placeholder={text.confirmPlaceholder} required />
-                              <button className="button danger" type="submit">
-                                {text.permanentDelete}
-                              </button>
+                              <OperationalLoadingButton className="button danger" label={text.permanentDelete} loadingLabel={"\u05de\u05d5\u05d7\u05e7..."} />
                             </form>
                           </details>
                         </>

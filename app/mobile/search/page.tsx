@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signOut } from "@/app/login/actions";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { createClient } from "@/lib/supabase/server";
 
 type SearchSiteRow = {
@@ -73,7 +74,7 @@ export default async function MobileSearchIncidentsPage() {
           <strong>{userDisplayName(user)}</strong>
         </div>
         <form action={signOut}>
-          <button className="button compact secondary" type="submit">יציאה</button>
+          <OperationalLoadingButton className="button compact secondary" label={"יציאה"} loadingLabel={"יוצא..."} />
         </form>
       </header>
 

@@ -6,6 +6,7 @@ import {
   searchSummaryFromStatuses
 } from "@/lib/search-site-status";
 import { addMobileSearchUnit, completeMobileSearchUnit, saveMobileSearchUnit } from "./actions";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 export type MobileSearchFloor = {
   id: string;
@@ -329,7 +330,7 @@ export function MobileSearchScanner({
                     <p className="mobile-search-add-unit-help">
                       הדירה תוצג כ"הוספה ידנית" ולא תשנה מספרי דירות קיימים.
                     </p>
-                    <button className="button" type="submit">הוסף דירה</button>
+                    <OperationalLoadingButton className="button" label={"הוסף דירה"} loadingLabel={"יוצר..."} />
                   </form>
                 </details>
               ) : null}
@@ -372,16 +373,12 @@ export function MobileSearchScanner({
                             {result?.has_apartment_damage ? <input type="hidden" name="hasApartmentDamage" value="on" /> : null}
                             <input type="hidden" name="apartmentDamageNotes" value={result?.apartment_damage_notes ?? ""} />
                             <input type="hidden" name="notes" value={result?.notes ?? ""} />
-                            <button className={`button compact search-quick-button ${searchUnitTone(action.value as MobileSearchStatus)}`} type="submit" disabled={!canEdit}>
-                              {action.label}
-                            </button>
+                            <OperationalLoadingButton className={`button compact search-quick-button ${searchUnitTone(action.value as MobileSearchStatus)}`} label={action.label} loadingLabel={"מעדכן..."} disabled={!canEdit} />
                           </form>
                         ))}
                         <form action={completeMobileSearchUnit}>
                           {hiddenContext(site.incident_id, site.id, unit.id)}
-                          <button className="button compact search-quick-button complete" type="submit" disabled={!canEdit || status === "completed"}>
-                            סיום טיפול / מזוכה
-                          </button>
+                          <OperationalLoadingButton className="button compact search-quick-button complete" label={"סיום טיפול / מזוכה"} loadingLabel={"מעדכן..."} disabled={!canEdit || status === "completed"} />
                         </form>
                       </div>
 
@@ -450,7 +447,7 @@ export function MobileSearchScanner({
                           </label>
 
                           <div className="search-unit-actions">
-                            <button className="button" type="submit" disabled={!canEdit}>שמור סריקה</button>
+                            <OperationalLoadingButton className="button" label={"שמור סריקה"} loadingLabel={"שומר..."} disabled={!canEdit} />
                           </div>
                         </form>
                       </details>

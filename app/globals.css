@@ -9186,6 +9186,7 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .operational-loading-button:disabled,

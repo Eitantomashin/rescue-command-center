@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { createClient } from "@/lib/supabase/server";
 import { SitrepPrintActions } from "../print-actions";
 import { completeSituationReportMeeting } from "../actions";
@@ -64,7 +65,9 @@ export default async function SituationReportDetailPage({
           <form action={completionAction} className="sitrep-draft-form">
             <label><span>החלטות מפקד</span><textarea className="input" name="commanderDecisions" rows={7} defaultValue={report.commander_decisions ?? ""} placeholder="טרם הושלמו החלטות המפקד" /></label>
             <label><span>סיכום חיתוך מצב</span><textarea className="input" name="meetingSummary" rows={7} defaultValue={report.meeting_summary ?? ""} placeholder="טרם הושלם סיכום הישיבה" /></label>
-            <div className="actions"><button className="button" type="submit">שמור סיכום והחלטות</button></div>
+            <div className="actions">
+              <OperationalLoadingButton className="button" label="שמור סיכום והחלטות" loadingLabel="שומר..." />
+            </div>
           </form>
         </section>
       ) : null}

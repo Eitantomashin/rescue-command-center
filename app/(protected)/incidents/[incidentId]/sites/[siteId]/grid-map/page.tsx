@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { operationalTeamLabel } from "@/lib/operational-teams";
 import { ScreenPresenceIndicator } from "../../../incident-presence";
 import { uploadSiteGridImage } from "./actions";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { SiteGridMap, type GridMarker, type MapObject, type MapTeam } from "./site-grid-map";
 
 type SiteRow = {
@@ -199,9 +200,7 @@ export default async function SiteGridMapPage({
           <input type="hidden" name="incidentId" value={params.incidentId} />
           <input type="hidden" name="siteId" value={params.siteId} />
           <input className="input" type="file" name="siteImage" accept="image/png,image/jpeg,image/webp" required />
-          <button className="button" type="submit">
-            העלה תמונה
-          </button>
+          <OperationalLoadingButton className="button" label="העלה תמונה" loadingLabel="מעלה..." />
         </form> : null}
       </section>
 

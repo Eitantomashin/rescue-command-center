@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import { createAdminUser, resetUserPassword, updateUserIncidentAssignments, updateUserRole } from "./actions";
@@ -188,7 +189,7 @@ export default async function AdminUsersPage({
           </select>
           <input className="input" name="temporaryPassword" type="password" minLength={8} placeholder={pageText.temporaryPassword} required />
           <input className="input" name="confirmPassword" type="password" minLength={8} placeholder={pageText.confirmPassword} required />
-          <button className="button" type="submit">{pageText.createUser}</button>
+          <OperationalLoadingButton className="button" label={pageText.createUser} loadingLabel="יוצר..." />
         </form>
       </details>
 
@@ -231,9 +232,7 @@ export default async function AdminUsersPage({
                         </option>
                       ))}
                     </select>
-                    <button className="button secondary" type="submit">
-                      {pageText.save}
-                    </button>
+                    <OperationalLoadingButton className="button secondary" label={pageText.save} loadingLabel="שומר..." />
                   </form>
                   <details className="admin-password-reset">
                     <summary className="button secondary">{pageText.passwordReset}</summary>
@@ -241,9 +240,7 @@ export default async function AdminUsersPage({
                       <input type="hidden" name="userId" value={user.id} />
                       <input className="input" name="password" type="password" minLength={8} placeholder={pageText.newPassword} required />
                       <input className="input" name="confirmPassword" type="password" minLength={8} placeholder={pageText.confirmPassword} required />
-                      <button className="button danger" type="submit">
-                        {pageText.passwordReset}
-                      </button>
+                      <OperationalLoadingButton className="button danger" label={pageText.passwordReset} loadingLabel="מעדכן..." />
                     </form>
                   </details>
                   {canAssignIncidents ? (
@@ -280,7 +277,7 @@ export default async function AdminUsersPage({
                             })}
                           </div>
                         )}
-                        <button className="button" type="submit">{pageText.saveAssignments}</button>
+                        <OperationalLoadingButton className="button" label={pageText.saveAssignments} loadingLabel="משייך..." />
                       </form>
                     </details>
                   ) : null}

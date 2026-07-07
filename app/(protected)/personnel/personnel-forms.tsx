@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { useFormStatus } from "react-dom";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { PERSONNEL_DEPARTMENTS, PERSONNEL_ROLES } from "./personnel-options";
 
 type PersonnelRecord = {
@@ -40,13 +40,7 @@ function SubmitButton({
   className?: string;
   pendingText?: string;
 }) {
-  const { pending } = useFormStatus();
-
-  return (
-    <button className={className} type="submit" disabled={pending} aria-disabled={pending}>
-      {pending ? pendingText : children}
-    </button>
-  );
+  return <OperationalLoadingButton className={className} loadingLabel={pendingText}>{children}</OperationalLoadingButton>;
 }
 
 export function PersonnelCreateForm({ action }: { action: FormAction }) {

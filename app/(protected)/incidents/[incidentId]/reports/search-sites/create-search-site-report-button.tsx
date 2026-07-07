@@ -1,16 +1,7 @@
 "use client";
 
-import { useFormStatus } from "react-dom";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { createSearchSiteReport } from "./actions";
-
-function SubmitButton({ className }: { className: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <button className={className} type="submit" disabled={pending}>
-      {pending ? "מפיק דוח..." : "הפק דוח סריקה"}
-    </button>
-  );
-}
 
 export function CreateSearchSiteReportButton({
   incidentId,
@@ -24,7 +15,7 @@ export function CreateSearchSiteReportButton({
   const action = createSearchSiteReport.bind(null, incidentId, siteId);
   return (
     <form action={action}>
-      <SubmitButton className={className} />
+      <OperationalLoadingButton className={className} label="הפק דוח סריקה" loadingLabel="מפיק דוח..." />
     </form>
   );
 }

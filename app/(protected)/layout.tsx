@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { signOut } from "@/app/login/actions";
 import { BrandImage } from "@/app/brand-image";
 import { CurrentTime } from "@/app/current-time";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ProtectedLayout({
@@ -61,9 +62,7 @@ export default async function ProtectedLayout({
         </div>
 
         <form action={signOut}>
-          <button className="button secondary" type="submit">
-            יציאה
-          </button>
+          <OperationalLoadingButton className="button secondary" label="יציאה" loadingLabel="יוצא..." />
         </form>
       </header>
 

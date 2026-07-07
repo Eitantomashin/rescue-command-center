@@ -911,16 +911,22 @@ function SearchSiteMobileWorkflow({
                             {result?.has_apartment_damage ? <input type="hidden" name="hasApartmentDamage" value="on" /> : null}
                             <input type="hidden" name="apartmentDamageNotes" value={result?.apartment_damage_notes ?? ""} />
                             <input type="hidden" name="notes" value={result?.notes ?? ""} />
-                            <button className={`button compact search-quick-button ${searchUnitTone(action.value as SearchUnitStatus)}`} type="submit" disabled={!canEdit}>
-                              {action.label}
-                            </button>
+                            <OperationalLoadingButton
+                              className={`button compact search-quick-button ${searchUnitTone(action.value as SearchUnitStatus)}`}
+                              label={action.label}
+                              loadingLabel={"\u05de\u05e2\u05d3\u05db\u05df..."}
+                              disabled={!canEdit}
+                            />
                           </form>
                         ))}
                         <form action={completeSearchUnitAction}>
                           {hiddenContext(incidentId, site.id, unit.id)}
-                          <button className="button compact search-quick-button complete" type="submit" disabled={!canEdit || status === "completed"}>
-                            סיום טיפול / מזוכה
-                          </button>
+                          <OperationalLoadingButton
+                            className="button compact search-quick-button complete"
+                            label="סיום טיפול / מזוכה"
+                            loadingLabel="מעדכן..."
+                            disabled={!canEdit || status === "completed"}
+                          />
                         </form>
                       </div>
 
@@ -992,7 +998,12 @@ function SearchSiteMobileWorkflow({
                         </label>
 
                         <div className="search-unit-actions">
-                          <button className="button" type="submit" disabled={!canEdit}>שמור סריקה</button>
+                          <OperationalLoadingButton
+                            className="button"
+                            label="שמור סריקה"
+                            loadingLabel="שומר..."
+                            disabled={!canEdit}
+                          />
                         </div>
                       </form>
 
@@ -1000,9 +1011,12 @@ function SearchSiteMobileWorkflow({
 
                       <form action={completeSearchUnitAction} className="search-complete-form">
                         {hiddenContext(incidentId, site.id, unit.id)}
-                        <button className="button secondary" type="submit" disabled={!canEdit || status === "completed"}>
-                          סיום טיפול / מזוכה
-                        </button>
+                        <OperationalLoadingButton
+                          className="button secondary"
+                          label="סיום טיפול / מזוכה"
+                          loadingLabel="מעדכן..."
+                          disabled={!canEdit || status === "completed"}
+                        />
                       </form>
                     </article>
                   );
@@ -1334,13 +1348,13 @@ export default async function SiteDetailsPage({
               <form action={reopenSite}>
                 <input type="hidden" name="incidentId" value={params.incidentId} />
                 <input type="hidden" name="siteId" value={params.siteId} />
-                <button className="button secondary" type="submit">פתח אתר מחדש</button>
+                <OperationalLoadingButton className="button secondary" label="פתח אתר מחדש" loadingLabel="פותח..." />
               </form>
             ) : (
               <form action={closeSite}>
                 <input type="hidden" name="incidentId" value={params.incidentId} />
                 <input type="hidden" name="siteId" value={params.siteId} />
-                <button className="button danger" type="submit">סגור אתר</button>
+                <OperationalLoadingButton className="button danger" label="סגור אתר" loadingLabel="סוגר..." />
               </form>
             )
           ) : null}
@@ -1516,7 +1530,7 @@ export default async function SiteDetailsPage({
                           <input type="hidden" name="floorId" value={floor.id} />
                           <input className="input" name="position" type="number" min="1" placeholder="הוסף אחרי דירה, ריק = סוף קומה" />
                           <input className="input wide" name="reason" placeholder="סיבה / הערה" />
-                          <button className="button secondary" type="submit">הוסף דירה</button>
+                          <OperationalLoadingButton className="button secondary" label="הוסף דירה" loadingLabel="יוצר..." />
                         </form>
                       </details>
 
@@ -1535,7 +1549,7 @@ export default async function SiteDetailsPage({
                           <input className="input" name="suffixes" defaultValue="א׳,ב׳" placeholder="סיומות, לדוגמה: א׳,ב׳" />
                           <input className="input wide" name="reason" placeholder="סיבה / הערה" />
                           <p className="muted wide">אם קיימים דיירים או מספרים מבצעיים, הם נשארים בדירת הפיצול הראשונה.</p>
-                          <button className="button secondary" type="submit" disabled={apartmentUnits.length === 0}>פצל דירה</button>
+                          <OperationalLoadingButton className="button secondary" label="פצל דירה" loadingLabel="מעדכן..." disabled={apartmentUnits.length === 0} />
                         </form>
                       </details>
 
@@ -1553,7 +1567,7 @@ export default async function SiteDetailsPage({
                           </select>
                           <input className="input wide" name="reason" placeholder={"\u05E1\u05D9\u05D1\u05D4 \u05DC\u05DE\u05D7\u05D9\u05E7\u05D4"} required />
                           <p className="muted wide">{"\u05D4\u05DE\u05D7\u05D9\u05E7\u05D4 \u05EA\u05D9\u05D7\u05E1\u05DD \u05D0\u05DD \u05E7\u05D9\u05D9\u05DE\u05D9\u05DD \u05DE\u05E1\u05E4\u05E8\u05D9\u05DD \u05DE\u05D1\u05E6\u05E2\u05D9\u05D9\u05DD \u05D0\u05D5 \u05E4\u05E8\u05D8\u05D9 \u05D3\u05D9\u05D9\u05E8 \u05D7\u05E9\u05D5\u05D1\u05D9\u05DD."}</p>
-                          <button className="button secondary danger" type="submit" disabled={removableUnits.length === 0}>{"\u05DE\u05D7\u05E7 \u05D9\u05D7\u05D9\u05D3\u05D4"}</button>
+                          <OperationalLoadingButton className="button secondary danger" label={"\u05DE\u05D7\u05E7 \u05D9\u05D7\u05D9\u05D3\u05D4"} loadingLabel="מוחק..." disabled={removableUnits.length === 0} />
                         </form>
                       </details>
                     </div>
@@ -1736,9 +1750,7 @@ export default async function SiteDetailsPage({
                                               <form action={deleteEmptyPlaceholderResident} className="placeholder-delete-form inline">
                                                 {hiddenContext(params.incidentId, params.siteId)}
                                                 <input type="hidden" name="residentId" value={resident.id} />
-                                                <button className="button compact secondary danger" type="submit">
-                                                  מחק דייר ריק
-                                                </button>
+                                                <OperationalLoadingButton className="button compact secondary danger" label="מחק דייר ריק" loadingLabel="מוחק..." />
                                               </form>
                                               </CollaborativeLockSection>
                                             ) : null}
@@ -1835,9 +1847,7 @@ export default async function SiteDetailsPage({
                                   </select>
                                   <input className="input wide" name="notes" placeholder="הערה" />
                                 </div>
-                                <button className="button secondary" type="submit">
-                                  עדכן סטטוס יחידה
-                                </button>
+                                <OperationalLoadingButton className="button secondary" label="עדכן סטטוס יחידה" loadingLabel="מעדכן..." />
                               </form>
 
                               {canEditThisSite ? (
@@ -1856,9 +1866,7 @@ export default async function SiteDetailsPage({
                                         placeholder="לדוגמה: הדירה ריקה / כל המשפחה בחו״ל / נבדקה ונמצאה ריקה"
                                       />
                                     </label>
-                                    <button className="button" type="submit" disabled={!unit.is_active}>
-                                      אישור
-                                    </button>
+                                    <OperationalLoadingButton className="button" label="אישור" loadingLabel="מעדכן..." disabled={!unit.is_active} />
                                   </form>
                                 </details>
                               ) : null}
@@ -1866,9 +1874,7 @@ export default async function SiteDetailsPage({
                             ) : canEditThisSite ? (
                               <form action={reopenClearedUnit} className="action-form unit-reopen-form">
                                 {hiddenContext(params.incidentId, params.siteId, unit.id)}
-                                <button className="button secondary" type="submit">
-                                  החזר דירה לפעילות
-                                </button>
+                                <OperationalLoadingButton className="button secondary" label="החזר דירה לפעילות" loadingLabel="מעדכן..." />
                               </form>
                             ) : null}
 
@@ -2015,9 +2021,7 @@ export default async function SiteDetailsPage({
               <input className="input" name="phone" placeholder="טלפון" />
               <input className="input" name="notes" placeholder="הערה" />
             </div>
-            <button className="button" type="submit">
-              הוסף לאזור הכללי
-            </button>
+            <OperationalLoadingButton className="button" label="הוסף לאזור הכללי" loadingLabel="יוצר..." />
           </form>
         </details>
       </details>

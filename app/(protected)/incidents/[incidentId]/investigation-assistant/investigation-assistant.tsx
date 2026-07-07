@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { askIncidentAssistant, type InvestigationAnswer } from "./actions";
 
 const SUGGESTED_QUESTIONS = [
@@ -46,7 +47,14 @@ export function InvestigationAssistant({ incidentId }: { incidentId: string }) {
         <label htmlFor="investigation-question">שאלה לתחקור</label>
         <div className="investigation-question-row">
           <textarea id="investigation-question" className="input" rows={4} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="שאל שאלה על האירוע..." maxLength={1200} />
-          <button className="button" type="submit" disabled={pending || question.trim().length < 2}>{pending ? "בודק נתונים..." : "שאל"}</button>
+          <OperationalLoadingButton
+            className="button"
+            type="submit"
+            label="שאל"
+            loadingLabel="בודק נתונים..."
+            isLoading={pending}
+            disabled={question.trim().length < 2}
+          />
         </div>
       </form>
       <div className="investigation-suggestions" aria-label="שאלות מוצעות">

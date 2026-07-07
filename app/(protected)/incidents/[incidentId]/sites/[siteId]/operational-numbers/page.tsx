@@ -438,9 +438,7 @@ export default async function OperationalNumbersPage({
                   <input className="input" name="customTeam" placeholder="לדוגמה: צוות 4 או צוות חילוץ חיצוני" />
                 </label>
                 <p className="muted">צוותים נוספים נפתחים רק מבחירה מפורשת. צוותי ב׳ מקבלים טווחים 1101, 1201, 1301.</p>
-                <button className="button secondary" type="submit">
-                  פתח צוות
-                </button>
+                <OperationalLoadingButton className="button secondary" label="פתח צוות" loadingLabel="פותח..." />
               </form>
             </details>
           </div>
@@ -626,9 +624,7 @@ export default async function OperationalNumbersPage({
                       />
                       <input className="input" name="reason" placeholder="סיבת איחוד / הערה" />
                     </div>
-                    <button className="button secondary" type="submit">
-                      אחד מספרים
-                    </button>
+                    <OperationalLoadingButton className="button secondary" label="אחד מספרים" loadingLabel="מעדכן..." />
                   </form>
                 </details>
               ) : null}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
@@ -1076,7 +1077,7 @@ export default async function IncidentDashboardPage({
                     שם אירוע
                     <input className="input" name="newName" defaultValue={summary.name} required />
                   </label>
-                  <button className="button" type="submit">שמור שם</button>
+                  <OperationalLoadingButton className="button" label="שמור שם" loadingLabel="שומר..." />
                 </form>
               </details>
             ) : null}
@@ -1084,13 +1085,13 @@ export default async function IncidentDashboardPage({
             {isLifecycleClosed || lifecycle?.lifecycle_status === "paused" ? (
               <form action={reopenIncident}>
                 <input type="hidden" name="incidentId" value={summary.incident_id} />
-                <button className="button" type="submit">החזר אירוע לפעילות</button>
+                <OperationalLoadingButton className="button" label="החזר אירוע לפעילות" loadingLabel="פותח..." />
               </form>
             ) : (
               <>
                 <form action={pauseIncident}>
                   <input type="hidden" name="incidentId" value={summary.incident_id} />
-                  <button className="button secondary" type="submit">השהה אירוע</button>
+                  <OperationalLoadingButton className="button secondary" label="השהה אירוע" loadingLabel="מעדכן..." />
                 </form>
                 <details className="archive-confirm-panel">
                   <summary className="button danger">סגירת פעילות באירוע</summary>
@@ -1098,7 +1099,7 @@ export default async function IncidentDashboardPage({
                     <input type="hidden" name="incidentId" value={summary.incident_id} />
                     <strong>{summary.name}</strong>
                     <p className="muted">האם לסגור את פעילות האירוע? כל האתרים הפעילים יסומנו כסגורים ודוח סגירה ייווצר אוטומטית.</p>
-                    <button className="button danger" type="submit">סגירת פעילות באירוע</button>
+                    <OperationalLoadingButton className="button danger" label="סגירת פעילות באירוע" loadingLabel="מעדכן..." />
                   </form>
                 </details>
               </>

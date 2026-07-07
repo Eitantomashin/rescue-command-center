@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { createIncidentFromWizard } from "./actions";
 import { formatNumber } from "@/lib/format";
 import { operationalTeamLabel, parseOperationalTeamNumber } from "@/lib/operational-teams";
+import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type WizardTeam = {
   id: string;
@@ -395,9 +396,12 @@ export function IncidentCreationWizard() {
             <button className="button secondary" type="button" onClick={() => setStep(3)}>
               חזרה
             </button>
-            <button className="button" type="submit" disabled={!canCreateIncident}>
-              צור אירוע
-            </button>
+            <OperationalLoadingButton
+              className="button"
+              label="צור אירוע"
+              loadingLabel="יוצר..."
+              disabled={!canCreateIncident}
+            />
           </div>
         </section>
       ) : null}
