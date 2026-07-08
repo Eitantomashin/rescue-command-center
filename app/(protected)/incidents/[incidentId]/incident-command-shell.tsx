@@ -270,7 +270,7 @@ export function IncidentCommandShell({
             <div className="incident-site-links">
               <Link className={`incident-nav-item${activeClass(pathname, `${base}/sitreps`, false)}`} href={`${base}/sitreps`}>
                 <span className="nav-icon" aria-hidden="true">{"\uD83D\uDCCB"}</span>
-                <span className="nav-label">{"\u05d3\u05d5\u05d7 \u05d9\u05d5\u05de\u05d9 \u05de\u05e6\u05d1"}</span>
+                <span className="nav-label">{"\u05d3\u05d5\u05d7 \u05d7\u05d9\u05ea\u05d5\u05da \u05de\u05e6\u05d1"}</span>
               </Link>
               <Link className={`incident-nav-item${activeClass(pathname, `${base}/reports/closure`, false)}`} href={`${base}/reports/closure`}>
                 <span className="nav-icon" aria-hidden="true">{"\uD83C\uDFC1"}</span>
