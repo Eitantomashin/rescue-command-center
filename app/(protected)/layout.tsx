@@ -21,6 +21,17 @@ export default async function ProtectedLayout({
   }
 
   const { data: systemRole } = await supabase.rpc("current_user_role");
+  if (!systemRole) {
+    await supabase.auth.signOut();
+    redirect("/login?error=inactive");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .maybeSingle();
+  const userDisplayName = profile?.display_name || user.email;
 
   return (
     <>
@@ -43,7 +54,7 @@ export default async function ProtectedLayout({
         <div className="header-ops-summary" aria-label="סיכום מערכת">
           <div>
             <span>משתמש</span>
-            <strong>{user.email}</strong>
+            <strong>{userDisplayName}</strong>
           </div>
           <div>
             <span>שעה</span>

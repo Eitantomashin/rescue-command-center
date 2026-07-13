@@ -18,6 +18,11 @@ export async function signIn(formData: FormData) {
   }
 
   const { data: role } = await supabase.rpc("current_user_role");
+  if (!role) {
+    await supabase.auth.signOut();
+    redirect("/login?error=inactive");
+  }
+
   if (role === "search_user") {
     redirect("/mobile/search");
   }

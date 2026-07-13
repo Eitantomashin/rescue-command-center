@@ -47,7 +47,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <input className="input" type="password" name="password" required />
           </label>
 
-          {searchParams.error ? <p className="error">פרטי ההתחברות אינם תקינים.</p> : null}
+          {searchParams.error ? (
+            <p className="error">
+              {searchParams.error === "inactive" ? "המשתמש אינו פעיל. יש לפנות למנהל מערכת." : "פרטי ההתחברות אינם תקינים."}
+            </p>
+          ) : null}
 
           <OperationalLoadingButton className="button" label={"כניסה למערכת"} loadingLabel={"טוען..."} />
         </form>
