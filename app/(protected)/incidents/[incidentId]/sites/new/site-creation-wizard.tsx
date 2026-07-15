@@ -409,7 +409,7 @@ export function SiteCreationWizard({
               />
             </label>
             <label className="field">
-              <span>כתובת האתר</span>
+              <span>שם הרחוב</span>
               <input
                 className="input"
                 name="street"
