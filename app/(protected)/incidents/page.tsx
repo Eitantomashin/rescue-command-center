@@ -41,7 +41,10 @@ const text = {
   permanentDelete: "מחיקה לצמיתות",
   permanentDeleteWarning: "פעולה זו תמחק את האירוע לצמיתות ולא ניתן יהיה לשחזר.",
   archiveConfirm: "\u05dc\u05d0\u05d9\u05e9\u05d5\u05e8 \u05d4\u05e2\u05d1\u05e8\u05d4 \u05dc\u05d0\u05e8\u05db\u05d9\u05d5\u05df, \u05d4\u05e7\u05dc\u05d3 \u05d0\u05ea \u05e9\u05dd \u05d4\u05d0\u05d9\u05e8\u05d5\u05e2 \u05d1\u05de\u05d3\u05d5\u05d9\u05e7.",
-  confirmPlaceholder: "\u05d4\u05e7\u05dc\u05d3 \u05e9\u05dd \u05d0\u05d9\u05e8\u05d5\u05e2"
+  confirmPlaceholder: "\u05d4\u05e7\u05dc\u05d3 \u05e9\u05dd \u05d0\u05d9\u05e8\u05d5\u05e2",
+  permanentDeleteConfirmationError: "שם האירוע שהוזן אינו תואם. המחיקה לא בוצעה.",
+  permanentDeleteFailed: "לא ניתן להשלים מחיקה מלאה של האירוע כרגע. בדוק שהאירוע בארכיון ונסה שוב.",
+  permanentDeleteSuccess: "האירוע נמחק לצמיתות."
 };
 
 function lifecycleLabel(incident: IncidentRow) {
@@ -53,7 +56,7 @@ function lifecycleLabel(incident: IncidentRow) {
 export default async function IncidentsPage({
   searchParams
 }: {
-  searchParams?: { view?: string };
+  searchParams?: { view?: string; deleteError?: string; deleteStatus?: string };
 }) {
   const supabase = createClient();
   const { data: systemRole } = await supabase.rpc("current_user_role");
@@ -65,6 +68,13 @@ export default async function IncidentsPage({
   const canManageIncidents = isAdmin || systemRole === "commander";
   const canViewAssignedArchive = isAdmin || systemRole === "commander";
   const archiveView = canViewAssignedArchive && searchParams?.view === "archived";
+  const deleteMessage = searchParams?.deleteError === "confirmation"
+    ? { className: "", text: text.permanentDeleteConfirmationError }
+    : searchParams?.deleteError === "failed"
+      ? { className: "", text: text.permanentDeleteFailed }
+      : searchParams?.deleteStatus === "deleted"
+        ? { className: "success-panel", text: text.permanentDeleteSuccess }
+        : null;
 
   let query = supabase
     .from("incidents")
@@ -105,6 +115,12 @@ export default async function IncidentsPage({
       {error ? (
         <section className="panel">
           <p className="error">{error.message}</p>
+        </section>
+      ) : null}
+
+      {deleteMessage ? (
+        <section className={`panel ${deleteMessage.className}`}>
+          <p className={deleteMessage.className ? "muted" : "error"}>{deleteMessage.text}</p>
         </section>
       ) : null}
 
