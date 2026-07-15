@@ -11,6 +11,8 @@ export type IncidentShellIncident = {
   id: string;
   name: string;
   is_closed: boolean;
+  lifecycle_status?: "active" | "paused" | "closed" | null;
+  archived_at?: string | null;
 };
 
 export type IncidentShellSite = {
@@ -197,6 +199,10 @@ export function IncidentCommandShell({
   const isCommanderDashboard = pathname === base;
   const isWarRoom = pathname === `${base}/war-room`;
   const canShowQuickActions = systemRole === "admin" || systemRole === "commander";
+  const isIncidentArchived = Boolean(incident.archived_at);
+  const isIncidentClosed = incident.is_closed || incident.lifecycle_status === "closed";
+  const canCloseIncident = canShowQuickActions && !isIncidentArchived && !isIncidentClosed;
+  const showClosureReportAction = canShowQuickActions && !isIncidentArchived;
   const [quickActionsExpanded, setQuickActionsExpanded] = useState(true);
   const activeOperationalNumbers = summary.active_operational_numbers_count ?? summary.gap_resolved_count ?? 0;
   const completedOperationalNumbers =
@@ -418,6 +424,8 @@ export function IncidentCommandShell({
           isExpanded={quickActionsExpanded}
           onToggle={toggleQuickActions}
           systemRole={systemRole}
+          showClosureReport={showClosureReportAction}
+          canCloseIncident={canCloseIncident}
         />
       ) : null}
     </div>

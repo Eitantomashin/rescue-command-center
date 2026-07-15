@@ -8,6 +8,8 @@ type IncidentRow = {
   id: string;
   name: string;
   is_closed: boolean;
+  lifecycle_status: "active" | "paused" | "closed" | null;
+  archived_at: string | null;
 };
 
 type SiteRow = {
@@ -57,7 +59,7 @@ export default async function IncidentLayout({
     { data: currentRole }
   ] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from("incidents").select("id,name,is_closed").eq("id", params.incidentId).maybeSingle(),
+    supabase.from("incidents").select("id,name,is_closed,lifecycle_status,archived_at").eq("id", params.incidentId).maybeSingle(),
     supabase
       .from("site_dashboard_summary")
       .select("site_id,site_number,name,city,street,house_number,updated_potential,active_operational_numbers_count,gap_resolved_count,operational_gap")
