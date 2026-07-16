@@ -13,9 +13,11 @@ type ParentSiteOption = {
 };
 
 export default async function NewSitePage({
-  params
+  params,
+  searchParams
 }: {
   params: { incidentId: string };
+  searchParams?: { siteCreate?: string };
 }) {
   const supabase = createClient();
   const [{ data: incident, error }, { data: canManageSites }, { data: parentSiteRows }] = await Promise.all([
@@ -49,6 +51,12 @@ export default async function NewSitePage({
           חזרה לאתרים
         </Link>
       </div>
+
+      {searchParams?.siteCreate === "error" ? (
+        <section className="panel">
+          <p className="error">לא ניתן היה ליצור את האתר. בדוק הרשאות ונסה שוב.</p>
+        </section>
+      ) : null}
 
       <SiteCreationWizard
         incidentId={params.incidentId}

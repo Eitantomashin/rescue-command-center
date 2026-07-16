@@ -161,7 +161,15 @@ export async function importSiteResidentListAction(formData: FormData) {
   });
 
   if (error) {
-    throw new Error(error.message);
+    console.error("Site resident list import failed", {
+      incidentId,
+      siteId,
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint
+    });
+    redirect(`/incidents/${incidentId}/sites?residentImport=error&siteId=${siteId}`);
   }
 
   revalidatePath(`/incidents/${incidentId}`);

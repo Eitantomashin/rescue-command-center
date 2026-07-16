@@ -138,6 +138,12 @@ export default async function SitesPage({
         </section>
       ) : null}
 
+      {searchParams?.residentImport === "error" ? (
+        <section className="panel">
+          <p className="error">לא ניתן היה לטעון את רשימת הדיירים. בדוק הרשאות ונסה שוב.</p>
+        </section>
+      ) : null}
+
       {searchParams?.siteUpdate === "success" ? (
         <section className="panel success-panel">
           <p>פרטי האתר עודכנו בהצלחה.</p>

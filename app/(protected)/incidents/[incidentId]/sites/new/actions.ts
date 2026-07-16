@@ -136,7 +136,23 @@ export async function createSiteFromWizard(formData: FormData) {
       : await supabase.rpc("create_site_from_wizard", createSitePayload);
 
   if (error) {
-    throw new Error(error.message);
+    console.error("Site creation from wizard failed", {
+      incidentId,
+      siteType,
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint
+    });
+    redirect(`/incidents/${incidentId}/sites/new?siteCreate=error`);
+  }
+
+  if (!siteId) {
+    console.error("Site creation from wizard returned no site id", {
+      incidentId,
+      siteType
+    });
+    redirect(`/incidents/${incidentId}/sites/new?siteCreate=error`);
   }
 
   redirect(`/incidents/${incidentId}/sites/${siteId}`);
