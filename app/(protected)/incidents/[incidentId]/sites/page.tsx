@@ -39,7 +39,7 @@ export default async function SitesPage({
   searchParams
 }: {
   params: { incidentId: string };
-  searchParams?: { residentImport?: string; count?: string; siteId?: string };
+  searchParams?: { residentImport?: string; count?: string; siteId?: string; siteUpdate?: string };
 }) {
   const supabase = createClient();
 
@@ -135,6 +135,18 @@ export default async function SitesPage({
       {searchParams?.residentImport === "success" ? (
         <section className="panel success-panel">
           <p>רשימת הדיירים נטענה בהצלחה. נוספו {formatNumber(Number(searchParams.count ?? 0))} רשומות.</p>
+        </section>
+      ) : null}
+
+      {searchParams?.siteUpdate === "success" ? (
+        <section className="panel success-panel">
+          <p>פרטי האתר עודכנו בהצלחה.</p>
+        </section>
+      ) : null}
+
+      {searchParams?.siteUpdate === "error" ? (
+        <section className="panel">
+          <p className="error">לא ניתן היה לעדכן את פרטי האתר. בדוק הרשאות ונסה שוב.</p>
         </section>
       ) : null}
 

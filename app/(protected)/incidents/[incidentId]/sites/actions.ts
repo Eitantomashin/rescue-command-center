@@ -117,7 +117,15 @@ export async function updateSiteFromListAction(formData: FormData) {
   });
 
   if (error) {
-    throw new Error(error.message);
+    console.error("Site details update failed", {
+      incidentId,
+      siteId,
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint
+    });
+    redirect(`/incidents/${incidentId}/sites?siteUpdate=error&siteId=${siteId}`);
   }
 
   revalidatePath(`/incidents/${incidentId}`);
@@ -125,7 +133,7 @@ export async function updateSiteFromListAction(formData: FormData) {
   revalidatePath(`/incidents/${incidentId}/sites/${siteId}`);
   revalidatePath(`/incidents/${incidentId}/war-room`);
   revalidatePath(`/incidents/${incidentId}/operational-log`);
-  redirect(`/incidents/${incidentId}/sites`);
+  redirect(`/incidents/${incidentId}/sites?siteUpdate=success&siteId=${siteId}`);
 }
 
 export async function importSiteResidentListAction(formData: FormData) {
