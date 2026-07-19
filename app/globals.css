@@ -9121,28 +9121,39 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
   display: grid;
   margin-top: 8px;
 }
-.resident-import-modal {
+.resident-import-modal-root {
   position: fixed;
   inset: 0;
   z-index: 1200;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
   direction: rtl;
+  box-sizing: border-box;
+  isolation: isolate;
 }
 
 .resident-import-modal-backdrop {
   position: absolute;
   inset: 0;
+  z-index: 0;
+  border: 0;
+  appearance: none;
   background: rgba(15, 23, 42, 0.52);
+  cursor: default;
+  padding: 0;
 }
 
 .resident-import-modal-content {
   position: relative;
   z-index: 1;
-  width: min(980px, 100%);
-  max-height: min(82vh, 760px);
-  overflow: auto;
+  width: min(1100px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   display: grid;
   gap: 14px;
   border-radius: 14px;
@@ -9201,13 +9212,21 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
 
 .resident-import-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 172px;
   gap: 10px;
   align-items: center;
   border: 1px solid #e7edf6;
   border-radius: 10px;
   padding: 10px;
   background: #fff;
+  box-sizing: border-box;
+  min-height: 78px;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.resident-import-row:hover {
+  border-color: #cfdcf0;
+  background: #f9fbff;
 }
 
 .resident-import-row.is-linked {
@@ -9220,6 +9239,7 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
+  min-width: 0;
 }
 
 .resident-import-row-main strong {
@@ -9235,7 +9255,24 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
 .resident-import-row-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
+  min-width: 0;
+}
+
+.resident-import-row-actions form {
+  display: flex;
+  margin: 0;
+}
+
+.resident-import-row-actions .button {
+  min-width: 92px;
+  white-space: nowrap;
+}
+
+.resident-import-row-actions .button:hover,
+.resident-import-row-actions .button:focus-visible {
+  transform: none;
 }
 
 .imported-linked-summary {
@@ -9251,7 +9288,7 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
 }
 
 @media (max-width: 720px) {
-  .resident-import-modal {
+  .resident-import-modal-root {
     padding: 8px;
     align-items: stretch;
   }

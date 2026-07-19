@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 export type ImportedResidentOption = {
@@ -33,7 +34,6 @@ function genderLabel(gender: string | null) {
   if (gender === "female") return "נקבה";
   return "לא ידוע";
 }
-
 
 function searchableText(row: ImportedResidentOption) {
   return [
@@ -104,39 +104,48 @@ export function ImportedResidentLinkPicker({
 }) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const normalizedQuery = query.trim().toLowerCase();
   const availableRows = rows.filter((row) => !row.linked_resident_id);
   const filteredRows = useMemo(() => {
-    const matches = normalizedQuery ? rows.filter((row) => searchableText(row).includes(normalizedQuery)) : rows;
-    return matches;
+    return normalizedQuery ? rows.filter((row) => searchableText(row).includes(normalizedQuery)) : rows;
   }, [normalizedQuery, rows]);
   const groupedRows = useMemo(() => groupRows(filteredRows), [filteredRows]);
 
-  return (
-    <div className="resident-import-link-panel">
-      <button className="button secondary" type="button" onClick={() => setIsOpen(true)}>
-        בחר מרשימת דיירים
-      </button>
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-      {linkedImportedResident ? (
-        <div className="imported-linked-summary">
-          <span className="status-badge success">משויך לרשימה</span>
-          <strong className="linked-resident-summary-text">{linkedResidentSummary ?? fullName(linkedImportedResident)}</strong>
-          {canRelease ? (
-            <form action={releaseAction}>
-              <input type="hidden" name="incidentId" value={incidentId} />
-              <input type="hidden" name="siteId" value={siteId} />
-              <input type="hidden" name="importedResidentId" value={linkedImportedResident.id} />
-              <OperationalLoadingButton className="button secondary" label={"\u05e9\u05d7\u05e8\u05e8 \u05e9\u05d9\u05d5\u05da \u05d3\u05d9\u05d9\u05e8"} loadingLabel={"\u05de\u05e9\u05d9\u05d9\u05da..."} />
-            </form>
-          ) : null}
-        </div>
-      ) : null}
+  useEffect(() => {
+    if (!mounted || !isOpen) return undefined;
 
-      {isOpen ? (
-        <div className="resident-import-modal" role="dialog" aria-modal="true" aria-label="בחירת דייר מרשימת דיירים">
-          <div className="resident-import-modal-backdrop" onClick={() => setIsOpen(false)} />
-          <div className="resident-import-modal-content">
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, mounted]);
+
+  const residentModal = mounted && isOpen
+    ? createPortal(
+        <div className="resident-import-modal-root" role="dialog" aria-modal="true" aria-label="בחירת דייר מרשימת דיירים">
+          <button
+            className="resident-import-modal-backdrop"
+            type="button"
+            aria-label="סגור חלון בחירת דייר"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="resident-import-modal-content" onClick={(event) => event.stopPropagation()}>
             <div className="resident-import-modal-header">
               <div>
                 <h4>בחירת דייר מרשימת דיירים</h4>
@@ -186,7 +195,7 @@ export function ImportedResidentLinkPicker({
                                     <input type="hidden" name="siteId" value={siteId} />
                                     <input type="hidden" name="residentId" value={residentId} />
                                     <input type="hidden" name="importedResidentId" value={row.id} />
-                                    <OperationalLoadingButton className="button" label={"\u05d1\u05d7\u05e8 \u05d3\u05d9\u05d9\u05e8"} loadingLabel={"\u05de\u05e9\u05d9\u05d9\u05da..."} />
+                                    <OperationalLoadingButton className="button" label="בחר דייר" loadingLabel="משייך..." />
                                   </form>
                                 )}
                               </div>
@@ -201,8 +210,33 @@ export function ImportedResidentLinkPicker({
             </div>
             {availableRows.length === 0 ? <p className="muted">אין דיירים פנויים לשיוך ברשימה המיובאת.</p> : null}
           </div>
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <div className="resident-import-link-panel">
+      <button className="button secondary" type="button" onClick={() => setIsOpen(true)}>
+        בחר מרשימת דיירים
+      </button>
+
+      {linkedImportedResident ? (
+        <div className="imported-linked-summary">
+          <span className="status-badge success">משויך לרשימה</span>
+          <strong className="linked-resident-summary-text">{linkedResidentSummary ?? fullName(linkedImportedResident)}</strong>
+          {canRelease ? (
+            <form action={releaseAction}>
+              <input type="hidden" name="incidentId" value={incidentId} />
+              <input type="hidden" name="siteId" value={siteId} />
+              <input type="hidden" name="importedResidentId" value={linkedImportedResident.id} />
+              <OperationalLoadingButton className="button secondary" label="שחרר שיוך דייר" loadingLabel="משייך..." />
+            </form>
+          ) : null}
         </div>
       ) : null}
+
+      {residentModal}
     </div>
   );
 }
