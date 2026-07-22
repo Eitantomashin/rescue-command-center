@@ -260,8 +260,9 @@ export async function createOperationalNumber(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(pagePath(incidentId, siteId));
-  redirect(pagePath(incidentId, siteId, personId as string, teamNumber));
+  const path = pagePath(incidentId, siteId, personId as string, teamNumber);
+  revalidatePath(path);
+  redirect(pagePathWithFlag(path, "numberCreated"));
 }
 
 export async function createForcedOperationalNumber(formData: FormData) {

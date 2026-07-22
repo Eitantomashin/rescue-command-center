@@ -505,7 +505,12 @@ export default async function OperationalNumbersPage({
           </nav>
 
           <div className="operational-toolbar-actions">
-            <details className="create-number-panel" open={createAndLinkMode}>
+            <PostActionDetails
+              className="create-number-panel"
+              defaultOpen={createAndLinkMode}
+              successParam="numberCreated"
+              successMessage={"\u05d4\u05de\u05e1\u05e4\u05e8 \u05d4\u05de\u05d1\u05e6\u05e2\u05d9 \u05e0\u05d5\u05e6\u05e8 \u05d1\u05d4\u05e6\u05dc\u05d7\u05d4."}
+            >
               <summary className="button">+ מספר מבצעי חדש</summary>
               <form action={createOperationalNumber} className="action-form">
                 {hiddenContext(params.incidentId, params.siteId)}
@@ -559,7 +564,7 @@ export default async function OperationalNumbersPage({
                 <OperationalLoadingButton className="button" label={createAndLinkMode ? "שמור פרטי דייר, צור מספר ושייך" : "\u05e6\u05d5\u05e8 \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"} loadingLabel={"\u05d9\u05d5\u05e6\u05e8..."} disabled={(activeTeam !== null && !nextNumber) || !defaultStatusId || (createAndLinkMode && (!createAndLinkResident || Boolean(createAndLinkResident.linkedPersonId)))} />
                 {!defaultStatusId ? <p className="error">לא נמצא סטטוס ברירת מחדל נעדר.</p> : null}
               </form>
-            </details>
+            </PostActionDetails>
 
             {createAndLinkMode ? null : (
               <ForcedOperationalNumberForm
