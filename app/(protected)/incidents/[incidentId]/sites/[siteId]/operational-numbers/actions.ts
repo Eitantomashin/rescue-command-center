@@ -73,6 +73,10 @@ function pagePath(incidentId: string, siteId: string, personId?: string | null, 
   return `/incidents/${incidentId}/sites/${siteId}/operational-numbers${query ? `?${query}` : ""}`;
 }
 
+function pagePathWithFlag(path: string, flag: string) {
+  return `${path}${path.includes("?") ? "&" : "?"}${flag}=1`;
+}
+
 function createAndLinkPath(incidentId: string, siteId: string, residentId: string, returnTo: string | null, teamNumber?: number | null, error?: string | null) {
   const params = new URLSearchParams({
     mode: "create-and-link",
@@ -419,8 +423,9 @@ export async function createOperationalReport(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(pagePath(incidentId, siteId, personId, teamNumber));
-  redirect(pagePath(incidentId, siteId, personId, teamNumber));
+  const path = pagePath(incidentId, siteId, personId, teamNumber);
+  revalidatePath(path);
+  redirect(pagePathWithFlag(path, "reportSaved"));
 }
 
 export async function mergeOperationalNumbers(formData: FormData) {

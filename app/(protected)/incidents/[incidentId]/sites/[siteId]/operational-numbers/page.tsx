@@ -14,6 +14,7 @@ import {
 } from "./actions";
 import { ForcedOperationalNumberForm } from "./forced-operational-number-form";
 import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
+import { PostActionDetails } from "@/app/(protected)/post-action-details";
 
 const defaultTeams = [
   { number: 1, label: operationalTeamLabel(1) },
@@ -709,11 +710,15 @@ export default async function OperationalNumbersPage({
                     </details>
                   ) : null}
 
-                  <form
-                    action={createOperationalReport}
-                    className="action-form report-form"
+                  <PostActionDetails
+                    className="create-number-panel report-create-panel"
+                    defaultOpen
+                    successParam="reportSaved"
+                    successMessage={"\u05d4\u05d3\u05d9\u05d5\u05d5\u05d7 \u05e0\u05e9\u05de\u05e8 \u05d5\u05d4\u05d9\u05e1\u05d8\u05d5\u05e8\u05d9\u05d9\u05ea \u05d4\u05d3\u05d9\u05d5\u05d5\u05d7\u05d9\u05dd \u05e2\u05d5\u05d3\u05db\u05e0\u05d4."}
                     key={`report-form-${selectedPerson.person_id}`}
                   >
+                    <summary className="button secondary">{"\u05d3\u05d9\u05d5\u05d5\u05d7 \u05d7\u05d3\u05e9"}</summary>
+                    <form action={createOperationalReport} className="action-form report-form">
                     {hiddenContext(params.incidentId, params.siteId)}
                     <input type="hidden" name="personId" value={selectedPerson.person_id} />
                     <input type="hidden" name="teamNumber" value={selectedPersonTeam ?? 1} />
@@ -752,7 +757,8 @@ export default async function OperationalNumbersPage({
                       <textarea className="input wide" name="notes" placeholder="הערות" rows={3} />
                     </div>
                     <OperationalLoadingButton className="button" label={"\u05e9\u05de\u05d5\u05e8 \u05d3\u05d9\u05d5\u05d5\u05d7"} loadingLabel={"\u05e9\u05d5\u05de\u05e8..."} disabled={personStatuses.length === 0} />
-                  </form>
+                    </form>
+                  </PostActionDetails>
                 </>
               )}
 
