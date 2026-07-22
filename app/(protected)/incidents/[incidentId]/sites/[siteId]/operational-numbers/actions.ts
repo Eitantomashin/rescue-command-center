@@ -42,6 +42,22 @@ function positiveInteger(formData: FormData, key: string, label: string) {
   return parsed;
 }
 
+function optionalNonNegativeInteger(formData: FormData, key: string, label: string) {
+  const raw = nullableValue(formData, key);
+
+  if (raw === null) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${label} חייב להיות מספר חיובי או אפס`);
+  }
+
+  return parsed;
+}
+
 function pagePath(incidentId: string, siteId: string, personId?: string | null, teamNumber?: number | null) {
   const params = new URLSearchParams();
 
@@ -55,6 +71,38 @@ function pagePath(incidentId: string, siteId: string, personId?: string | null, 
 
   const query = params.toString();
   return `/incidents/${incidentId}/sites/${siteId}/operational-numbers${query ? `?${query}` : ""}`;
+}
+
+function createAndLinkPath(incidentId: string, siteId: string, residentId: string, returnTo: string | null, teamNumber?: number | null, error?: string | null) {
+  const params = new URLSearchParams({
+    mode: "create-and-link",
+    residentId
+  });
+
+  if (returnTo) {
+    params.set("returnTo", returnTo);
+  }
+
+  if (teamNumber) {
+    params.set("team", String(teamNumber));
+  }
+
+  if (error) {
+    params.set("opLink", error);
+  }
+
+  return `/incidents/${incidentId}/sites/${siteId}/operational-numbers?${params.toString()}`;
+}
+
+function safeReturnPath(incidentId: string, siteId: string, residentId: string, rawReturnTo: string | null, operationalNumber: number) {
+  const fallback = `/incidents/${incidentId}/sites/${siteId}`;
+  const allowedPrefix = `/incidents/${incidentId}/sites/${siteId}`;
+  const returnTo = rawReturnTo?.startsWith(allowedPrefix) && !rawReturnTo.startsWith("//") && !rawReturnTo.includes("://")
+    ? rawReturnTo
+    : fallback;
+  const separator = returnTo.includes("?") ? "&" : "?";
+
+  return `${returnTo}${separator}residentLinkSuccess=1&linkedResidentId=${encodeURIComponent(residentId)}&createdOperationalNumber=${encodeURIComponent(String(operationalNumber))}`;
 }
 
 async function nextOperationalNumber(incidentId: string, teamNumber: number) {
@@ -124,10 +172,69 @@ export async function createOperationalNumber(formData: FormData) {
   const incidentId = requiredValue(formData, "incidentId", "אירוע");
   const siteId = requiredValue(formData, "siteId", "אתר");
   const teamNumber = positiveInteger(formData, "teamNumber", "צוות");
+  const flowMode = nullableValue(formData, "flowMode");
+  const linkResidentId = nullableValue(formData, "linkResidentId");
+  const returnTo = nullableValue(formData, "returnTo");
+  const residentFirstName = nullableValue(formData, "residentFirstName");
+  const residentLastName = nullableValue(formData, "residentLastName");
+  const residentGender = nullableValue(formData, "residentGender") ?? "unknown";
+  const residentAge = optionalNonNegativeInteger(formData, "residentAge", "גיל");
+  const residentPhone = nullableValue(formData, "residentPhone");
+  const residentStatusId = nullableValue(formData, "residentStatusId");
+  const residentNotes = nullableValue(formData, "residentNotes");
   const operationalNumber = await nextOperationalNumber(incidentId, teamNumber);
   const statusId = await defaultPersonStatusId(incidentId);
   const supabase = createClient();
 
+  if (flowMode === "create-and-link" || linkResidentId) {
+    if (!linkResidentId) {
+      redirect(createAndLinkPath(incidentId, siteId, "", returnTo, teamNumber, "error"));
+    }
+
+    const { data: linkResult, error } = await supabase.rpc("create_operational_number_and_link_resident", {
+      p_incident_id: incidentId,
+      p_site_id: siteId,
+      p_resident_id: linkResidentId,
+      p_team_number: teamNumber,
+      p_operational_number: operationalNumber,
+      p_status_id: statusId,
+      p_information_source_type: DEFAULT_SOURCE_TYPE,
+      p_information_source_name: null,
+      p_source_phone: null,
+      p_grid_cell: null,
+      p_confidence_level: DEFAULT_CONFIDENCE,
+      p_reported_at: new Date().toISOString(),
+      p_resident_first_name: residentFirstName,
+      p_resident_last_name: residentLastName,
+      p_resident_age: residentAge,
+      p_resident_phone: residentPhone,
+      p_resident_status_id: residentStatusId,
+      p_resident_notes: residentNotes,
+      p_resident_gender: residentGender
+    });
+
+    if (error) {
+      console.error("Create operational number and link resident failed", {
+        incidentId,
+        siteId,
+        residentId: linkResidentId,
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      redirect(createAndLinkPath(incidentId, siteId, linkResidentId, returnTo, teamNumber, "error"));
+    }
+
+    const createdNumber = Number((linkResult as { operational_number?: number } | null)?.operational_number ?? operationalNumber);
+
+    revalidatePath(pagePath(incidentId, siteId));
+    revalidatePath(`/incidents/${incidentId}`);
+    revalidatePath(`/incidents/${incidentId}/sites/${siteId}`);
+    revalidatePath(`/incidents/${incidentId}/war-room`);
+    revalidatePath(`/incidents/${incidentId}/operational-log`);
+    redirect(safeReturnPath(incidentId, siteId, linkResidentId, returnTo, createdNumber));
+  }
   const { data: personId, error } = await supabase.rpc("create_operational_number", {
     p_incident_id: incidentId,
     p_site_id: siteId,

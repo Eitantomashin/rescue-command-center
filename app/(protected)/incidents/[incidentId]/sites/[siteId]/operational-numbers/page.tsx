@@ -29,6 +29,10 @@ const confidenceLevels = ["מאומת", "גבוהה", "בינונית", "נמו�
 type SearchParams = {
   team?: string;
   personId?: string;
+  mode?: string;
+  residentId?: string;
+  returnTo?: string;
+  opLink?: string;
 };
 
 type SiteSummaryRow = {
@@ -105,6 +109,21 @@ type StatusRow = {
 type TeamRow = {
   team_number: number;
   name: string | null;
+};
+
+type CreateAndLinkResidentContext = {
+  id: string;
+  displayName: string;
+  linkedPersonId: string | null;
+  unitLabel: string;
+  returnTo: string;
+  firstName: string | null;
+  lastName: string | null;
+  gender: string | null;
+  age: number | null;
+  phone: string | null;
+  statusId: string | null;
+  notes: string | null;
 };
 
 function hiddenContext(incidentId: string, siteId: string) {
@@ -315,6 +334,84 @@ export default async function OperationalNumbersPage({
     : false;
   const nextNumber = activeTeam ? nextNumberForTeam(numbers, activeTeam) : null;
   const defaultStatusId = personStatuses.find((status) => status.status_key === "missing")?.id ?? "";
+  const createAndLinkMode = searchParams.mode === "create-and-link";
+  const fallbackReturnTo = `/incidents/${params.incidentId}/sites/${params.siteId}`;
+  const requestedReturnTo =
+    searchParams.returnTo?.startsWith(fallbackReturnTo) &&
+    !searchParams.returnTo.startsWith("//") &&
+    !searchParams.returnTo.includes("://")
+      ? searchParams.returnTo
+      : fallbackReturnTo;
+  let createAndLinkResident: CreateAndLinkResidentContext | null = null;
+  let createAndLinkError: string | null = null;
+
+  if (createAndLinkMode) {
+    if (!searchParams.residentId) {
+      createAndLinkError = "לא נמצא דייר לשיוך.";
+    } else {
+      const { data: residentRow, error: residentError } = await supabase
+        .from("unit_residents")
+        .select("id,first_name,last_name,gender,age,phone,status_id,notes,linked_person_id,unit_id,site_id,incident_id,is_active")
+        .eq("id", searchParams.residentId)
+        .maybeSingle();
+
+      if (residentError || !residentRow || residentRow.incident_id !== params.incidentId || residentRow.site_id !== params.siteId || !residentRow.is_active) {
+        createAndLinkError = "הדייר לא נמצא באתר הנוכחי או שאינו זמין לשיוך.";
+      } else {
+        let unitDescription = "אזור כללי";
+
+        if (residentRow.unit_id) {
+          const { data: unitRow } = await supabase
+            .from("units")
+            .select("unit_number,floor_id")
+            .eq("id", residentRow.unit_id)
+            .maybeSingle();
+
+          if (unitRow?.floor_id) {
+            const { data: floorRow } = await supabase
+              .from("floors")
+              .select("floor_number")
+              .eq("id", unitRow.floor_id)
+              .maybeSingle();
+            unitDescription = `קומה ${floorRow?.floor_number ?? "לא ידועה"}, דירה ${unitRow.unit_number ?? "לא ידועה"}`;
+          } else if (unitRow?.unit_number) {
+            unitDescription = `דירה ${unitRow.unit_number}`;
+          }
+        }
+
+        createAndLinkResident = {
+          id: residentRow.id,
+          displayName: displayName(residentRow.first_name, residentRow.last_name),
+          linkedPersonId: residentRow.linked_person_id,
+          unitLabel: unitDescription,
+          returnTo: requestedReturnTo,
+          firstName: residentRow.first_name,
+          lastName: residentRow.last_name,
+          gender: residentRow.gender,
+          age: residentRow.age,
+          phone: residentRow.phone,
+          statusId: residentRow.status_id,
+          notes: residentRow.notes
+        };
+      }
+    }
+  }
+  const operationalNumbersBasePath = `/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers`;
+  const teamHref = (team: number | "all") => {
+    const query = new URLSearchParams({ team: String(team) });
+
+    if (createAndLinkMode) {
+      query.set("mode", "create-and-link");
+
+      if (searchParams.residentId) {
+        query.set("residentId", searchParams.residentId);
+      }
+
+      query.set("returnTo", requestedReturnTo);
+    }
+
+    return `${operationalNumbersBasePath}?${query.toString()}`;
+  };
 
   return (
     <main className={`page operational-page${canEditOperational ? "" : " permission-readonly"}`}>
@@ -337,6 +434,33 @@ export default async function OperationalNumbersPage({
         </div>
       </div>
       <ScreenPresenceIndicator />
+
+      {createAndLinkMode ? (
+        <section className="panel create-and-link-banner">
+          <div>
+            <strong>יצירת מספר מבצעי עבור דייר</strong>
+            {createAndLinkResident ? (
+              <p>
+                {createAndLinkResident.displayName} · {createAndLinkResident.unitLabel}
+              </p>
+            ) : (
+              <p>{createAndLinkError ?? "לא ניתן לטעון את פרטי הדייר."}</p>
+            )}
+            {createAndLinkResident?.linkedPersonId ? (
+              <p className="error">לדייר כבר משויך מספר מבצעי. לא ניתן ליצור קישור נוסף.</p>
+            ) : null}
+            {searchParams.opLink === "error" ? (
+              <p className="error">לא ניתן היה ליצור ולשייך מספר מבצעי. בדוק הרשאות ונסה שוב.</p>
+            ) : null}
+            <p className="muted">
+              לאחר יצירת המספר הוא ישויך אוטומטית לדייר והמערכת תחזור לתמונת המבנה.
+            </p>
+          </div>
+          <Link className="button secondary" href={requestedReturnTo}>
+            ביטול וחזרה לדייר
+          </Link>
+        </section>
+      ) : null}
 
       <section className="grid" aria-label="מדדי מספרים מבצעיים">
         <div className="metric">
@@ -362,7 +486,7 @@ export default async function OperationalNumbersPage({
           <nav className="team-tabs" aria-label="סינון לפי צוות">
             <Link
               className={activeTeam === null ? "team-tab active" : "team-tab"}
-              href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers?team=all`}
+              href={teamHref("all")}
             >
               כל הצוותים
               <span>{formatNumber(visiblePrimaryNumbers.length)}</span>
@@ -371,7 +495,7 @@ export default async function OperationalNumbersPage({
               <Link
                 key={team.number}
                 className={team.number === activeTeam ? "team-tab active" : "team-tab"}
-                href={`/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers?team=${team.number}`}
+                href={teamHref(team.number)}
               >
                 {team.label}
                 <span>{formatNumber(countForTeam(team.number))}</span>
@@ -380,10 +504,34 @@ export default async function OperationalNumbersPage({
           </nav>
 
           <div className="operational-toolbar-actions">
-            <details className="create-number-panel">
+            <details className="create-number-panel" open={createAndLinkMode}>
               <summary className="button">+ מספר מבצעי חדש</summary>
               <form action={createOperationalNumber} className="action-form">
                 {hiddenContext(params.incidentId, params.siteId)}
+                {createAndLinkMode ? <input type="hidden" name="flowMode" value="create-and-link" /> : null}
+                {createAndLinkResident ? <input type="hidden" name="linkResidentId" value={createAndLinkResident.id} /> : null}
+                {createAndLinkMode ? <input type="hidden" name="returnTo" value={requestedReturnTo} /> : null}
+                {createAndLinkResident ? <input type="hidden" name="residentStatusId" value={createAndLinkResident.statusId ?? ""} /> : null}
+                {createAndLinkResident ? (
+                  <section className="create-and-link-resident-details">
+                    <div>
+                      <strong>פרטי הדייר</strong>
+                      <p className="muted">ניתן לעדכן את פרטי הדייר לפני יצירת המספר המבצעי ושיוכו.</p>
+                    </div>
+                    <div className="form-grid">
+                      <input className="input" name="residentFirstName" defaultValue={createAndLinkResident.firstName ?? ""} placeholder="שם פרטי" />
+                      <input className="input" name="residentLastName" defaultValue={createAndLinkResident.lastName ?? ""} placeholder="שם משפחה" />
+                      <select className="input" name="residentGender" defaultValue={createAndLinkResident.gender ?? "unknown"} aria-label="מין">
+                        <option value="unknown">מין: לא ידוע</option>
+                        <option value="male">מין: זכר</option>
+                        <option value="female">מין: נקבה</option>
+                      </select>
+                      <input className="input" name="residentAge" type="number" min="0" defaultValue={createAndLinkResident.age ?? ""} placeholder="גיל" />
+                      <input className="input" name="residentPhone" defaultValue={createAndLinkResident.phone ?? ""} placeholder="טלפון" />
+                      <input className="input wide" name="residentNotes" defaultValue={createAndLinkResident.notes ?? ""} placeholder="הערות" />
+                    </div>
+                  </section>
+                ) : null}
                 <strong>פתיחת מספר מבצעי</strong>
                 <div className="form-grid">
                   {activeTeam ? (
@@ -407,19 +555,21 @@ export default async function OperationalNumbersPage({
                       : "המספר יחושב לפי הצוות"}
                   </div>
                 </div>
-                <OperationalLoadingButton className="button" label={"\u05e6\u05d5\u05e8 \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"} loadingLabel={"\u05d9\u05d5\u05e6\u05e8..."} disabled={(activeTeam !== null && !nextNumber) || !defaultStatusId} />
+                <OperationalLoadingButton className="button" label={createAndLinkMode ? "שמור פרטי דייר, צור מספר ושייך" : "\u05e6\u05d5\u05e8 \u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"} loadingLabel={"\u05d9\u05d5\u05e6\u05e8..."} disabled={(activeTeam !== null && !nextNumber) || !defaultStatusId || (createAndLinkMode && (!createAndLinkResident || Boolean(createAndLinkResident.linkedPersonId)))} />
                 {!defaultStatusId ? <p className="error">לא נמצא סטטוס ברירת מחדל נעדר.</p> : null}
               </form>
             </details>
 
-            <ForcedOperationalNumberForm
-              incidentId={params.incidentId}
-              siteId={params.siteId}
-              teams={teams}
-              activeTeam={activeTeam}
-            />
+            {createAndLinkMode ? null : (
+              <ForcedOperationalNumberForm
+                incidentId={params.incidentId}
+                siteId={params.siteId}
+                teams={teams}
+                activeTeam={activeTeam}
+              />
+            )}
 
-            <details className="create-number-panel add-team-panel">
+            {createAndLinkMode ? null : <details className="create-number-panel add-team-panel">
               <summary className="button secondary">הוסף צוות</summary>
               <form action={openOperationalTeam} className="action-form">
                 {hiddenContext(params.incidentId, params.siteId)}
@@ -440,7 +590,7 @@ export default async function OperationalNumbersPage({
                 <p className="muted">צוותים נוספים נפתחים רק מבחירה מפורשת. צוותי ב׳ מקבלים טווחים 1101, 1201, 1301.</p>
                 <OperationalLoadingButton className="button secondary" label="פתח צוות" loadingLabel="פותח..." />
               </form>
-            </details>
+            </details>}
           </div>
         </div>
 

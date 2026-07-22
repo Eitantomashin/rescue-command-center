@@ -32,6 +32,7 @@ import {
 } from "./actions";
 import { ImportedResidentLinkPicker, type ImportedResidentOption } from "./imported-resident-link-picker";
 import { OperationalNumberLinkForm, type OperationalNumberLinkOption } from "./operational-number-link-form";
+import { ResidentLinkSuccessNotice } from "./resident-link-success-notice";
 import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type SiteSummaryRow = {
@@ -1034,7 +1035,15 @@ export default async function SiteDetailsPage({
   searchParams
 }: {
   params: { incidentId: string; siteId: string };
-  searchParams?: { q?: string; structureError?: string; searchReport?: string; message?: string };
+  searchParams?: {
+    q?: string;
+    structureError?: string;
+    searchReport?: string;
+    message?: string;
+    residentLinkSuccess?: string;
+    linkedResidentId?: string;
+    createdOperationalNumber?: string;
+  };
 }) {
   const supabase = createClient();
   const residentSearchQuery = String(searchParams?.q ?? "").trim().toLowerCase();
@@ -1315,9 +1324,41 @@ export default async function SiteDetailsPage({
     )
   ).length;
   const visibleGeneralOpenCount = visibleGeneralResidents.length - visibleGeneralHandledCount;
+  const successResidentId =
+    searchParams?.residentLinkSuccess === "1" && searchParams.linkedResidentId
+      ? searchParams.linkedResidentId
+      : null;
+  const successResident = successResidentId
+    ? activeSiteResidents.find((resident) => resident.id === successResidentId) ?? null
+    : null;
+  const createdOperationalNumber =
+    searchParams?.createdOperationalNumber && /^\d+$/.test(searchParams.createdOperationalNumber)
+      ? searchParams.createdOperationalNumber
+      : null;
+  const residentLinkSuccessMessage =
+    successResident && createdOperationalNumber
+      ? `מספר מבצעי ${createdOperationalNumber} נוצר ושויך בהצלחה ל${displayName(successResident)}`
+      : null;
+  const cleanSearchParams = new URLSearchParams();
+
+  if (searchParams?.q) {
+    cleanSearchParams.set("q", searchParams.q);
+  }
+
+  const cleanSearch = cleanSearchParams.toString();
+  const cleanSuccessHref = `/incidents/${params.incidentId}/sites/${params.siteId}${
+    cleanSearch ? `?${cleanSearch}` : ""
+  }`;
 
   return (
     <main className={`page site-detail-page${canEditThisSite ? "" : " permission-readonly"}`}>
+      {residentLinkSuccessMessage && successResidentId ? (
+        <ResidentLinkSuccessNotice
+          cleanHref={cleanSuccessHref}
+          residentId={successResidentId}
+          message={residentLinkSuccessMessage}
+        />
+      ) : null}
       <div className="header">
         <div>
           <h1>תמונת מבנה - אתר {site.site_number}</h1>
@@ -1713,15 +1754,15 @@ export default async function SiteDetailsPage({
                                     const availablePeople = persons.filter(
                                       (person) =>
                                         !person.is_merged &&
-                                        (person.id === resident.linked_person_id ||
-                                          !linkedResidentsByPerson.has(person.id))
+                                        !linkedResidentsByPerson.has(person.id)
                                     );
                                     const residentEditKey = residentEditVersion(resident);
                                     const linkedImportedResident = importedResidentByResidentId.get(resident.id) ?? null;
                                     const residentSummaryLine = residentLine(statuses, resident, linkedPerson);
+                                    const createOperationalNumberHref = `/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers?mode=create-and-link&residentId=${resident.id}&returnTo=${encodeURIComponent(`/incidents/${params.incidentId}/sites/${params.siteId}`)}`;
 
                                     return (
-                                      <li className={`resident-item treatment-${state}`} key={resident.id}>
+                                      <li className={`resident-item treatment-${state}`} data-resident-id={resident.id} key={resident.id}>
                                         <div className="resident-display-row">
                                           <div>
                                             <strong className={hasResidentName(resident) ? "municipal-linked-resident-summary" : undefined}>{residentSummaryLine}</strong>
@@ -1805,6 +1846,18 @@ export default async function SiteDetailsPage({
                                               label: personLabel(person, linkedResidentsByPerson.get(person.id))
                                             }))}
                                           />
+                                          <div className="resident-create-number-action">
+                                            {resident.linked_person_id ? (
+                                              <p className="muted">לדייר כבר משויך מספר מבצעי.</p>
+                                            ) : (
+                                              <>
+                                                <p className="muted">אין מספר מתאים ברשימה? צור מספר מבצעי חדש ושייך אותו לדייר באופן אוטומטי.</p>
+                                                <Link className="button secondary" href={createOperationalNumberHref}>
+                                                  צור מספר מבצעי חדש
+                                                </Link>
+                                              </>
+                                            )}
+                                          </div>
 
                                                             </CollaborativeLockSection>
                   </details>
@@ -1921,14 +1974,15 @@ export default async function SiteDetailsPage({
               const availablePeople = persons.filter(
                 (person) =>
                   !person.is_merged &&
-                  (person.id === resident.linked_person_id || !linkedResidentsByPerson.has(person.id))
+                  !linkedResidentsByPerson.has(person.id)
               );
               const residentEditKey = residentEditVersion(resident);
               const linkedImportedResident = importedResidentByResidentId.get(resident.id) ?? null;
               const residentSummaryLine = residentLine(statuses, resident, linkedPerson);
+              const createOperationalNumberHref = `/incidents/${params.incidentId}/sites/${params.siteId}/operational-numbers?mode=create-and-link&residentId=${resident.id}&returnTo=${encodeURIComponent(`/incidents/${params.incidentId}/sites/${params.siteId}`)}`;
 
               return (
-                <li className={`resident-item treatment-${state}`} key={resident.id}>
+                <li className={`resident-item treatment-${state}`} data-resident-id={resident.id} key={resident.id}>
                   <div className="resident-display-row">
                   <div>
                     <strong className={hasResidentName(resident) ? "municipal-linked-resident-summary" : undefined}>{residentSummaryLine}</strong>
@@ -2000,6 +2054,18 @@ export default async function SiteDetailsPage({
                         label: personLabel(person, linkedResidentsByPerson.get(person.id))
                       }))}
                     />
+                    <div className="resident-create-number-action">
+                      {resident.linked_person_id ? (
+                        <p className="muted">לדייר כבר משויך מספר מבצעי.</p>
+                      ) : (
+                        <>
+                          <p className="muted">אין מספר מתאים ברשימה? צור מספר מבצעי חדש ושייך אותו לדייר באופן אוטומטי.</p>
+                          <Link className="button secondary" href={createOperationalNumberHref}>
+                            צור מספר מבצעי חדש
+                          </Link>
+                        </>
+                      )}
+                    </div>
 
                                       </CollaborativeLockSection>
                   </details>
