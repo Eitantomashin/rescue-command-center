@@ -8,6 +8,11 @@ export type PersonnelActionState = {
   success: string | null;
 };
 
+export type VehicleRosterActionState = PersonnelActionState & {
+  data?: unknown;
+  code?: string | null;
+};
+
 const INITIAL_ACTION_STATE: PersonnelActionState = {
   error: null,
   success: null
@@ -23,6 +28,16 @@ function requiredValue(formData: FormData, key: string, label: string) {
     throw new Error(`${label} הוא שדה חובה`);
   }
   return raw;
+}
+
+function optionalValue(formData: FormData, key: string) {
+  return value(formData, key) || null;
+}
+
+function optionalBoolean(formData: FormData, key: string, defaultValue = false) {
+  const raw = formData.get(key);
+  if (raw === null) return defaultValue;
+  return raw === "on" || raw === "true" || raw === "1";
 }
 
 export async function setEventPersonnelStatus(formData: FormData) {
@@ -267,4 +282,270 @@ export async function removeAdHocTeamMemberAction(formData: FormData) {
   }
 
   revalidatePath(`/incidents/${incidentId}/personnel`, "page");
+}
+
+function rosterActionResult(data: unknown, fallback: string): VehicleRosterActionState {
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    if (record.success === false) {
+      return {
+        error: "הפעולה לא הושלמה. יש לבדוק את פרטי השבצ\"ק והקצאות האנשים או הרכב.",
+        success: null,
+        code: typeof record.code === "string" ? record.code : null,
+        data
+      };
+    }
+  }
+
+  return {
+    error: null,
+    success: fallback,
+    data
+  };
+}
+
+async function revalidateRosters(incidentId: string) {
+  revalidatePath(`/incidents/${incidentId}/personnel`, "page");
+}
+
+export async function createVehicleRosterAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("create_incident_vehicle_roster", {
+    p_incident_id: incidentId,
+    p_movement_type: optionalValue(formData, "movementType") ?? "outbound_to_incident",
+    p_origin_text: optionalValue(formData, "originText"),
+    p_destination_text: optionalValue(formData, "destinationText")
+  });
+
+  if (error) {
+    logServerActionError("createVehicleRosterAction", { incidentId }, error);
+    return { error: friendlyPersonnelError(error), success: null, code: null };
+  }
+
+  await revalidateRosters(incidentId);
+  return rosterActionResult(data, "שבצ\"ק נוצר.");
+}
+
+export async function updateVehicleRosterDraftAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const rosterId = value(formData, "rosterId");
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("update_incident_vehicle_roster_draft", {
+    p_incident_id: incidentId,
+    p_roster_id: rosterId,
+    p_movement_type: optionalValue(formData, "movementType"),
+    p_origin_text: optionalValue(formData, "originText"),
+    p_destination_text: optionalValue(formData, "destinationText"),
+    p_origin_site_id: optionalValue(formData, "originSiteId"),
+    p_destination_site_id: optionalValue(formData, "destinationSiteId"),
+    p_planned_departure_at: optionalValue(formData, "plannedDepartureAt"),
+    p_vehicle_license_plate: optionalValue(formData, "vehicleLicensePlate"),
+    p_vehicle_description: optionalValue(formData, "vehicleDescription"),
+    p_vehicle_type: optionalValue(formData, "vehicleType"),
+    p_vehicle_notes: optionalValue(formData, "vehicleNotes"),
+    p_operational_notes: optionalValue(formData, "operationalNotes")
+  });
+
+  if (error) {
+    logServerActionError("updateVehicleRosterDraftAction", { incidentId, rosterId }, error);
+    return { error: friendlyPersonnelError(error), success: null, code: null };
+  }
+
+  await revalidateRosters(incidentId);
+  return rosterActionResult(data, "פרטי השבצ\"ק עודכנו.");
+}
+
+export async function createOrReuseRosterExternalPersonAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("create_or_reuse_incident_roster_external_person", {
+    p_incident_id: incidentId,
+    p_full_name: value(formData, "fullName"),
+    p_mobile_phone: value(formData, "mobilePhone"),
+    p_external_role: optionalValue(formData, "externalRole"),
+    p_notes: optionalValue(formData, "notes")
+  });
+
+  if (error) {
+    logServerActionError("createOrReuseRosterExternalPersonAction", { incidentId }, error);
+    return { error: friendlyPersonnelError(error), success: null, code: null };
+  }
+
+  await revalidateRosters(incidentId);
+  return rosterActionResult(data, "גורם חיצוני נשמר לשבצ\"ק.");
+}
+
+export async function addVehicleRosterParticipantAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const rosterId = value(formData, "rosterId");
+  const sourceType = value(formData, "sourceType");
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("add_incident_roster_participant", {
+    p_incident_id: incidentId,
+    p_roster_id: rosterId,
+    p_source_type: sourceType,
+    p_unit_personnel_id: sourceType === "unit_personnel" ? optionalValue(formData, "sourceId") : null,
+    p_manual_personnel_id: sourceType === "manual_personnel" ? optionalValue(formData, "sourceId") : null,
+    p_external_person_id: sourceType === "external_person" ? optionalValue(formData, "sourceId") : null,
+    p_is_driver: optionalBoolean(formData, "isDriver"),
+    p_is_movement_commander: optionalBoolean(formData, "isMovementCommander"),
+    p_is_passenger: optionalBoolean(formData, "isPassenger", true),
+    p_notes: optionalValue(formData, "notes")
+  });
+
+  if (error) {
+    logServerActionError("addVehicleRosterParticipantAction", { incidentId, rosterId, sourceType }, error);
+    return { error: friendlyPersonnelError(error), success: null, code: null };
+  }
+
+  await revalidateRosters(incidentId);
+  return rosterActionResult(data, "משתתף נוסף לשבצ\"ק.");
+}
+
+export async function updateVehicleRosterParticipantRolesAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const participantId = value(formData, "participantId");
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("update_incident_roster_participant_roles", {
+    p_incident_id: incidentId,
+    p_participant_id: participantId,
+    p_is_driver: optionalBoolean(formData, "isDriver"),
+    p_is_movement_commander: optionalBoolean(formData, "isMovementCommander"),
+    p_is_passenger: optionalBoolean(formData, "isPassenger")
+  });
+
+  if (error) {
+    logServerActionError("updateVehicleRosterParticipantRolesAction", { incidentId, participantId }, error);
+    return { error: friendlyPersonnelError(error), success: null, code: null };
+  }
+
+  await revalidateRosters(incidentId);
+  return rosterActionResult(data, "תפקידי המשתתף עודכנו.");
+}
+
+export async function removeVehicleRosterParticipantAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const participantId = value(formData, "participantId");
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("remove_incident_roster_participant", {
+    p_incident_id: incidentId,
+    p_participant_id: participantId
+  });
+
+  if (error) {
+    logServerActionError("removeVehicleRosterParticipantAction", { incidentId, participantId }, error);
+    return { error: friendlyPersonnelError(error), success: null, code: null };
+  }
+
+  await revalidateRosters(incidentId);
+  return rosterActionResult(data, "משתתף הוסר מהשבצ\"ק.");
+}
+
+export async function transitionVehicleRosterAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const rosterId = value(formData, "rosterId");
+  const targetStatus = value(formData, "targetStatus");
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("transition_incident_vehicle_roster", {
+    p_incident_id: incidentId,
+    p_roster_id: rosterId,
+    p_target_status: targetStatus,
+    p_operational_timestamp: optionalValue(formData, "operationalTimestamp"),
+    p_reason: optionalValue(formData, "reason")
+  });
+
+  if (error) {
+    logServerActionError("transitionVehicleRosterAction", { incidentId, rosterId, targetStatus }, error);
+    return { error: friendlyPersonnelError(error), success: null, code: null };
+  }
+
+  await revalidateRosters(incidentId);
+  return rosterActionResult(data, "סטטוס השבצ\"ק עודכן.");
+}
+
+export async function cloneVehicleRosterForReturnAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const sourceRosterId = value(formData, "sourceRosterId");
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("clone_incident_vehicle_roster_for_return", {
+    p_incident_id: incidentId,
+    p_source_roster_id: sourceRosterId,
+    p_planned_departure_at: optionalValue(formData, "plannedDepartureAt")
+  });
+
+  if (error) {
+    logServerActionError("cloneVehicleRosterForReturnAction", { incidentId, sourceRosterId }, error);
+    return { error: friendlyPersonnelError(error), success: null, code: null };
+  }
+
+  await revalidateRosters(incidentId);
+  return rosterActionResult(data, "שבצ\"ק חזור נוצר.");
+}
+
+export async function listVehicleRostersForIncident(incidentId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("list_incident_vehicle_rosters", {
+    p_incident_id: incidentId
+  });
+
+  if (error) {
+    logServerActionError("listVehicleRostersForIncident", { incidentId }, error);
+    return [];
+  }
+
+  return data ?? [];
+}
+
+export async function getVehicleRosterForIncident(incidentId: string, rosterId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_incident_vehicle_roster", {
+    p_incident_id: incidentId,
+    p_roster_id: rosterId
+  });
+
+  if (error) {
+    logServerActionError("getVehicleRosterForIncident", { incidentId, rosterId }, error);
+    return null;
+  }
+
+  return data ?? null;
+}
+
+export async function listRosterEligiblePeople(incidentId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("list_incident_roster_eligible_people", {
+    p_incident_id: incidentId
+  });
+
+  if (error) {
+    logServerActionError("listRosterEligiblePeople", { incidentId }, error);
+    return [];
+  }
+
+  return data ?? [];
 }
