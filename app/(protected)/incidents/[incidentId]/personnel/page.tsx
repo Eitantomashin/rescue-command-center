@@ -6,9 +6,12 @@ import {
   PERSONNEL_DEPARTMENTS,
   type AttendanceStatus,
   labelFromOptions,
+  personnelDepartmentLabel,
   personnelRoleLabel
 } from "../../../personnel/personnel-options";
 import { setEventPersonnelStatus } from "./actions";
+import { setManualIncidentPersonnelStatusAction } from "./actions";
+import { IncidentPersonnelActionPanels } from "./incident-personnel-action-panels";
 import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 
 type PersonnelRow = {
@@ -32,6 +35,60 @@ type StatusRow = {
 type EventPersonnel = PersonnelRow & {
   attendanceStatus: AttendanceStatus;
   attendanceUpdatedAt: string | null;
+};
+
+type TeamRow = {
+  id: string;
+  team_number: number;
+  name: string | null;
+  is_active: boolean;
+};
+
+type SiteRow = {
+  id: string;
+  name: string;
+};
+
+type ManualPersonnelRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  mobile_phone: string | null;
+  role: string | null;
+  notes: string | null;
+  organic_team_id: string | null;
+  attendance_status: AttendanceStatus;
+  attendance_updated_at: string | null;
+  source_type: string;
+  is_active: boolean;
+};
+
+type AdHocTeamRow = {
+  id: string;
+  name: string;
+  purpose: string | null;
+  related_site_id: string | null;
+  commander_name: string | null;
+  notes: string | null;
+  status: string;
+};
+
+type AdHocMemberRow = {
+  id: string;
+  ad_hoc_team_id: string;
+  unit_personnel_id: string | null;
+  manual_personnel_id: string | null;
+  notes: string | null;
+  unit_personnel?: {
+    first_name: string;
+    last_name: string;
+    mobile_phone: string | null;
+  } | null;
+  manual_personnel?: {
+    first_name: string;
+    last_name: string;
+    mobile_phone: string | null;
+  } | null;
 };
 
 const STATUS_ORDER: AttendanceStatus[] = ["present", "en_route", "unavailable", "inactive"];
@@ -63,13 +120,28 @@ function PersonnelStatusOptions() {
   );
 }
 
+function teamLabel(team: TeamRow | null | undefined) {
+  if (!team) return "ללא צוות";
+  return team.name?.trim() ? team.name : `צוות ${team.team_number}`;
+}
+
 export default async function IncidentPersonnelPage({
   params
 }: {
   params: { incidentId: string };
 }) {
   const supabase = createClient();
-  const [{ data: incident }, { data: personnelRows, error }, { data: statusRows }, { data: canEditPersonnel }] = await Promise.all([
+  const [
+    { data: incident },
+    { data: personnelRows, error },
+    { data: statusRows },
+    { data: canEditPersonnel },
+    { data: teamRows },
+    { data: siteRows },
+    { data: manualRows },
+    { data: adHocTeamRows },
+    { data: adHocMemberRows }
+  ] = await Promise.all([
     supabase.from("incidents").select("id,name").eq("id", params.incidentId).maybeSingle(),
     supabase
       .from("unit_personnel")
@@ -80,7 +152,35 @@ export default async function IncidentPersonnelPage({
       .from("event_personnel_status")
       .select("personnel_id,attendance_status,updated_at")
       .eq("incident_id", params.incidentId),
-    supabase.rpc("can_edit_personnel", { p_incident_id: params.incidentId })
+    supabase.rpc("can_edit_personnel", { p_incident_id: params.incidentId }),
+    supabase
+      .from("teams")
+      .select("id,team_number,name,is_active")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true)
+      .order("team_number", { ascending: true }),
+    supabase
+      .from("sites")
+      .select("id,name")
+      .eq("incident_id", params.incidentId)
+      .order("name", { ascending: true }),
+    supabase
+      .from("incident_manual_personnel")
+      .select("id,first_name,last_name,mobile_phone,role,notes,organic_team_id,attendance_status,attendance_updated_at,source_type,is_active")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("incident_ad_hoc_teams")
+      .select("id,name,purpose,related_site_id,commander_name,notes,status")
+      .eq("incident_id", params.incidentId)
+      .order("status", { ascending: true })
+      .order("name", { ascending: true }),
+    supabase
+      .from("incident_ad_hoc_team_members")
+      .select("id,ad_hoc_team_id,unit_personnel_id,manual_personnel_id,notes,unit_personnel:unit_personnel_id(first_name,last_name,mobile_phone),manual_personnel:manual_personnel_id(first_name,last_name,mobile_phone)")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true)
   ]);
 
   const statusesByPerson = new Map(
@@ -101,6 +201,59 @@ export default async function IncidentPersonnelPage({
       if (byStatus !== 0) return byStatus;
       return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`, "he");
     });
+  const teams = ((teamRows ?? []) as TeamRow[]).filter((team) => team.is_active);
+  const teamsById = new Map(teams.map((team) => [team.id, team]));
+  const sites = (siteRows ?? []) as SiteRow[];
+  const sitesById = new Map(sites.map((site) => [site.id, site]));
+  const manualPersonnel = ((manualRows ?? []) as ManualPersonnelRow[])
+    .filter((row) => row.is_active)
+    .sort((a, b) => {
+      const byStatus = statusSort(a.attendance_status) - statusSort(b.attendance_status);
+      if (byStatus !== 0) return byStatus;
+      return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`, "he");
+    });
+  const personnelOptions = [
+    ...personnel.map((person) => ({
+      key: `roster:${person.id}`,
+      name: `${person.first_name} ${person.last_name}`,
+      phone: person.mobile_phone,
+      teamLabel: personnelDepartmentLabel(person.department, person.department_other),
+      attendanceLabel: labelFromOptions(ATTENDANCE_STATUSES, person.attendanceStatus),
+      sourceLabel: "צוות אורגני"
+    })),
+    ...manualPersonnel.map((person) => ({
+      key: `manual:${person.id}`,
+      name: `${person.first_name} ${person.last_name}`,
+      phone: person.mobile_phone,
+      teamLabel: teamLabel(teamsById.get(person.organic_team_id ?? "")),
+      attendanceLabel: labelFromOptions(ATTENDANCE_STATUSES, person.attendance_status),
+      sourceLabel: "נוסף ידנית"
+    }))
+  ];
+  const adHocMembers = ((adHocMemberRows ?? []) as unknown as AdHocMemberRow[]).map((member) => {
+    const rosterPerson = member.unit_personnel;
+    const manualPerson = member.manual_personnel;
+    const person = rosterPerson ?? manualPerson;
+    return {
+      id: member.id,
+      adHocTeamId: member.ad_hoc_team_id,
+      name: person ? `${person.first_name} ${person.last_name}` : "איש צוות",
+      phone: person?.mobile_phone ?? null,
+      sourceLabel: rosterPerson ? "צוות אורגני" : "נוסף ידנית",
+      notes: member.notes
+    };
+  });
+  const adHocTeams = ((adHocTeamRows ?? []) as AdHocTeamRow[]).map((team) => ({
+    id: team.id,
+    name: team.name,
+    purpose: team.purpose,
+    commanderName: team.commander_name,
+    notes: team.notes,
+    status: team.status,
+    relatedSiteId: team.related_site_id,
+    relatedSiteName: team.related_site_id ? sitesById.get(team.related_site_id)?.name ?? null : null,
+    members: adHocMembers.filter((member) => member.adHocTeamId === team.id)
+  }));
   const personnelTotals = {
     present: personnel.filter((row) => row.attendanceStatus === "present").length,
     enRoute: personnel.filter((row) => row.attendanceStatus === "en_route").length,
@@ -124,6 +277,15 @@ export default async function IncidentPersonnelPage({
           <p className="error">לא ניתן לטעון כ"א: {error.message}</p>
         </section>
       ) : null}
+
+      <IncidentPersonnelActionPanels
+        incidentId={params.incidentId}
+        canEdit={Boolean(canEditPersonnel)}
+        teams={teams.map((team) => ({ id: team.id, label: teamLabel(team) }))}
+        sites={sites}
+        personnelOptions={personnelOptions}
+        adHocTeams={adHocTeams}
+      />
 
       <section className="panel">
         <h2>סיכום לפי מחלקה</h2>
@@ -205,6 +367,47 @@ export default async function IncidentPersonnelPage({
           </section>
         );
       })}
+
+      <section className="panel personnel-department-panel">
+        <div className="section-title-row">
+          <div>
+            <h2>נוספו ידנית לאירוע</h2>
+            <p className="muted">רשומות אלו אינן משנות את רשימת הסגל הקבועה של היחידה.</p>
+          </div>
+          <span className="status-pill warning">{formatNumber(manualPersonnel.length)}</span>
+        </div>
+        {manualPersonnel.length === 0 ? (
+          <p className="muted">עדיין לא נוספו אנשי צוות ידנית לאירוע.</p>
+        ) : (
+          <div className="event-personnel-list">
+            {manualPersonnel.map((person) => (
+              <div className="event-personnel-row" key={person.id}>
+                <div>
+                  <strong>{person.first_name} {person.last_name}</strong>
+                  <span>
+                    {person.mobile_phone ?? "אין טלפון"} · {teamLabel(teamsById.get(person.organic_team_id ?? ""))}
+                  </span>
+                </div>
+                <span className="status-pill warning">נוסף ידנית</span>
+                <span className={`status-pill ${attendanceClass(person.attendance_status)}`}>
+                  {labelFromOptions(ATTENDANCE_STATUSES, person.attendance_status)}
+                </span>
+                <time>{person.attendance_updated_at ? formatDateTime(person.attendance_updated_at) : "לא עודכן"}</time>
+                <CollaborativeLockSection objectType="event_personnel" objectId={person.id}>
+                  <form action={setManualIncidentPersonnelStatusAction} className="inline-status-form">
+                    <input type="hidden" name="incidentId" value={params.incidentId} />
+                    <input type="hidden" name="manualPersonnelId" value={person.id} />
+                    <select className="input" name="attendanceStatus" defaultValue={person.attendance_status}>
+                      <PersonnelStatusOptions />
+                    </select>
+                    <OperationalLoadingButton className="button secondary" label="עדכן" loadingLabel="מעדכן..." />
+                  </form>
+                </CollaborativeLockSection>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   );
 }
