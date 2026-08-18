@@ -11150,3 +11150,381 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     min-height: 92px;
   }
 }
+
+/* Vehicle roster print views */
+.vehicle-roster-hero-actions,
+.vehicle-roster-header-actions,
+.vehicle-roster-print-toolbar,
+.vehicle-roster-report-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.vehicle-roster-hero-actions {
+  justify-content: flex-end;
+}
+
+.vehicle-roster-header-actions {
+  align-items: stretch;
+}
+
+.vehicle-roster-report-options {
+  border: 1px solid rgba(22, 50, 79, 0.14);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.vehicle-roster-report-options label,
+.vehicle-roster-report-options fieldset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.vehicle-roster-report-options fieldset {
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.vehicle-roster-report-options legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.vehicle-roster-print-page {
+  width: min(1180px, calc(100% - 32px));
+}
+
+.vehicle-roster-print-document {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(22, 50, 79, 0.16);
+  border-radius: 8px;
+  background: #fff;
+  color: #17283a;
+  padding: 28px;
+  box-shadow: var(--shadow-md);
+}
+
+.vehicle-roster-print-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.45fr);
+  gap: 18px;
+  align-items: start;
+  border-bottom: 3px solid var(--brand-secondary);
+  padding-bottom: 12px;
+}
+
+.vehicle-roster-print-header h1,
+.vehicle-roster-print-header h2,
+.roster-print-section h3,
+.roster-report-card h4 {
+  margin: 0;
+  color: var(--brand-primary);
+}
+
+.vehicle-roster-print-header h1 {
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  line-height: 1.1;
+}
+
+.vehicle-roster-print-header h2 {
+  margin-top: 4px;
+  color: #536579;
+  font-size: 1.15rem;
+}
+
+.vehicle-roster-print-header dl,
+.roster-print-grid {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.vehicle-roster-print-header dl {
+  border: 1px solid rgba(22, 50, 79, 0.12);
+  border-radius: 8px;
+  background: #f7f9fc;
+  padding: 10px 12px;
+}
+
+.vehicle-roster-print-header dl div,
+.roster-print-grid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.vehicle-roster-print-header dt,
+.roster-print-grid dt {
+  color: #627286;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.vehicle-roster-print-header dd,
+.roster-print-grid dd {
+  margin: 0;
+  font-weight: 850;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.roster-print-section {
+  display: grid;
+  gap: 12px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.roster-print-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.roster-print-grid.compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.roster-print-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.roster-print-status,
+.roster-print-callout {
+  border: 1px solid rgba(22, 50, 79, 0.2);
+  border-radius: 999px;
+  background: #f7f9fc;
+  color: var(--brand-primary);
+  padding: 4px 10px;
+  font-weight: 900;
+}
+
+.roster-print-callout {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  border-right: 5px solid var(--brand-secondary);
+  background: #fff8ef;
+}
+
+.roster-print-callout p,
+.roster-print-note,
+.roster-print-empty {
+  margin: 0;
+  color: #536579;
+  line-height: 1.5;
+}
+
+.roster-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  direction: rtl;
+  font-size: 14px;
+}
+
+.roster-print-table th,
+.roster-print-table td {
+  border: 1px solid rgba(22, 50, 79, 0.18);
+  padding: 8px 9px;
+  text-align: right;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.roster-print-table th {
+  background: #eef4f9;
+  color: var(--brand-primary);
+  font-weight: 900;
+}
+
+.roster-print-table thead {
+  display: table-header-group;
+}
+
+.roster-print-table tr,
+.roster-report-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.roster-report-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.roster-report-kpis div {
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(22, 50, 79, 0.14);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+
+.roster-report-kpis span {
+  color: #627286;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.roster-report-kpis strong {
+  color: var(--brand-primary);
+  font-size: 1.45rem;
+}
+
+.roster-detailed-list {
+  gap: 14px;
+}
+
+.roster-report-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(22, 50, 79, 0.16);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fff;
+}
+
+.roster-report-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.roster-report-card h4 {
+  font-size: 1.25rem;
+}
+
+.roster-print-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgba(22, 50, 79, 0.18);
+  padding-top: 10px;
+  color: #536579;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 820px) {
+  .vehicle-roster-print-header,
+  .roster-print-grid,
+  .roster-print-grid.compact,
+  .roster-report-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-roster-print-document {
+    padding: 18px;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body:has(.vehicle-roster-print-page) {
+    background: #fff !important;
+  }
+
+  body:has(.vehicle-roster-print-page) .topbar,
+  body:has(.vehicle-roster-print-page) .incident-nav-tree,
+  body:has(.vehicle-roster-print-page) .command-action-panel,
+  body:has(.vehicle-roster-print-page) .breadcrumb-bar,
+  body:has(.vehicle-roster-print-page) .incident-ops-strip,
+  body:has(.vehicle-roster-print-page) .no-print {
+    display: none !important;
+  }
+
+  body:has(.vehicle-roster-print-page) .incident-command-layout,
+  body:has(.vehicle-roster-print-page) .incident-command-content,
+  body:has(.vehicle-roster-print-page) .page,
+  .vehicle-roster-print-page,
+  .vehicle-roster-print-document {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+
+  .vehicle-roster-print-document {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: #000 !important;
+  }
+
+  .vehicle-roster-print-document * {
+    box-sizing: border-box !important;
+  }
+
+  .vehicle-roster-print-header,
+  .roster-print-section,
+  .roster-print-callout,
+  .roster-report-card,
+  .roster-print-footer {
+    margin-bottom: 12px;
+  }
+
+  .vehicle-roster-print-header {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 0.42fr);
+  }
+
+  .vehicle-roster-print-header h1 {
+    font-size: 24pt;
+  }
+
+  .vehicle-roster-print-header h2,
+  .roster-report-card h4 {
+    font-size: 15pt;
+  }
+
+  .roster-print-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .roster-print-grid.compact,
+  .roster-report-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .roster-print-table {
+    font-size: 9.5pt;
+  }
+
+  .roster-print-table th,
+  .roster-print-table td {
+    padding: 5px 6px;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .roster-report-mode-summary {
+    page: roster-summary-report;
+  }
+
+  @page roster-summary-report {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+}

@@ -36,6 +36,14 @@ function rosterText(row: VehicleRosterListRow) {
   ].join(" ").toLowerCase();
 }
 
+function centralReportHref(incidentId: string, statusFilter: "all" | RosterStatus) {
+  const params = new URLSearchParams({ mode: "detailed" });
+  if (statusFilter !== "all") {
+    params.set("statuses", statusFilter);
+  }
+  return "/incidents/" + incidentId + "/personnel/rosters/report?" + params.toString();
+}
+
 export function VehicleRosterListClient({
   incidentId,
   rosters,
@@ -92,15 +100,18 @@ export function VehicleRosterListClient({
           <h1>שבצ"קים ותנועת רכבים</h1>
           <p>ניהול תנועת רכבים, נהגים, מפקדי נסיעה ונוסעים באירוע.</p>
         </div>
-        {canEditPersonnel ? (
-          <form action={createAction} className="vehicle-roster-create-form">
-            <input type="hidden" name="incidentId" value={incidentId} />
-            <input type="hidden" name="movementType" value="outbound_to_incident" />
-            <OperationalLoadingButton className="button primary" loadingLabel="יוצר...">צור שבצ"ק חדש</OperationalLoadingButton>
-            {createState.error ? <p className="form-error">{createState.error}</p> : null}
-            {createState.success ? <p className="success-message">{createState.success}</p> : null}
-          </form>
-        ) : null}
+        <div className="vehicle-roster-hero-actions">
+          <Link className="button secondary" href={centralReportHref(incidentId, statusFilter)}>הדפס דוח מרכז שבצ"קים</Link>
+          {canEditPersonnel ? (
+            <form action={createAction} className="vehicle-roster-create-form">
+              <input type="hidden" name="incidentId" value={incidentId} />
+              <input type="hidden" name="movementType" value="outbound_to_incident" />
+              <OperationalLoadingButton className="button primary" loadingLabel="יוצר...">צור שבצ"ק חדש</OperationalLoadingButton>
+              {createState.error ? <p className="form-error">{createState.error}</p> : null}
+              {createState.success ? <p className="success-message">{createState.success}</p> : null}
+            </form>
+          ) : null}
+        </div>
       </section>
 
       <section className="vehicle-roster-summary-grid" aria-label="סיכום שבצקים">

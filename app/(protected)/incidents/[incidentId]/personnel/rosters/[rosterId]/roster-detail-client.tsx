@@ -271,7 +271,10 @@ export function VehicleRosterDetailClient({
       </nav>
 
       <header className="vehicle-roster-detail-header">
-        <Link className="button secondary" href={`/incidents/${incidentId}/personnel/rosters`}>חזרה לרשימה</Link>
+        <div className="vehicle-roster-header-actions">
+          <Link className="button secondary" href={"/incidents/" + incidentId + "/personnel/rosters"}>חזרה לרשימה</Link>
+          <Link className="button secondary" href={"/incidents/" + incidentId + "/personnel/rosters/" + roster.id + "/print"}>הדפס שבצ"ק</Link>
+        </div>
         <div>
           <p className="eyebrow">שבצ"ק</p>
           <h1>שבצ"ק {roster.display_number}</h1>
