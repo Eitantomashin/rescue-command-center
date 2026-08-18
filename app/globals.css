@@ -10471,3 +10471,682 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     grid-template-columns: 1fr;
   }
 }
+
+/* Incident vehicle movement rosters */
+.personnel-module-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.personnel-module-tabs a {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #12345b;
+  padding: 10px 16px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.personnel-module-tabs a.active {
+  border-color: rgba(249, 115, 22, 0.55);
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.96), rgba(255, 255, 255, 0.94));
+  color: #c2410c;
+}
+
+.vehicle-roster-page {
+  display: grid;
+  gap: 18px;
+}
+
+.vehicle-roster-hero,
+.vehicle-roster-detail-header,
+.vehicle-roster-workflow-panel,
+.vehicle-roster-panel,
+.vehicle-roster-summary-card,
+.vehicle-roster-card,
+.empty-state-card {
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 32px rgba(15, 35, 64, 0.07);
+}
+
+.vehicle-roster-hero,
+.vehicle-roster-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px;
+}
+
+.vehicle-roster-hero h1,
+.vehicle-roster-detail-header h1 {
+  margin: 0;
+  color: #12345b;
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 900;
+}
+
+.vehicle-roster-create-form {
+  display: grid;
+  gap: 8px;
+  min-width: min(260px, 100%);
+}
+
+.vehicle-roster-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.vehicle-roster-summary-card {
+  min-height: 116px;
+  padding: 16px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.vehicle-roster-summary-card span {
+  color: #475569;
+  font-weight: 800;
+}
+
+.vehicle-roster-summary-card strong {
+  color: #0f2744;
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.vehicle-roster-summary-card.tone-blue strong { color: #2563eb; }
+.vehicle-roster-summary-card.tone-orange strong { color: #ea580c; }
+.vehicle-roster-summary-card.tone-green strong { color: #15803d; }
+.vehicle-roster-summary-card.tone-purple strong { color: #7c3aed; }
+
+.vehicle-roster-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.vehicle-roster-filters.compact {
+  align-items: stretch;
+}
+
+.vehicle-roster-filters input,
+.vehicle-roster-filters select,
+.vehicle-roster-form-grid input,
+.vehicle-roster-form-grid select,
+.vehicle-roster-form-grid textarea,
+.inline-action-form textarea {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  border-radius: 10px;
+  background: #fff;
+  color: #10233f;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.vehicle-roster-filters > input {
+  flex: 1 1 260px;
+}
+
+.segmented-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segmented-control button {
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  padding: 8px 12px;
+  font-weight: 800;
+}
+
+.segmented-control button.active {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.vehicle-roster-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.vehicle-roster-card,
+.vehicle-roster-workflow-panel,
+.vehicle-roster-panel,
+.empty-state-card {
+  padding: 16px;
+}
+
+.vehicle-roster-card-header,
+.vehicle-roster-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.vehicle-roster-card h2,
+.vehicle-roster-panel h2 {
+  margin: 0;
+  color: #12345b;
+  font-weight: 900;
+}
+
+.vehicle-roster-status,
+.source-badge,
+.role-badge-row span {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.vehicle-roster-status.status-draft { background: #f1f5f9; color: #334155; }
+.vehicle-roster-status.status-ready { background: #eff6ff; color: #1d4ed8; }
+.vehicle-roster-status.status-en-route { background: #fff7ed; color: #c2410c; }
+.vehicle-roster-status.status-arrived { background: #ecfdf5; color: #047857; }
+.vehicle-roster-status.status-cancelled { background: #fee2e2; color: #b91c1c; }
+
+.vehicle-roster-workflow-panel {
+  display: grid;
+  gap: 14px;
+  border-color: rgba(37, 99, 235, 0.28);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 0.96));
+}
+
+.vehicle-roster-workflow-panel.is-cancelled {
+  border-color: rgba(148, 163, 184, 0.4);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.vehicle-roster-workflow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workflow-stage {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 12px;
+  color: #334155;
+}
+
+.workflow-stage.completed {
+  border-color: rgba(34, 197, 94, 0.38);
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.95), rgba(255, 255, 255, 0.92));
+}
+
+.workflow-stage.current {
+  border-color: rgba(37, 99, 235, 0.5);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+}
+
+.workflow-stage.next {
+  border-color: rgba(249, 115, 22, 0.54);
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.96), rgba(255, 255, 255, 0.94));
+}
+
+.workflow-stage.future,
+.workflow-stage.disabled {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.workflow-stage-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.workflow-index {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 900;
+}
+
+.workflow-stage.completed .workflow-index {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.workflow-stage.current .workflow-index {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.workflow-stage.next .workflow-index {
+  background: #fed7aa;
+  color: #c2410c;
+}
+
+.workflow-stage h3 {
+  margin: 0;
+  color: #12345b;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.workflow-stage-head p,
+.workflow-stage > p {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-stage-action {
+  display: grid;
+  gap: 8px;
+}
+
+.workflow-disabled-text {
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workflow-confirmation {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  padding: 9px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.workflow-confirmation summary {
+  cursor: pointer;
+  color: #12345b;
+  font-weight: 900;
+}
+
+.vehicle-roster-secondary-actions,
+.clone-choice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.clone-choice-card {
+  flex: 1 1 210px;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.clone-choice-card strong {
+  color: #12345b;
+  font-weight: 900;
+}
+
+.clone-choice-card span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vehicle-roster-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.vehicle-roster-meta-grid div {
+  min-width: 0;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.vehicle-roster-meta-grid dt {
+  color: #64748b;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.vehicle-roster-meta-grid dd {
+  margin: 4px 0 0;
+  color: #10233f;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.vehicle-roster-clone-note,
+.muted-text {
+  color: #64748b;
+}
+
+.vehicle-roster-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.vehicle-roster-panel summary {
+  cursor: pointer;
+  color: #12345b;
+  font-weight: 900;
+}
+
+.vehicle-roster-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.vehicle-roster-form-grid label,
+.inline-action-form label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-weight: 800;
+}
+
+.required-field-legend {
+  margin: 10px 0 0;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.required-label {
+  color: #12345b;
+  font-weight: 900;
+}
+
+.vehicle-roster-form-grid input.required-field,
+.vehicle-roster-form-grid select.required-field,
+.vehicle-roster-form-grid textarea.required-field {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: #fffbeb;
+}
+
+.vehicle-roster-form-grid small {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.required-role-fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.36);
+  border-radius: 12px;
+  background: #fffbeb;
+  padding: 12px;
+}
+
+.required-role-fieldset legend {
+  padding: 0 6px;
+}
+
+.vehicle-roster-form-grid .wide,
+.vehicle-roster-form-grid .operational-loading-button,
+.vehicle-roster-form-grid .form-error,
+.vehicle-roster-form-grid .success-message {
+  grid-column: 1 / -1;
+}
+
+.checkbox-label {
+  display: flex !important;
+  grid-auto-flow: column;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.vehicle-roster-readiness-list,
+.vehicle-roster-timeline {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.vehicle-roster-readiness-list li,
+.vehicle-roster-timeline li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: #fff;
+}
+
+.vehicle-roster-readiness-list li.done span { color: #15803d; }
+.vehicle-roster-readiness-list li.missing span { color: #ea580c; }
+
+.vehicle-roster-readiness-list li > span {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f8fafc;
+  font-weight: 900;
+}
+
+.vehicle-roster-readiness-list li > div {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.vehicle-roster-readiness-list li strong {
+  color: #12345b;
+}
+
+.vehicle-roster-readiness-list li a {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.required-assignment-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  border-radius: 12px;
+  background: #fffbeb;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.assignment-warning {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.vehicle-roster-participant-list,
+.vehicle-roster-person-selector,
+.vehicle-roster-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.vehicle-roster-participant-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(248, 250, 252, 0.84);
+}
+
+.vehicle-roster-participant-card > div:first-child,
+.vehicle-roster-participant-actions,
+.role-edit-form,
+.inline-action-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.role-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.role-badge-row span {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.source-badge.source-unit { background: #eef2ff; color: #3730a3; }
+.source-badge.source-manual { background: #fef3c7; color: #92400e; }
+.source-badge.source-external { background: #f3e8ff; color: #6b21a8; }
+
+.vehicle-roster-person-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: 520px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.vehicle-roster-person-card {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.vehicle-roster-person-card.disabled {
+  opacity: 0.62;
+  background: #f8fafc;
+}
+
+.vehicle-roster-person-card em {
+  color: #c2410c;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.vehicle-roster-allocation-notice {
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(194, 65, 12, 0.22);
+  border-radius: 10px;
+  padding: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.vehicle-roster-allocation-notice strong {
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.vehicle-roster-allocation-notice span,
+.vehicle-roster-allocation-notice small {
+  font-size: 0.78rem;
+  color: #c2410c;
+}
+
+.transition-confirmation {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.vehicle-roster-conflict {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(239, 68, 68, 0.34);
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+@media (max-width: 1100px) {
+  .vehicle-roster-summary-grid,
+  .vehicle-roster-card-grid,
+  .vehicle-roster-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vehicle-roster-workflow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .vehicle-roster-hero,
+  .vehicle-roster-detail-header,
+  .vehicle-roster-card-header,
+  .vehicle-roster-section-heading {
+    display: grid;
+  }
+
+  .vehicle-roster-summary-grid,
+  .vehicle-roster-card-grid,
+  .vehicle-roster-detail-grid,
+  .vehicle-roster-workflow,
+  .vehicle-roster-form-grid,
+  .vehicle-roster-person-grid,
+  .vehicle-roster-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-roster-summary-card {
+    min-height: 92px;
+  }
+}

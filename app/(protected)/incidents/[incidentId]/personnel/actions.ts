@@ -56,11 +56,8 @@ export async function setEventPersonnelStatus(formData: FormData) {
   revalidatePath(`/incidents/${incidentId}/personnel`, "page");
 }
 
-function friendlyPersonnelError(error: unknown) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  return "הפעולה נכשלה. נסה שוב או פנה למנהל המערכת.";
+function friendlyPersonnelError(_error: unknown) {
+  return "הפעולה נכשלה. יש לנסות שוב או לפנות למנהל המערכת.";
 }
 
 function logServerActionError(action: string, context: Record<string, unknown>, error: unknown) {
@@ -147,7 +144,7 @@ export async function createAdHocTeamAction(
   }
 
   await revalidatePersonnel(incidentId);
-  return { error: null, success: "צוות אד־הוק נוצר." };
+  return { error: null, success: "צוות אד-הוק נוצר." };
 }
 
 export async function archiveAdHocTeamAction(formData: FormData) {
@@ -188,7 +185,7 @@ export async function updateAdHocTeamAction(
   }
 
   await revalidatePersonnel(incidentId);
-  return { error: null, success: "צוות האד־הוק עודכן." };
+  return { error: null, success: "צוות האד-הוק עודכן." };
 }
 
 export async function addExistingAdHocMemberAction(
@@ -219,7 +216,7 @@ export async function addExistingAdHocMemberAction(
   }
 
   await revalidatePersonnel(incidentId);
-  return { error: null, success: "איש הצוות נוסף לצוות האד־הוק." };
+  return { error: null, success: "איש הצוות נוסף לצוות האד-הוק." };
 }
 
 export async function addManualAdHocMemberAction(
@@ -266,7 +263,7 @@ export async function addManualAdHocMemberAction(
   }
 
   await revalidatePersonnel(incidentId);
-  return { error: null, success: "איש הצוות נוסף לצוות האד־הוק." };
+  return { error: null, success: "איש הצוות נוסף לצוות האד-הוק." };
 }
 
 export async function removeAdHocTeamMemberAction(formData: FormData) {
@@ -289,7 +286,7 @@ function rosterActionResult(data: unknown, fallback: string): VehicleRosterActio
     const record = data as Record<string, unknown>;
     if (record.success === false) {
       return {
-        error: "הפעולה לא הושלמה. יש לבדוק את פרטי השבצ\"ק והקצאות האנשים או הרכב.",
+        error: rosterBusinessError(record),
         success: null,
         code: typeof record.code === "string" ? record.code : null,
         data
@@ -297,15 +294,68 @@ function rosterActionResult(data: unknown, fallback: string): VehicleRosterActio
     }
   }
 
-  return {
-    error: null,
-    success: fallback,
-    data
-  };
+  return { error: null, success: fallback, data };
 }
 
-async function revalidateRosters(incidentId: string) {
+function rosterBusinessError(record: Record<string, unknown>) {
+  const code = typeof record.code === "string" ? record.code : "";
+  const displayNumber = typeof record.conflicting_roster_display_number === "string" ? record.conflicting_roster_display_number : null;
+  const status = typeof record.conflicting_roster_status === "string" ? record.conflicting_roster_status : null;
+  const statusText = status ? ` בסטטוס ${status}` : "";
+
+  if (code === "missing_required_fields") return "השבצ\"ק עדיין לא מוכן ליציאה. יש להשלים את הפרטים המסומנים באזור מוכנות ליציאה.";
+  if (code === "vehicle_conflict") return "הרכב משויך כעת לשבצ\"ק פעיל אחר.";
+  if (code === "person_conflict" || code === "person_already_allocated") {
+    return displayNumber
+      ? `אחד מאנשי הצוות כבר משויך לשבצ\"ק ${displayNumber}${statusText}. יש להסיר אותו מהשבצ\"ק הפעיל לפני שיוך חדש.`
+      : "אחד מאנשי הצוות כבר משויך לשבצ\"ק פעיל אחר.";
+  }
+  if (code === "invalid_transition") return "לא ניתן לבצע את שינוי הסטטוס מהמצב הנוכחי.";
+  if (code === "source_roster_not_found") return "שבצ\"ק המקור לא נמצא באירוע הזה.";
+  if (code === "source_roster_not_arrived") return "ניתן ליצור נסיעת המשך רק לאחר שהשבצ\"ק הגיע ליעד.";
+  if (code === "source_roster_missing_destination") return "לא ניתן ליצור נסיעת המשך ללא יעד בשבצ\"ק המקור.";
+  return "הפעולה לא הושלמה. יש לבדוק את פרטי השבצ\"ק והקצאות האנשים או הרכב.";
+}
+
+async function revalidateRosters(incidentId: string, rosterId?: string | null) {
   revalidatePath(`/incidents/${incidentId}/personnel`, "page");
+  revalidatePath(`/incidents/${incidentId}/personnel/rosters`, "page");
+  if (rosterId) {
+    revalidatePath(`/incidents/${incidentId}/personnel/rosters/${rosterId}`, "page");
+  }
+}
+
+function rosterIdFromData(data: unknown) {
+  return data && typeof data === "object" && "roster_id" in data
+    ? String((data as Record<string, unknown>).roster_id)
+    : null;
+}
+
+function normalizeIsraeliMobile(raw: string) {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let digits = trimmed.replace(/[^0-9+]/g, "");
+  if (digits.startsWith("+972")) digits = `0${digits.slice(4)}`;
+  digits = digits.replace(/[^0-9]/g, "");
+  if (digits.startsWith("972")) digits = `0${digits.slice(3)}`;
+  return /^05\d{8}$/.test(digits) ? digits : null;
+}
+
+function roleSelection(formData: FormData) {
+  const isDriver = optionalBoolean(formData, "isDriver");
+  const isMovementCommander = optionalBoolean(formData, "isMovementCommander");
+  const isPassenger = optionalBoolean(formData, "isPassenger");
+  return { isDriver, isMovementCommander, isPassenger, hasRole: isDriver || isMovementCommander || isPassenger };
+}
+
+function sourceFromResolvedPerson(record: Record<string, unknown>) {
+  if (typeof record.source_type === "string" && typeof record.existing_id === "string") {
+    return { sourceType: record.source_type, sourceId: record.existing_id, reusedExisting: true };
+  }
+  if (typeof record.external_person_id === "string") {
+    return { sourceType: "external_person", sourceId: record.external_person_id, reusedExisting: record.status === "reused" };
+  }
+  return null;
 }
 
 export async function createVehicleRosterAction(
@@ -317,7 +367,7 @@ export async function createVehicleRosterAction(
   const { data, error } = await supabase.rpc("create_incident_vehicle_roster", {
     p_incident_id: incidentId,
     p_movement_type: optionalValue(formData, "movementType") ?? "outbound_to_incident",
-    p_origin_text: optionalValue(formData, "originText"),
+    p_origin_text: optionalValue(formData, "originText") ?? "מחסן היחידה",
     p_destination_text: optionalValue(formData, "destinationText")
   });
 
@@ -326,7 +376,8 @@ export async function createVehicleRosterAction(
     return { error: friendlyPersonnelError(error), success: null, code: null };
   }
 
-  await revalidateRosters(incidentId);
+  const createdRosterId = rosterIdFromData(data);
+  await revalidateRosters(incidentId, createdRosterId);
   return rosterActionResult(data, "שבצ\"ק נוצר.");
 }
 
@@ -358,7 +409,7 @@ export async function updateVehicleRosterDraftAction(
     return { error: friendlyPersonnelError(error), success: null, code: null };
   }
 
-  await revalidateRosters(incidentId);
+  await revalidateRosters(incidentId, rosterId);
   return rosterActionResult(data, "פרטי השבצ\"ק עודכנו.");
 }
 
@@ -411,8 +462,132 @@ export async function addVehicleRosterParticipantAction(
     return { error: friendlyPersonnelError(error), success: null, code: null };
   }
 
-  await revalidateRosters(incidentId);
+  await revalidateRosters(incidentId, rosterId);
   return rosterActionResult(data, "משתתף נוסף לשבצ\"ק.");
+}
+
+export async function addMultipleVehicleRosterParticipantsAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const rosterId = value(formData, "rosterId");
+  const selectedPeople = formData.getAll("personKey").map(String).filter(Boolean);
+
+  if (selectedPeople.length === 0) {
+    return { error: "\u05d9\u05e9 \u05dc\u05d1\u05d7\u05d5\u05e8 \u05dc\u05e4\u05d7\u05d5\u05ea \u05de\u05e9\u05ea\u05ea\u05e3 \u05d0\u05d7\u05d3.", success: null, code: "missing_selection" };
+  }
+
+  const supabase = createClient();
+  const results: unknown[] = [];
+
+  for (const personKey of selectedPeople) {
+    const [sourceType, sourceId] = personKey.split(":");
+    const { data, error } = await supabase.rpc("add_incident_roster_participant", {
+      p_incident_id: incidentId,
+      p_roster_id: rosterId,
+      p_source_type: sourceType,
+      p_unit_personnel_id: sourceType === "unit_personnel" ? sourceId : null,
+      p_manual_personnel_id: sourceType === "manual_personnel" ? sourceId : null,
+      p_external_person_id: sourceType === "external_person" ? sourceId : null,
+      p_is_driver: false,
+      p_is_movement_commander: false,
+      p_is_passenger: true,
+      p_notes: optionalValue(formData, "notes")
+    });
+
+    if (error) {
+      logServerActionError("addMultipleVehicleRosterParticipantsAction", { incidentId, rosterId, personKey }, error);
+      return { error: friendlyPersonnelError(error), success: null, code: null, data: results };
+    }
+
+    const result = rosterActionResult(data, "המשתתף נוסף לשבצ\"ק.");
+    if (result.error) {
+      await revalidateRosters(incidentId, rosterId);
+      return { ...result, data: results };
+    }
+
+    results.push(data);
+  }
+
+  await revalidateRosters(incidentId, rosterId);
+  return { error: null, success: "המשתתפים נוספו לשבצ\"ק.", data: results };
+}
+
+export async function createExternalPersonAndAddToRosterAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const rosterId = value(formData, "rosterId");
+  const fullName = value(formData, "fullName");
+  const mobilePhone = value(formData, "mobilePhone");
+  const normalizedPhone = normalizeIsraeliMobile(mobilePhone);
+  const roles = roleSelection(formData);
+
+  if (!fullName) {
+    return { error: "יש להזין שם מלא.", success: null, code: "missing_full_name" };
+  }
+
+  if (!normalizedPhone) {
+    return { error: "יש להזין מספר טלפון נייד תקין, לדוגמה 050-1234567.", success: null, code: "invalid_mobile_phone" };
+  }
+
+  if (!roles.hasRole) {
+    return { error: "יש לבחור לפחות תפקיד אחד.", success: null, code: "missing_role" };
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("create_or_reuse_incident_roster_external_person", {
+    p_incident_id: incidentId,
+    p_full_name: fullName,
+    p_mobile_phone: mobilePhone,
+    p_external_role: optionalValue(formData, "externalRole"),
+    p_notes: optionalValue(formData, "notes")
+  });
+
+  if (error) {
+    logServerActionError("createExternalPersonAndAddToRosterAction:create", { incidentId, rosterId }, error);
+    return { error: "לא ניתן היה להוסיף את הגורם החיצוני. נסה שוב.", success: null, code: null };
+  }
+
+  const record = data && typeof data === "object" ? data as Record<string, unknown> : {};
+  const resolved = sourceFromResolvedPerson(record);
+
+  if (!resolved) {
+    logServerActionError("createExternalPersonAndAddToRosterAction:resolve", { incidentId, rosterId, data }, new Error("Could not resolve roster person source"));
+    return { error: "לא ניתן היה לזהות את האדם שנמצא. נסה לבחור אותו מהרשימה.", success: null, code: "unresolved_person", data };
+  }
+
+  const { data: addData, error: addError } = await supabase.rpc("add_incident_roster_participant", {
+    p_incident_id: incidentId,
+    p_roster_id: rosterId,
+    p_source_type: resolved.sourceType,
+    p_unit_personnel_id: resolved.sourceType === "unit_personnel" ? resolved.sourceId : null,
+    p_manual_personnel_id: resolved.sourceType === "manual_personnel" ? resolved.sourceId : null,
+    p_external_person_id: resolved.sourceType === "external_person" ? resolved.sourceId : null,
+    p_is_driver: roles.isDriver,
+    p_is_movement_commander: roles.isMovementCommander,
+    p_is_passenger: roles.isPassenger,
+    p_notes: optionalValue(formData, "notes")
+  });
+
+  if (addError) {
+    logServerActionError("createExternalPersonAndAddToRosterAction:add", { incidentId, rosterId, sourceType: resolved.sourceType, sourceId: resolved.sourceId }, addError);
+    return { error: friendlyPersonnelError(addError), success: null, code: null, data };
+  }
+
+  const addResult = rosterActionResult(addData, "");
+  if (addResult.error) {
+    await revalidateRosters(incidentId, rosterId);
+    return { ...addResult, data: { resolved, addData } };
+  }
+
+  await revalidateRosters(incidentId, rosterId);
+  const message = resolved.reusedExisting
+    ? "נמצא אדם קיים עם מספר טלפון זה והוא נוסף לשבצ\"ק."
+    : "הגורם החיצוני נוסף לשבצ\"ק בהצלחה.";
+  return { error: null, success: message, data: { resolved, addData } };
 }
 
 export async function updateVehicleRosterParticipantRolesAction(
@@ -420,6 +595,7 @@ export async function updateVehicleRosterParticipantRolesAction(
   formData: FormData
 ): Promise<VehicleRosterActionState> {
   const incidentId = value(formData, "incidentId");
+  const rosterId = optionalValue(formData, "rosterId");
   const participantId = value(formData, "participantId");
   const supabase = createClient();
   const { data, error } = await supabase.rpc("update_incident_roster_participant_roles", {
@@ -435,7 +611,7 @@ export async function updateVehicleRosterParticipantRolesAction(
     return { error: friendlyPersonnelError(error), success: null, code: null };
   }
 
-  await revalidateRosters(incidentId);
+  await revalidateRosters(incidentId, rosterId);
   return rosterActionResult(data, "תפקידי המשתתף עודכנו.");
 }
 
@@ -444,6 +620,7 @@ export async function removeVehicleRosterParticipantAction(
   formData: FormData
 ): Promise<VehicleRosterActionState> {
   const incidentId = value(formData, "incidentId");
+  const rosterId = optionalValue(formData, "rosterId");
   const participantId = value(formData, "participantId");
   const supabase = createClient();
   const { data, error } = await supabase.rpc("remove_incident_roster_participant", {
@@ -456,7 +633,7 @@ export async function removeVehicleRosterParticipantAction(
     return { error: friendlyPersonnelError(error), success: null, code: null };
   }
 
-  await revalidateRosters(incidentId);
+  await revalidateRosters(incidentId, rosterId);
   return rosterActionResult(data, "משתתף הוסר מהשבצ\"ק.");
 }
 
@@ -481,7 +658,7 @@ export async function transitionVehicleRosterAction(
     return { error: friendlyPersonnelError(error), success: null, code: null };
   }
 
-  await revalidateRosters(incidentId);
+  await revalidateRosters(incidentId, rosterId);
   return rosterActionResult(data, "סטטוס השבצ\"ק עודכן.");
 }
 
@@ -503,10 +680,35 @@ export async function cloneVehicleRosterForReturnAction(
     return { error: friendlyPersonnelError(error), success: null, code: null };
   }
 
-  await revalidateRosters(incidentId);
+  const newRosterId = rosterIdFromData(data);
+  await revalidateRosters(incidentId, sourceRosterId);
+  await revalidateRosters(incidentId, newRosterId);
   return rosterActionResult(data, "שבצ\"ק חזור נוצר.");
 }
 
+export async function cloneVehicleRosterForNextDestinationAction(
+  _prevState: VehicleRosterActionState,
+  formData: FormData
+): Promise<VehicleRosterActionState> {
+  const incidentId = value(formData, "incidentId");
+  const sourceRosterId = value(formData, "sourceRosterId");
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("clone_incident_vehicle_roster_for_next_destination", {
+    p_incident_id: incidentId,
+    p_source_roster_id: sourceRosterId,
+    p_planned_departure_at: optionalValue(formData, "plannedDepartureAt")
+  });
+
+  if (error) {
+    logServerActionError("cloneVehicleRosterForNextDestinationAction", { incidentId, sourceRosterId }, error);
+    return { error: friendlyPersonnelError(error), success: null, code: null };
+  }
+
+  const newRosterId = rosterIdFromData(data);
+  await revalidateRosters(incidentId, sourceRosterId);
+  await revalidateRosters(incidentId, newRosterId);
+  return rosterActionResult(data, "שבצ\"ק המשך נוצר.");
+}
 export async function listVehicleRostersForIncident(incidentId: string) {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("list_incident_vehicle_rosters", {
@@ -536,14 +738,15 @@ export async function getVehicleRosterForIncident(incidentId: string, rosterId: 
   return data ?? null;
 }
 
-export async function listRosterEligiblePeople(incidentId: string) {
+export async function listRosterEligiblePeople(incidentId: string, currentRosterId?: string | null) {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("list_incident_roster_eligible_people", {
-    p_incident_id: incidentId
+    p_incident_id: incidentId,
+    p_current_roster_id: currentRosterId ?? null
   });
 
   if (error) {
-    logServerActionError("listRosterEligiblePeople", { incidentId }, error);
+    logServerActionError("listRosterEligiblePeople", { incidentId, currentRosterId }, error);
     return [];
   }
 

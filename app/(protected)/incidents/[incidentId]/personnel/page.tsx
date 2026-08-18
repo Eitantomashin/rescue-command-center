@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { CollaborativeLockSection } from "../collaborative-lock";
@@ -272,6 +273,10 @@ export default async function IncidentPersonnelPage({
         </div>
       </div>
 
+      <nav className="personnel-module-tabs" aria-label="ניווט כוח אדם">
+        <Link className="active" href={`/incidents/${params.incidentId}/personnel`}>מצבת כוח אדם</Link>
+        <Link href={`/incidents/${params.incidentId}/personnel/rosters`}>שבצ"קים ותנועת רכבים</Link>
+      </nav>
       {error ? (
         <section className="panel">
           <p className="error">לא ניתן לטעון כ"א: {error.message}</p>
