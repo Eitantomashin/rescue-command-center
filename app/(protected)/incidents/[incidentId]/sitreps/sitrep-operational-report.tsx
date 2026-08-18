@@ -1,6 +1,6 @@
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
-import { STATUS_GROUP_LABELS, type NumericDelta, type SitrepDelta } from "./sitrep-delta";
+import { STATUS_GROUP_LABELS, type NumericDelta, type PersonnelTeamCountDelta, type SitrepDelta } from "./sitrep-delta";
 import { groupOperationalNumbersByStatus } from "./sitrep-operational-number-groups";
 import { numberValue, textValue, type SituationReportRow } from "./sitrep-types";
 
@@ -22,6 +22,63 @@ function teamLabel(team: Record<string, unknown>) {
 }
 function ValueWithDelta({ delta, showDelta, inverse = false }: { delta: NumericDelta; showDelta: boolean; inverse?: boolean }) {
   return <strong>{showDelta ? <span className="sitrep-value-transition" dir="ltr"><bdi>{formatNumber(delta.before)}</bdi> → <bdi>{formatNumber(delta.after)}</bdi></span> : formatNumber(delta.after)} {showDelta ? <DeltaIndicator delta={delta} inverse={inverse} /> : null}</strong>;
+}
+
+function PersonnelTeamChip({ item, showDelta }: { item: PersonnelTeamCountDelta; showDelta: boolean }) {
+  return (
+    <span className="sitrep-personnel-chip">
+      <b>{item.label}</b>
+      {showDelta && item.hasPreviousValue ? <ValueWithDelta delta={item.value} showDelta /> : <strong>{formatNumber(item.value.after)}</strong>}
+      {showDelta && !item.hasPreviousValue ? <em>חדש</em> : null}
+    </span>
+  );
+}
+
+function PersonnelSummaryWidget({ delta }: { delta: SitrepDelta }) {
+  const personnel = delta.personnelSummary;
+  const showTotalDelta = delta.hasPrevious;
+  const showTeamDelta = delta.hasPrevious && personnel.hasPreviousBreakdown;
+
+  return (
+    <div className="sitrep-personnel-wide-widget">
+      <div className="sitrep-personnel-widget-head">
+        <span>ריכוז כוח אדם בצוותים</span>
+        <div>
+          <small>סה"כ כוח אדם נוכח</small>
+          <ValueWithDelta delta={personnel.total} showDelta={showTotalDelta} />
+        </div>
+      </div>
+
+      {personnel.hasCurrentBreakdown ? (
+        <>
+          {personnel.organicTeams.length > 0 ? (
+            <div className="sitrep-personnel-chip-grid" aria-label="פירוט כוח אדם לפי צוות אורגני">
+              {personnel.organicTeams.map((team) => <PersonnelTeamChip item={team} showDelta={showTeamDelta} key={team.key} />)}
+              {personnel.unassigned.after > 0 ? <PersonnelTeamChip item={{ key: "unassigned", label: "ללא שיוך", value: personnel.unassigned, hasPreviousValue: personnel.hasPreviousBreakdown }} showDelta={showTeamDelta} /> : null}
+            </div>
+          ) : <p className="muted">אין כוח אדם נוכח בצוותים אורגניים בחיתוך מצב זה.</p>}
+
+          <div className="sitrep-personnel-secondary">
+            {personnel.manual.after > 0 ? <span>נוספו ידנית: <strong>{formatNumber(personnel.manual.after)}</strong></span> : null}
+            <span>משויכים לצוותי אד-הוק: <strong>{formatNumber(personnel.adHocAssigned.after)}</strong></span>
+            {personnel.unassigned.after > 0 ? <span>ללא שיוך: <strong>{formatNumber(personnel.unassigned.after)}</strong></span> : null}
+          </div>
+
+          {personnel.adHocTeams.length > 0 ? (
+            <div className="sitrep-personnel-ad-hoc">
+              <b>צוותי אד-הוק</b>
+              <div className="sitrep-personnel-chip-grid compact">
+                {personnel.adHocTeams.map((team) => <PersonnelTeamChip item={team} showDelta={showTeamDelta} key={team.key} />)}
+              </div>
+              <small>שיבוצי אד-הוק עשויים לכלול אנשי צוות אורגניים.</small>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <p className="sitrep-personnel-fallback">פירוט לפי צוות אינו זמין בחיתוך מצב זה.</p>
+      )}
+    </div>
+  );
 }
 
 export function SitrepOperationalReport({ report, delta, canEditMeeting = false }: { report: SituationReportRow; delta: SitrepDelta; canEditMeeting?: boolean }) {
@@ -48,7 +105,7 @@ export function SitrepOperationalReport({ report, delta, canEditMeeting = false 
         <div><span>צוותים פעילים</span><ValueWithDelta delta={delta.incident.activeTeams} showDelta={delta.hasPrevious} /></div>
         <div><span>מספרים מבצעיים</span><ValueWithDelta delta={delta.incident.operationalNumbers} showDelta={delta.hasPrevious} /></div>
         <div><span>פוטנציאל מעודכן</span><ValueWithDelta delta={delta.incident.updatedPotential} showDelta={delta.hasPrevious} /></div>
-        <div><span>כוח אדם</span><ValueWithDelta delta={delta.incident.personnel} showDelta={delta.hasPrevious} /></div>
+        <PersonnelSummaryWidget delta={delta} />
         <div className="critical"><span>פער מבצעי</span><ValueWithDelta delta={delta.incident.operationalGap} showDelta={delta.hasPrevious} inverse /></div>
       </div>
       <div className="sitrep-anchor-grid">{delta.anchor.map((row) => <div key={row.group}><span>{row.label}</span><ValueWithDelta delta={row.value} showDelta={delta.hasPrevious} /></div>)}</div>

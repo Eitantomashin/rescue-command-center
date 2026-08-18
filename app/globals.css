@@ -11862,3 +11862,158 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     page-break-inside: avoid;
   }
 }
+
+.sitrep-personnel-wide-widget {
+  grid-column: span 3;
+  display: grid;
+  gap: 12px;
+  border-color: rgba(30, 107, 214, 0.28) !important;
+  background: linear-gradient(135deg, #f8fbff, #fff) !important;
+}
+
+.sitrep-personnel-widget-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.sitrep-personnel-widget-head > span {
+  color: var(--brand-primary);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.sitrep-personnel-widget-head > div {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  min-width: 140px;
+}
+
+.sitrep-personnel-widget-head small {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.sitrep-personnel-wide-widget .sitrep-value-transition {
+  color: var(--brand-primary);
+}
+
+.sitrep-personnel-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 8px;
+}
+
+.sitrep-personnel-chip-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.sitrep-personnel-chip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.sitrep-personnel-chip b {
+  min-width: 0;
+  color: #334155;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.sitrep-personnel-chip strong {
+  color: #1d4ed8;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.sitrep-personnel-chip em {
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  padding: 0.08rem 0.38rem;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.sitrep-personnel-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.sitrep-personnel-secondary span {
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.sitrep-personnel-secondary strong {
+  color: var(--brand-primary);
+  font-size: 0.95rem;
+}
+
+.sitrep-personnel-ad-hoc {
+  display: grid;
+  gap: 7px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.sitrep-personnel-ad-hoc > b {
+  color: #92400e;
+  font-size: 0.9rem;
+}
+
+.sitrep-personnel-ad-hoc > small,
+.sitrep-personnel-fallback {
+  color: #64748b;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .sitrep-personnel-wide-widget {
+    grid-column: span 1;
+  }
+
+  .sitrep-personnel-widget-head {
+    grid-template-columns: 1fr;
+  }
+
+  .sitrep-personnel-widget-head > div {
+    justify-items: start;
+  }
+}
+
+@media print {
+  .sitrep-personnel-wide-widget {
+    grid-column: span 2 !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .sitrep-personnel-chip-grid,
+  .sitrep-personnel-chip-grid.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .sitrep-personnel-chip,
+  .sitrep-personnel-secondary span {
+    background: #fff !important;
+    border-color: #cbd5e1 !important;
+  }
+}

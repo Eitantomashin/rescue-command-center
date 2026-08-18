@@ -19,6 +19,22 @@ export type PersonnelChange = {
   joined: string[];
   left: string[];
 };
+export type PersonnelTeamCountDelta = {
+  key: string;
+  label: string;
+  value: NumericDelta;
+  hasPreviousValue: boolean;
+};
+export type PersonnelSummaryDelta = {
+  hasCurrentBreakdown: boolean;
+  hasPreviousBreakdown: boolean;
+  total: NumericDelta;
+  manual: NumericDelta;
+  adHocAssigned: NumericDelta;
+  unassigned: NumericDelta;
+  organicTeams: PersonnelTeamCountDelta[];
+  adHocTeams: PersonnelTeamCountDelta[];
+};
 export type SiteDelta = { siteId: string; name: string; updatedPotential: NumericDelta; operationalNumbers: NumericDelta; gap: NumericDelta };
 export type TeamDelta = { teamNumber: number; label: string; operationalNumbers: NumericDelta };
 
@@ -32,6 +48,7 @@ export type SitrepDelta = {
     operationalGap: NumericDelta;
     personnel: NumericDelta;
   };
+  personnelSummary: PersonnelSummaryDelta;
   anchor: Array<{ group: string; label: string; value: NumericDelta }>;
   sites: SiteDelta[];
   teams: TeamDelta[];
@@ -65,6 +82,15 @@ const DEPARTMENT_LABELS: Record<string, string> = {
   team_3: "צוות 3",
   team_4: "צוות 4",
   other: "אחר"
+};
+
+type SnapshotPersonnelSummary = {
+  uniquePresentTotal: number;
+  manuallyAddedPresentCount: number;
+  adHocAssignedPresentCount: number;
+  unassignedPresentCount: number;
+  organicTeams: Array<{ key: string; label: string; count: number }>;
+  adHocTeams: Array<{ key: string; label: string; count: number }>;
 };
 
 function numeric(before: number, after: number): NumericDelta {
@@ -122,6 +148,86 @@ function summaryNumber(snapshot: SitrepSnapshot | null | undefined, key: string)
   return numberValue(snapshot?.summary?.[key]);
 }
 
+function rawPersonnelSummary(snapshot?: SitrepSnapshot | null) {
+  const summary = snapshot?.personnel_summary;
+  return summary && typeof summary === "object" && !Array.isArray(summary) ? summary as Record<string, unknown> : null;
+}
+
+export function getSnapshotPersonnelSummary(snapshot?: SitrepSnapshot | null): SnapshotPersonnelSummary {
+  const summary = rawPersonnelSummary(snapshot);
+  if (!summary) {
+    return {
+      uniquePresentTotal: snapshot?.personnel?.length ?? 0,
+      manuallyAddedPresentCount: 0,
+      adHocAssignedPresentCount: 0,
+      unassignedPresentCount: 0,
+      organicTeams: [],
+      adHocTeams: []
+    };
+  }
+
+  const normalizeTeams = (value: unknown, kind: "organic" | "adHoc") => Array.isArray(value)
+    ? value.map((team, index) => {
+        const record = team && typeof team === "object" ? team as Record<string, unknown> : {};
+        const teamId = textValue(record.teamId, "");
+        const teamKey = textValue(record.teamKey, "");
+        const teamName = textValue(record.teamName, kind === "organic" ? "צוות" : "צוות אד-הוק");
+        return {
+          key: teamKey || teamId || `${kind}:${teamName}:${index}`,
+          label: teamName,
+          count: numberValue(record.presentCount)
+        };
+      }).filter((team) => team.count > 0)
+    : [];
+
+  return {
+    uniquePresentTotal: numberValue(summary.uniquePresentTotal),
+    manuallyAddedPresentCount: numberValue(summary.manuallyAddedPresentCount),
+    adHocAssignedPresentCount: numberValue(summary.adHocAssignedPresentCount),
+    unassignedPresentCount: numberValue(summary.unassignedPresentCount),
+    organicTeams: normalizeTeams(summary.organicTeams, "organic"),
+    adHocTeams: normalizeTeams(summary.adHocTeams, "adHoc")
+  };
+}
+
+function personnelTeamDeltas(
+  current: Array<{ key: string; label: string; count: number }>,
+  previous: Array<{ key: string; label: string; count: number }>,
+  hasPreviousBreakdown: boolean
+): PersonnelTeamCountDelta[] {
+  const currentMap = new Map(current.map((team) => [team.key, team]));
+  const previousMap = new Map(previous.map((team) => [team.key, team]));
+  const keys = new Set([...Array.from(currentMap.keys()), ...Array.from(previousMap.keys())]);
+  return Array.from(keys).map((key) => {
+    const currentTeam = currentMap.get(key);
+    const previousTeam = previousMap.get(key);
+    return {
+      key,
+      label: currentTeam?.label ?? previousTeam?.label ?? "צוות",
+      value: numeric(previousTeam?.count ?? 0, currentTeam?.count ?? 0),
+      hasPreviousValue: hasPreviousBreakdown && previousMap.has(key)
+    };
+  }).filter((team) => team.value.after > 0 || team.value.before > 0).sort((a, b) => a.label.localeCompare(b.label, "he"));
+}
+
+function personnelSummaryDelta(current: SitrepSnapshot, previous?: SitrepSnapshot | null): PersonnelSummaryDelta {
+  const currentSummary = getSnapshotPersonnelSummary(current);
+  const previousSummary = getSnapshotPersonnelSummary(previous);
+  const hasCurrentBreakdown = Boolean(rawPersonnelSummary(current));
+  const hasPreviousBreakdown = Boolean(rawPersonnelSummary(previous));
+
+  return {
+    hasCurrentBreakdown,
+    hasPreviousBreakdown,
+    total: numeric(previousSummary.uniquePresentTotal, currentSummary.uniquePresentTotal),
+    manual: numeric(previousSummary.manuallyAddedPresentCount, currentSummary.manuallyAddedPresentCount),
+    adHocAssigned: numeric(previousSummary.adHocAssignedPresentCount, currentSummary.adHocAssignedPresentCount),
+    unassigned: numeric(previousSummary.unassignedPresentCount, currentSummary.unassignedPresentCount),
+    organicTeams: personnelTeamDeltas(currentSummary.organicTeams, previousSummary.organicTeams, hasPreviousBreakdown),
+    adHocTeams: personnelTeamDeltas(currentSummary.adHocTeams, previousSummary.adHocTeams, hasPreviousBreakdown)
+  };
+}
+
 export function buildSitrepDelta(current: SitrepSnapshot, previous?: SitrepSnapshot | null): SitrepDelta {
   const currentNumbers = reportMap(current);
   const previousNumbers = reportMap(previous);
@@ -133,6 +239,7 @@ export function buildSitrepDelta(current: SitrepSnapshot, previous?: SitrepSnaps
   const previousStatusCounts = statusCounts(previous);
   const currentTeamCounts = teamCounts(current);
   const previousTeamCounts = teamCounts(previous);
+  const personnel = personnelSummaryDelta(current, previous);
   const statusChanges: OperationalStatusChange[] = [];
   const addedNumbers: OperationalNumberDelta[] = [];
   const removedNumbers: OperationalNumberDelta[] = [];
@@ -254,8 +361,9 @@ export function buildSitrepDelta(current: SitrepSnapshot, previous?: SitrepSnaps
       operationalNumbers: numeric(summaryNumber(previous, "active_operational_numbers_count"), summaryNumber(current, "active_operational_numbers_count")),
       updatedPotential: numeric(summaryNumber(previous, "updated_potential"), summaryNumber(current, "updated_potential")),
       operationalGap: numeric(gapBefore, gapAfter),
-      personnel: numeric(previousPersonnel.size, currentPersonnel.size)
+      personnel: personnel.total
     },
+    personnelSummary: personnel,
     anchor,
     sites,
     teams,

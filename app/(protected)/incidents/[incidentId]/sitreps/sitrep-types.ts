@@ -18,6 +18,7 @@ export type SitrepSnapshot = {
   teams: Array<Record<string, unknown>>;
   operational_numbers: Array<Record<string, unknown>>;
   personnel: Array<Record<string, unknown>>;
+  personnel_summary?: Record<string, unknown>;
   map_objects: Array<Record<string, unknown>>;
 };
 
