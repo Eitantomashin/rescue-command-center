@@ -11528,3 +11528,337 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     margin: 10mm;
   }
 }
+/* Incident personnel report */
+.personnel-report-page {
+  background: #f3f6fa;
+  direction: rtl;
+}
+
+.personnel-report-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.personnel-report-document {
+  background: #fff;
+  border: 1px solid #d8e1ea;
+  border-radius: 14px;
+  box-shadow: 0 14px 32px rgba(15, 35, 57, 0.08);
+  padding: 1.5rem;
+  color: #10233d;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.personnel-report-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  gap: 1rem;
+  border-bottom: 2px solid #f58220;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.personnel-report-header h1 {
+  margin: 0.25rem 0 0.75rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.personnel-report-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.personnel-report-meta div,
+.personnel-report-metrics div {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 0.75rem;
+}
+
+.personnel-report-meta dt {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.personnel-report-meta dd {
+  margin: 0.2rem 0 0;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.personnel-report-total-card {
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #eff6ff, #fff);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.personnel-report-total-card span {
+  font-weight: 900;
+  color: #1e3a8a;
+}
+
+.personnel-report-total-card strong {
+  color: #1d4ed8;
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.personnel-report-section {
+  margin-top: 1.1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  padding: 1rem;
+  page-break-inside: avoid;
+}
+
+.personnel-report-section h2 {
+  margin: 0 0 0.8rem;
+  font-size: 1.15rem;
+}
+
+.personnel-report-team {
+  margin-top: 0.85rem;
+  page-break-inside: avoid;
+}
+
+.personnel-report-team-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: center;
+  border: 1px solid #dbeafe;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(135deg, #eff6ff, #fff);
+  padding: 0.7rem 0.85rem;
+}
+
+.personnel-report-team-header.ad-hoc {
+  grid-template-columns: minmax(0, 1.2fr) auto repeat(3, minmax(0, 1fr));
+  border-color: #fed7aa;
+  background: linear-gradient(135deg, #fff7ed, #fff);
+}
+
+.personnel-report-team-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.personnel-report-team-header span {
+  color: #1d4ed8;
+  font-weight: 900;
+}
+
+.personnel-report-team-header small {
+  color: #475569;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.personnel-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.92rem;
+}
+
+.personnel-report-table th,
+.personnel-report-table td {
+  border: 1px solid #e2e8f0;
+  padding: 0.55rem 0.65rem;
+  text-align: right;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.personnel-report-table th {
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 900;
+}
+
+.personnel-report-table td:first-child,
+.personnel-report-table th:first-child {
+  width: 56px;
+  text-align: center;
+}
+
+.personnel-report-table small {
+  display: block;
+  color: #64748b;
+  margin-top: 0.2rem;
+}
+
+.personnel-report-summary-table {
+  max-width: 560px;
+}
+
+.personnel-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.personnel-report-metrics span {
+  display: block;
+  color: #64748b;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.personnel-report-metrics strong {
+  display: block;
+  color: #0f3561;
+  font-size: 1.7rem;
+  line-height: 1.2;
+  margin-top: 0.25rem;
+}
+
+.personnel-report-helper {
+  color: #64748b;
+  font-size: 0.88rem;
+  margin: 0.75rem 0 0;
+}
+
+.personnel-report-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  padding: 0.16rem 0.5rem;
+  font-weight: 900;
+  font-size: 0.78rem;
+}
+
+.personnel-report-footer {
+  margin-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.75rem;
+  color: #64748b;
+  text-align: center;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .personnel-report-header,
+  .personnel-report-meta,
+  .personnel-report-metrics,
+  .personnel-report-team-header,
+  .personnel-report-team-header.ad-hoc {
+    grid-template-columns: 1fr;
+  }
+
+  .personnel-report-toolbar {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .personnel-report-toolbar .button {
+    width: 100%;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body:has(.personnel-report-page) {
+    background: #fff !important;
+  }
+
+  body:has(.personnel-report-page) .topbar,
+  body:has(.personnel-report-page) .incident-layout-sidebar,
+  body:has(.personnel-report-page) .command-action-panel,
+  body:has(.personnel-report-page) .operational-status-strip,
+  body:has(.personnel-report-page) .no-print {
+    display: none !important;
+  }
+
+  body:has(.personnel-report-page) .incident-command-shell,
+  body:has(.personnel-report-page) .incident-command-main,
+  body:has(.personnel-report-page) .page,
+  .personnel-report-page,
+  .personnel-report-document {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .personnel-report-document {
+    border: 0 !important;
+    color: #000 !important;
+    font-size: 10.5pt;
+  }
+
+  .personnel-report-header,
+  .personnel-report-section,
+  .personnel-report-team-header,
+  .personnel-report-table th,
+  .personnel-report-table td {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .personnel-report-header {
+    grid-template-columns: 1fr 36mm;
+  }
+
+  .personnel-report-header h1 {
+    font-size: 22pt;
+  }
+
+  .personnel-report-total-card strong {
+    font-size: 26pt;
+  }
+
+  .personnel-report-section {
+    padding: 6mm 0 0;
+    margin-top: 6mm;
+    border: 0;
+  }
+
+  .personnel-report-team-header,
+  .personnel-report-team-header.ad-hoc,
+  .personnel-report-metrics,
+  .personnel-report-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .personnel-report-table {
+    table-layout: fixed;
+    font-size: 9pt;
+  }
+
+  .personnel-report-table thead {
+    display: table-header-group;
+  }
+
+  .personnel-report-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

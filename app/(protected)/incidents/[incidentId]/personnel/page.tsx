@@ -271,6 +271,9 @@ export default async function IncidentPersonnelPage({
           <h1>כח אדם באירוע</h1>
           <p className="muted">{incident?.name ?? "אירוע"}</p>
         </div>
+        <div className="actions">
+          <Link className="button secondary" href={`/incidents/${params.incidentId}/personnel/report`}>דוח כוח אדם</Link>
+        </div>
       </div>
 
       <nav className="personnel-module-tabs" aria-label="ניווט כוח אדם">
