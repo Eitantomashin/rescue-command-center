@@ -9,7 +9,8 @@ import { DashboardCollapsibleSection } from "./dashboard-collapsible-section";
 import type { SiteAnalysisRow, SiteStatusSegments, SiteUnitAnalysisRow } from "./dashboard-site-command-summary-v2";
 import { DashboardCommandScope, type DashboardScopeOperationalNumber } from "./dashboard-command-scope-v2";
 import { ConnectedUsersWidget } from "./incident-presence";
-import { closeIncident, pauseIncident, renameIncident, reopenIncident } from "./lifecycle-actions";
+import { pauseIncident, renameIncident, reopenIncident } from "./lifecycle-actions";
+import { CloseIncidentForm } from "./close-incident-form";
 import type { PersonnelTeamItem } from "./personnel-team-drilldown";
 import { SearchSitesDashboardWidget, type SearchSitesWidgetData } from "./search-sites-dashboard-widget";
 import {
@@ -1095,12 +1096,7 @@ export default async function IncidentDashboardPage({
                 </form>
                 <details className="archive-confirm-panel">
                   <summary className="button danger">סגירת פעילות באירוע</summary>
-                  <form action={closeIncident} className="action-form">
-                    <input type="hidden" name="incidentId" value={summary.incident_id} />
-                    <strong>{summary.name}</strong>
-                    <p className="muted">האם לסגור את פעילות האירוע? כל האתרים הפעילים יסומנו כסגורים ודוח סגירה ייווצר אוטומטית.</p>
-                    <OperationalLoadingButton className="button danger" label="סגירת פעילות באירוע" loadingLabel="מעדכן..." />
-                  </form>
+                  <CloseIncidentForm incidentId={summary.incident_id} incidentName={summary.name} />
                 </details>
               </>
             )}

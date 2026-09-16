@@ -17,7 +17,18 @@ function nullableValue(formData: FormData, key: string) {
   return value || null;
 }
 
-export async function closeIncident(formData: FormData) {
+export type ClosureBlocker = {
+  assignment_id: string;
+  equipment_item_id: string;
+  asset_identifier: string;
+  equipment_type_name: string;
+  team_name: string | null;
+  location: string | null;
+};
+
+export type CloseIncidentState = { error: string | null; blockers: ClosureBlocker[] };
+
+export async function closeIncident(_previous: CloseIncidentState, formData: FormData): Promise<CloseIncidentState> {
   const incidentId = requiredValue(formData, "incidentId", "אירוע");
   const supabase = createClient();
   const { data: reportId, error } = await supabase.rpc("close_incident_lifecycle", {
@@ -25,7 +36,26 @@ export async function closeIncident(formData: FormData) {
   });
 
   if (error) {
-    throw new Error(error.message);
+    // The UUID success contract is unchanged. PostgreSQL DETAIL carries every
+    // blocker on failure; do not put equipment details in URLs or server errors.
+    if (error.code === "55000" && error.details) {
+      try {
+        const details: unknown = JSON.parse(error.details);
+        if (details && typeof details === "object" && "code" in details && details.code === "equipment_running"
+          && "blocking_equipment" in details && Array.isArray(details.blocking_equipment)) {
+          const blockers: ClosureBlocker[] = details.blocking_equipment.filter((item): item is ClosureBlocker =>
+            item && typeof item === "object" && typeof item.assignment_id === "string"
+            && typeof item.equipment_item_id === "string" && typeof item.asset_identifier === "string"
+            && typeof item.equipment_type_name === "string"
+            && (item.team_name === null || typeof item.team_name === "string")
+            && (item.location === null || typeof item.location === "string"));
+          if (blockers.length) return { error: "לא ניתן לסגור את האירוע. יש להשהות את כל פריטי הציוד הפעילים הבאים ולנסות שוב.", blockers };
+        }
+      } catch {
+        // Unexpected details still produce a visible, non-successful result.
+      }
+    }
+    return { error: "סגירת האירוע נכשלה. יש לבדוק שהאירוע זמין ושיש לך הרשאה לסגור אותו, ולנסות שוב.", blockers: [] };
   }
 
   revalidatePath(`/incidents/${incidentId}`);

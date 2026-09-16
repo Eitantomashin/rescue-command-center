@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { OperationalLoadingButton } from "./operational-loading-button";
-import { closeIncident } from "./incidents/[incidentId]/lifecycle-actions";
+import { CloseIncidentForm } from "./incidents/[incidentId]/close-incident-form";
 
 const text = {
   actions: "\u05e4\u05e2\u05d5\u05dc\u05d5\u05ea \u05de\u05d4\u05d9\u05e8\u05d5\u05ea",
@@ -72,11 +71,7 @@ export function CommandActionPanel({
               <span aria-hidden="true">!</span>
               {text.closeIncident}
             </summary>
-            <form action={closeIncident} className="action-form command-action-confirm-form">
-              <input type="hidden" name="incidentId" value={incidentId} />
-              <p className="muted">{text.closeWarning}</p>
-              <OperationalLoadingButton className="button danger" label={text.confirmClose} loadingLabel={text.closing} />
-            </form>
+            <CloseIncidentForm incidentId={incidentId} className="action-form command-action-confirm-form" />
           </details>
         ) : null}
       </div>
