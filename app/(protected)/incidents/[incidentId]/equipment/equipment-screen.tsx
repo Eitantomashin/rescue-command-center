@@ -4,16 +4,19 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import * as actions from "./actions";
 import { actionLabels, allowedActions, canAssign, createSubmissionGate, duration, emptyFilters, equipmentTiming,
   equipmentWarning, estimateServerTime, filterEquipment, groupEquipment, operationLabels, REFUEL_CONFIRMATION,
-  teamLabel, timeLabels, type Equipment, type EquipmentAction, type EquipmentData, type Filters, type Team } from "./equipment-model";
+  teamLabel, timeLabels, type AvailableEquipment, type Equipment, type EquipmentAction, type EquipmentData, type Filters, type Team } from "./equipment-model";
 import styles from "./equipment.module.css";
+import { useEquipmentRevision } from "./equipment-refresh-context";
 
 const mutations = { assign: actions.assignEquipment, update: actions.updateEquipmentAssignment, transfer: actions.transferEquipment,
   release: actions.releaseEquipment, start: actions.startEquipment, pause: actions.pauseEquipment, resume: actions.resumeEquipment, refuel: actions.confirmEquipmentRefuel };
 type Run = (action: EquipmentAction, form: FormData, row?: Equipment) => Promise<boolean>;
 
 function TeamSelect({ teams, selected = "" }: { teams: Team[]; selected?: string }) {
-  return <label>צוות יעד<select className="input" name="team" required defaultValue={selected}>
+  const [value, setValue] = useState(selected);
+  return <label>צוות יעד<select className="input" name="team" required value={value} onChange={(event) => setValue(event.target.value)}>
     <option value="">בחירת צוות</option>
+    {value && !teams.some((team) => team.key === value) && <option value={value}>הצוות שנבחר אינו זמין עוד</option>}
     {teams.map((team) => <option key={team.key} value={team.key}>{team.label}</option>)}
   </select></label>;
 }
@@ -37,20 +40,26 @@ export function EquipmentClock({ row, serverTime }: { row: Equipment; serverTime
   </div>;
 }
 
-export function EquipmentCard({ row, data, serverTime, disabled, run }: {
+export function EquipmentCard({ row, data, serverTime, disabled, run, unavailable = false, onEditing }: {
   row: Equipment; data: EquipmentData; serverTime: number | null; disabled: boolean; run: Run;
+  unavailable?: boolean; onEditing?: (row: Equipment, editing: boolean) => void;
 }) {
   const [editing, setEditing] = useState<"update" | "transfer" | null>(null);
-  const permitted = allowedActions(row, data.incident, data.canEdit);
+  const [draftRow, setDraftRow] = useState<Equipment | null>(null);
+  const permitted = unavailable ? [] : allowedActions(row, data.incident, data.canEdit);
+  const stale = !!draftRow && draftRow.version !== row.version;
   const warning = equipmentWarning(row);
+  function finishEditing() { setEditing(null); setDraftRow(null); onEditing?.(row, false); }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (editing && await run(editing, new FormData(event.currentTarget), row)) setEditing(null);
+    if (editing && !stale && !unavailable && permitted.includes(editing)
+      && await run(editing, new FormData(event.currentTarget), draftRow ?? row)) finishEditing();
   }
   return <article className={styles.card} aria-label={`ציוד ${row.asset_identifier_snapshot}`}>
     <div className={styles.heading}><div><h3>{row.asset_identifier_snapshot}</h3><p>{row.equipment_type_name_snapshot}</p></div>
       <span className={`status-pill ${row.operation_state === "running" ? "success" : "neutral"}`}>{operationLabels[row.operation_state]}</span></div>
     {warning && <p className={styles.warning} role="note">{warning}</p>}
+    {unavailable && <p className={styles.warning}>ההקצאה הסתיימה במכשיר אחר. הטיוטה נשמרה לעיון, אך לא ניתן לשלוח אותה.</p>}
     <dl className={styles.details}>
       <div><dt>מספר סידורי</dt><dd><bdi>{row.serial_number || "לא צוין"}</bdi></dd></div>
       <div><dt>צוות</dt><dd>{teamLabel(row)}</dd></div>
@@ -58,7 +67,7 @@ export function EquipmentCard({ row, data, serverTime, disabled, run }: {
       <div><dt>הערות</dt><dd className={styles.notes}>{row.notes || "אין הערות"}</dd></div>
       <div><dt>כשירות נוכחית</dt><dd>{row.serviceability === "serviceable" ? "כשיר" : row.serviceability === "restricted" ? "כשירות מוגבלת" : "לא כשיר"}</dd></div>
     </dl>
-    <EquipmentClock row={row} serverTime={serverTime} />
+    {!unavailable && <EquipmentClock row={row} serverTime={serverTime} />}
     <details><summary>פרטי פעילות והוראות</summary>
       <p className={styles.notes}>{row.instructions_snapshot || "אין הוראות נוספות"}</p>
       <p>פעילות שנצברה לפני המקטע הנוכחי: <bdi dir="ltr">{duration(Number(row.accumulated_active_seconds))}</bdi></p>
@@ -67,16 +76,21 @@ export function EquipmentCard({ row, data, serverTime, disabled, run }: {
     </details>
     {permitted.length > 0 && <div className={styles.actions}>
       {permitted.map((action) => <button type="button" key={action} className="button secondary" disabled={disabled}
-        onClick={() => action === "update" || action === "transfer" ? setEditing(action) : void run(action, new FormData(), row)}>
+        onClick={() => { if (action === "update" || action === "transfer") { setDraftRow(row); setEditing(action); onEditing?.(row, true); }
+          else void run(action, new FormData(), row); }}>
         {action === "update" ? "ערוך מיקום והערות" : actionLabels[action]}</button>)}
     </div>}
-    {editing && permitted.includes(editing) && <form onSubmit={save} className={styles.editor}>
+    {editing && <form onSubmit={save} className={styles.editor}>
       <h4>{editing === "update" ? "עריכת ההקצאה" : "העברת ציוד לצוות"}</h4>
-      <fieldset disabled={disabled} className={styles.fields}>
-        {editing === "update" ? <LocationFields row={row} /> : <TeamSelect teams={data.teams} />}
-        <div className={styles.actions}><button className="button" type="submit">{actionLabels[editing]}</button>
-          <button className="button secondary" type="button" onClick={() => setEditing(null)}>ביטול</button></div>
+      {stale && <p className={styles.warning} role="status">ההקצאה השתנתה במכשיר אחר. הקלט שלך נשמר. יש לטעון את הערכים החדשים לפני שמירה.
+        <button className="button secondary" type="button" disabled={disabled || unavailable} onClick={() => setDraftRow(row)}>טען ערכים חדשים</button></p>}
+      <fieldset disabled={disabled || unavailable || !permitted.includes(editing)} className={styles.fields}>
+        <div key={`${editing}:${draftRow?.version}`} className={styles.fields}>
+          {editing === "update" ? <LocationFields row={draftRow ?? row} /> : <TeamSelect teams={data.teams} />}
+        </div>
+        <button className="button" type="submit" disabled={stale}>{actionLabels[editing]}</button>
       </fieldset>
+      <button className="button secondary" type="button" onClick={finishEditing}>סגור טיוטה</button>
     </form>}
   </article>;
 }
@@ -89,7 +103,10 @@ export function EquipmentScreen({ incidentId, initial, initialError }: { inciden
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<AvailableEquipment | null>(null);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [openEditors, setOpenEditors] = useState<Record<string, Equipment>>({});
+  const revision = useEquipmentRevision();
   const gate = useRef(createSubmissionGate());
   const anchor = useRef<{ serverNow: string; receivedAt: number } | null>(null);
   const refreshSequence = useRef(0);
@@ -110,6 +127,8 @@ export function EquipmentScreen({ incidentId, initial, initialError }: { inciden
       return false;
     }
   }, [incidentId]);
+
+  useEffect(() => { if (revision > 0) void refresh(); }, [revision, refresh]);
 
   useEffect(() => {
     // Same null clock placeholder on server and first browser render. Obtain a
@@ -148,13 +167,15 @@ export function EquipmentScreen({ incidentId, initial, initialError }: { inciden
   };
   async function assign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (await run("assign", new FormData(event.currentTarget))) setAssigning(false);
+    if (await run("assign", new FormData(event.currentTarget))) { setAssigning(false); setSelectedItem(null); }
   }
   function filter(key: keyof Filters, value: string) { setFilters((current) => ({ ...current, [key]: value })); }
   const rows = data?.equipment ?? [];
-  const visible = filterEquipment(rows, filters, serverTime);
+  const retained = Object.values(openEditors).filter((row) => !rows.some((current) => current.assignment_id === row.assignment_id));
+  const displayRows = rows.concat(retained);
+  const visible = filterEquipment(displayRows, filters, serverTime);
   // Keep cards mounted when a time filter changes on a tick, preserving drafts.
-  const groups = groupEquipment(rows);
+  const groups = groupEquipment(displayRows);
   const visibleIds = new Set(visible.map((row) => row.assignment_id));
   const teamOptions = groupEquipment(rows);
   const types = Array.from(new Map(rows.map((row) => [row.equipment_type_id_snapshot, row.equipment_type_name_snapshot])).entries());
@@ -176,17 +197,21 @@ export function EquipmentScreen({ incidentId, initial, initialError }: { inciden
         ? <p className={styles.notice}>האירוע סגור או מאורכב. הציוד מוצג לקריאה בלבד.</p>
         : data.incident.lifecycle_status === "paused" ? <p className={styles.notice}>האירוע מושהה. ניתן לתפעל ציוד שכבר הוקצה; הקצאה חדשה אינה זמינה.</p>
         : !data.canEdit ? <p className={styles.notice}>הרשאת צפייה בלבד.</p> : null}
-      {canAssign(data.incident, data.canEdit) && <section className="panel">
+      {(canAssign(data.incident, data.canEdit) || assigning) && <section className="panel">
         <div className={styles.heading}><div><h2>הקצאת ציוד מהקטלוג</h2><p>בחרו פריט פנוי וצוות אחד. ההקצאה מתחילה כבויה, לאחר השמשה מלאה במחסני היחידה.</p></div>
           <button className="button" type="button" disabled={busy || !ready || !!data.availabilityError} onClick={() => setAssigning(!assigning)}>{assigning ? "סגור טופס" : "הקצה ציוד"}</button></div>
         {data.availabilityError && <p className={styles.error} role="alert">{data.availabilityError}</p>}
-        {assigning && <form onSubmit={assign} className={styles.editor}><fieldset className={styles.fields} disabled={busy || !ready || !!data.availabilityError}>
-          <label>פריט פנוי<select name="equipmentItemId" className="input" required defaultValue=""><option value="">בחירת ציוד</option>
+        {assigning && <form onSubmit={assign} className={styles.editor}><fieldset className={styles.fields} disabled={busy || !ready || !!data.availabilityError || !canAssign(data.incident, data.canEdit)}>
+          <label>פריט פנוי<select name="equipmentItemId" className="input" required value={selectedItem?.equipment_item_id ?? ""}
+            onChange={(event) => setSelectedItem(data.available.find((item) => item.equipment_item_id === event.target.value) ?? null)}><option value="">בחירת ציוד</option>
+            {selectedItem && !data.available.some((item) => item.equipment_item_id === selectedItem.equipment_item_id)
+              && <option value={selectedItem.equipment_item_id}>{selectedItem.asset_identifier} · אינו זמין עוד להקצאה</option>}
             {data.available.map((item) => <option key={item.equipment_item_id} value={item.equipment_item_id}>{item.asset_identifier} · {item.equipment_type_name}{item.serial_number ? ` · ${item.serial_number}` : ""} · זמן מלא {duration(item.full_runtime_seconds)}</option>)}</select></label>
           <TeamSelect teams={data.teams} /><LocationFields />
           {!data.available.length && <p>אין כעת ציוד פנוי, פעיל וכשיר להקצאה.</p>}
           {!data.teams.length && <p>אין צוות פעיל באירוע. יש להוסיף צוות לפני הקצאה.</p>}
-          <button className="button" type="submit" disabled={!data.available.length || !data.teams.length}>אישור הקצאה</button>
+          <button className="button" type="submit" disabled={!data.available.length || !data.teams.length
+            || (!!selectedItem && !data.available.some((item) => item.equipment_item_id === selectedItem.equipment_item_id))}>אישור הקצאה</button>
         </fieldset></form>}
       </section>}
       <section className={styles.filters} aria-label="חיפוש וסינון ציוד">
@@ -197,15 +222,21 @@ export function EquipmentScreen({ incidentId, initial, initialError }: { inciden
         <label>מצב זמן<select className="input" value={filters.time} onChange={(e) => filter("time", e.target.value)}><option value="">כל הזמנים</option>{Object.entries(timeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
         <button type="button" className="button secondary" onClick={() => setFilters(emptyFilters)}>נקה סינון</button>
       </section>
-      <p className="muted">מוצגים {visible.length} מתוך {rows.length} פריטים</p>
+      <p className="muted">מוצגים {visible.filter((row) => rows.some((current) => current.assignment_id === row.assignment_id)).length} מתוך {rows.length} פריטים
+        {retained.length > 0 && ` · ${retained.length} טיוטות להקצאות שהסתיימו`}</p>
       {!rows.length && <section className="panel"><h2>אין ציוד מוקצה באירוע</h2><p>לא נמצאו הקצאות פתוחות. ציוד ששוחרר נשמר ביומן האירוע.</p></section>}
       {rows.length > 0 && !visible.length && <p className="panel">לא נמצא ציוד התואם לסינון.</p>}
-      {groups.map((group) => <section key={group.key} className={styles.group} hidden={!group.rows.some((row) => visibleIds.has(row.assignment_id))}>
-          <h2>{group.label} <span className="status-pill neutral">{group.rows.filter((row) => visibleIds.has(row.assignment_id)).length}</span></h2><div className={styles.cards}>
-            {group.rows.map((row) => <div key={row.assignment_id} hidden={!visibleIds.has(row.assignment_id)}>
-              <EquipmentCard row={row} data={data} serverTime={serverTime} disabled={busy || !ready} run={run} />
-            </div>)}
-          </div></section>)}
+      <div className={styles.cards}>{groups.flatMap((group) => [
+        <h2 key={`heading:${group.key}`} className={styles.groupHeading} hidden={!group.rows.some((row) => visibleIds.has(row.assignment_id))}>
+          {group.label} <span className="status-pill neutral">{group.rows.filter((row) => visibleIds.has(row.assignment_id)).length}</span>
+        </h2>,
+        ...group.rows.map((row) => <div key={row.assignment_id} hidden={!visibleIds.has(row.assignment_id)}>
+          <EquipmentCard row={row} data={data} serverTime={serverTime} disabled={busy || !ready} run={run}
+            unavailable={!rows.some((current) => current.assignment_id === row.assignment_id)} onEditing={(edited, open) => setOpenEditors((current) => {
+              const next = { ...current }; if (open) next[edited.assignment_id] = edited; else delete next[edited.assignment_id]; return next;
+            })} />
+        </div>)
+      ])}</div>
     </>}
   </main>;
 }

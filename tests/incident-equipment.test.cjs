@@ -232,7 +232,7 @@ test('running card never offers release; readonly card has no mutation controls'
 function harness(overrides = {}) {
   const slots = []; let cursor = 0; const effects = []; const callbacks = []; const confirms = []; const writes = [];
   let currentData = data; let resolveMutation;
-  const hooks = { ...React, useState(initial) { const index = cursor++; if (!(index in slots)) slots[index] = initial; return [slots[index], (value) => { slots[index] = typeof value === 'function' ? value(slots[index]) : value; }]; },
+  const hooks = { ...React, useContext: () => 0, useState(initial) { const index = cursor++; if (!(index in slots)) slots[index] = initial; return [slots[index], (value) => { slots[index] = typeof value === 'function' ? value(slots[index]) : value; }]; },
     useRef(initial) { const index = cursor++; if (!(index in slots)) slots[index] = { current: initial }; return slots[index]; },
     useCallback(fn) { cursor++; return fn; }, useEffect(fn) { const index = cursor++; if (!(index in slots)) { slots[index] = true; effects.push(fn); } } };
   const mockedActions = { readEquipment: async () => ({ ok: true, data: currentData }) };
@@ -314,6 +314,31 @@ test('timer re-render keeps same card key and open edit form', async () => {
   nodes(card, (node) => node.type === 'button' && node.props.children === 'ערוך מיקום והערות')[0].props.onClick();
   card = cardHarness.renderCard({ ...props, serverTime: now + 1000 });
   assert.equal(nodes(card, (node) => node.type === 'form').length, 1);
+});
+test('Realtime editing preserves old draft and version until explicit reload', async () => {
+  const h = harness(); const submissions = [];
+  const props = { row, data, serverTime: now, disabled: false, run: async (...args) => { submissions.push(args); return true; } };
+  let tree = h.renderCard(props);
+  nodes(tree, (node) => node.type === 'button' && node.props.children === 'ערוך מיקום והערות')[0].props.onClick();
+  const changed = { ...row, version: 4, location: 'מיקום ממכשיר אחר', team_id: null, ad_hoc_team_id: itemId };
+  tree = h.renderCard({ ...props, row: changed });
+  const location = nodes(tree, (node) => typeof node.type === 'function' && node.type.name === 'LocationFields')[0];
+  assert.equal(location.props.row.location, row.location);
+  assert.ok(nodes(tree, (node) => node.props?.role === 'status').length);
+  await nodes(tree, (node) => node.type === 'form')[0].props.onSubmit({ preventDefault() {}, currentTarget: null });
+  assert.equal(submissions.length, 0);
+  nodes(tree, (node) => node.type === 'button' && node.props.children === 'טען ערכים חדשים')[0].props.onClick();
+  tree = h.renderCard({ ...props, row: changed });
+  assert.equal(nodes(tree, (node) => typeof node.type === 'function' && node.type.name === 'LocationFields')[0].props.row.location, changed.location);
+});
+test('released remote assignment retains its draft but disables writes and clock', () => {
+  const h = harness(); const props = { row, data, serverTime: now, disabled: false, run: async () => false };
+  let tree = h.renderCard(props);
+  nodes(tree, (node) => node.type === 'button' && node.props.children === 'ערוך מיקום והערות')[0].props.onClick();
+  tree = h.renderCard({ ...props, unavailable: true });
+  assert.equal(nodes(tree, (node) => node.type === 'form').length, 1);
+  assert.equal(nodes(tree, (node) => node.type === 'fieldset')[0].props.disabled, true);
+  assert.equal(nodes(tree, (node) => node.type === h.comp.EquipmentClock).length, 0);
 });
 
 test('static safety: writes only RPC, no timer I/O, navigation and new read migration contracts', () => {

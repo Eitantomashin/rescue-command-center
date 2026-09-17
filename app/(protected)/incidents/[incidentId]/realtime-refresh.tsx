@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const REALTIME_TABLES = [
@@ -17,6 +17,9 @@ const REALTIME_TABLES = [
 
 export function RealtimeRefresh({ incidentId }: { incidentId: string }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const equipmentPage = useRef(false);
+  equipmentPage.current = pathname === `/incidents/${incidentId}/equipment`;
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visible, setVisible] = useState(false);
@@ -26,11 +29,15 @@ export function RealtimeRefresh({ incidentId }: { incidentId: string }) {
     const channel = supabase.channel(`incident:${incidentId}:live-refresh`);
 
     function scheduleRefresh() {
+      // Equipment has scoped state refreshes. Existing event_logs broadcasts must
+      // not refresh its RSC tree while an assignment/edit form is open.
+      if (equipmentPage.current) return;
       if (refreshTimer.current) {
         clearTimeout(refreshTimer.current);
       }
 
       refreshTimer.current = setTimeout(() => {
+        if (equipmentPage.current) return;
         router.refresh();
         setVisible(true);
 
@@ -51,7 +58,13 @@ export function RealtimeRefresh({ incidentId }: { incidentId: string }) {
           table,
           filter: `incident_id=eq.${incidentId}`
         },
-        scheduleRefresh
+        (payload) => {
+          // Equipment has its own scoped state/alert updates in the persistent
+          // layout. Its audit events must not remount unrelated event forms.
+          if (table === "event_logs" && "log_type" in payload.new
+            && typeof payload.new.log_type === "string" && payload.new.log_type.startsWith("equipment_")) return;
+          scheduleRefresh();
+        }
       );
     }
 

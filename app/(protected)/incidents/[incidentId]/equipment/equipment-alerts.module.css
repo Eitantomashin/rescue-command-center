@@ -1,0 +1,14 @@
+.controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.controls button, .actions button, .actions a { min-height: 44px; white-space: normal; }
+.dialog { width: min(540px, calc(100vw - 28px)); max-height: calc(100dvh - 32px); overflow: auto; border: 3px solid; border-radius: 14px; padding: 24px; color: #17212f; overflow-wrap: anywhere; }
+.dialog::backdrop { background: rgb(15 23 42 / 55%); }
+.warning { border-color: #ba7200; background: #fff5da; }
+.critical { border-color: #b42318; background: #fff0f0; }
+.warning h2 { color: #795000; }
+.critical h2, .error { color: #9b2020; }
+.asset { font-size: 20px; font-weight: 700; }
+.clock { display: block; text-align: center; font-size: 36px; font-variant-numeric: tabular-nums; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.error { flex-basis: 100%; margin: 0; }
+@media (max-width: 600px) { .dialog { padding: 16px; } .actions > * { width: 100%; } .controls { padding: 12px; } }
+@media (prefers-reduced-motion: reduce) { .dialog, .controls { animation: none; transition: none; } }

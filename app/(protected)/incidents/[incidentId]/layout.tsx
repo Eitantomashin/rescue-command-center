@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { IncidentCommandShell } from "./incident-command-shell";
 import { IncidentPresenceProvider } from "./incident-presence";
 import { RealtimeRefresh } from "./realtime-refresh";
+import { EquipmentAlertsProvider } from "./equipment/equipment-alerts-provider";
+import { canOperate } from "./equipment/equipment-model";
 
 type IncidentRow = {
   id: string;
@@ -57,7 +59,8 @@ export default async function IncidentLayout({
     { data: siteMetadataRows },
     { data: summary },
     { data: currentRole },
-    { data: canReadEquipment, error: equipmentPermissionError }
+    { data: canReadEquipment, error: equipmentPermissionError },
+    { data: canEditEquipment, error: equipmentEditError }
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("incidents").select("id,name,is_closed,lifecycle_status,archived_at").eq("id", params.incidentId).maybeSingle(),
@@ -77,7 +80,8 @@ export default async function IncidentLayout({
       .eq("incident_id", params.incidentId)
       .maybeSingle(),
     supabase.rpc("current_user_role"),
-    supabase.rpc("can_read_equipment_incident", { p_incident_id: params.incidentId })
+    supabase.rpc("can_read_equipment_incident", { p_incident_id: params.incidentId }),
+    supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId })
   ]);
 
   if (incidentError || !incident) {
@@ -150,8 +154,12 @@ export default async function IncidentLayout({
         systemRole={typeof currentRole === "string" ? currentRole : null}
         canReadEquipment={!equipmentPermissionError && canReadEquipment === true}
       >
-        <RealtimeRefresh incidentId={params.incidentId} />
-        {children}
+        <EquipmentAlertsProvider key={`${params.incidentId}:${user?.id}`} incidentId={params.incidentId} userId={user?.id ?? ""}
+          canRead={!!user && !equipmentPermissionError && canReadEquipment === true}
+          canOperate={!equipmentEditError && canOperate(incident as IncidentRow, canEditEquipment === true && ["admin", "commander", "editor"].includes(currentRole))}>
+          <RealtimeRefresh incidentId={params.incidentId} />
+          {children}
+        </EquipmentAlertsProvider>
       </IncidentCommandShell>
     </IncidentPresenceProvider>
   );

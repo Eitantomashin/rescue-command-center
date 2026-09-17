@@ -14,6 +14,7 @@
 .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .card { min-width: 0; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 .group { margin: 24px 0; }
+.groupHeading { grid-column: 1 / -1; margin: 24px 0 0; }
 .details { margin: 0; display: grid; gap: 8px; }
 .details > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; }
 .details dt { color: var(--muted); }
