@@ -102,6 +102,11 @@ function breadcrumbItems(incident: IncidentShellIncident, sites: IncidentShellSi
     { label: incident.name, href: base }
   ];
 
+  if (pathname === `${base}/equipment`) {
+    items.push({ label: "ניהול ציוד", href: pathname });
+    return items;
+  }
+
   if (pathname === `${base}/war-room`) {
     items.push({ label: "\u05de\u05e1\u05da \u05d7\u05de\u05f4\u05dc", href: pathname });
     return items;
@@ -186,12 +191,14 @@ export function IncidentCommandShell({
   sites,
   summary,
   systemRole,
+  canReadEquipment,
   children
 }: {
   incident: IncidentShellIncident;
   sites: IncidentShellSite[];
   summary: IncidentShellSummary;
   systemRole: string | null;
+  canReadEquipment: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -268,6 +275,10 @@ export function IncidentCommandShell({
             <span className="nav-icon" aria-hidden="true">👥</span>
             <span className="nav-label">כח אדם באירוע</span>
           </Link>
+          {canReadEquipment && <Link className={`incident-nav-item${activeClass(pathname, `${base}/equipment`)}`} href={`${base}/equipment`}>
+            <span className="nav-icon" aria-hidden="true">🧰</span>
+            <span className="nav-label">ניהול ציוד</span>
+          </Link>}
           <details className="incident-site-node incident-report-node incident-nav-collapsible-section">
             <summary className={reportsActive ? "active" : ""}>
               <span className="nav-icon" aria-hidden="true">{"\uD83D\uDCCB"}</span>

@@ -56,7 +56,8 @@ export default async function IncidentLayout({
     { data: sites },
     { data: siteMetadataRows },
     { data: summary },
-    { data: currentRole }
+    { data: currentRole },
+    { data: canReadEquipment, error: equipmentPermissionError }
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("incidents").select("id,name,is_closed,lifecycle_status,archived_at").eq("id", params.incidentId).maybeSingle(),
@@ -75,7 +76,8 @@ export default async function IncidentLayout({
       .select("updated_potential,active_operational_numbers_count,gap_resolved_count,operational_gap,total_sites,active_teams,operational_numbers_rescued_count,operational_numbers_evacuated_count,operational_numbers_located_outside_site_count,operational_numbers_deceased_count")
       .eq("incident_id", params.incidentId)
       .maybeSingle(),
-    supabase.rpc("current_user_role")
+    supabase.rpc("current_user_role"),
+    supabase.rpc("can_read_equipment_incident", { p_incident_id: params.incidentId })
   ]);
 
   if (incidentError || !incident) {
@@ -146,6 +148,7 @@ export default async function IncidentLayout({
           }
         }
         systemRole={typeof currentRole === "string" ? currentRole : null}
+        canReadEquipment={!equipmentPermissionError && canReadEquipment === true}
       >
         <RealtimeRefresh incidentId={params.incidentId} />
         {children}
