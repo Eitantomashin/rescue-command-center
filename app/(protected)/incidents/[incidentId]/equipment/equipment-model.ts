@@ -8,7 +8,7 @@ export type Equipment = {
   first_started_at: string | null; full_runtime_seconds_snapshot: number; warning_before_seconds_snapshot: number;
   asset_identifier_snapshot: string; serial_number?: string | null; equipment_type_id_snapshot: string;
   equipment_type_name_snapshot: string; instructions_snapshot: string | null;
-  team_id: string | null; ad_hoc_team_id: string | null; team_name: string | null;
+  team_id: string | null; ad_hoc_team_id: string | null; team_name: string | null; team_number?: number | null;
   location: string | null; notes: string | null;
   equipment_item_is_active: boolean; equipment_type_is_active: boolean;
   serviceability: "serviceable" | "restricted" | "unserviceable";
@@ -17,7 +17,7 @@ export type AvailableEquipment = {
   equipment_item_id: string; asset_identifier: string; serial_number: string | null;
   equipment_type_id: string; equipment_type_name: string; full_runtime_seconds: number; warning_before_seconds: number;
 };
-export type Team = { key: string; label: string };
+export type Team = { key: string; label: string; category?: string };
 export type EquipmentData = {
   server_now: string; equipment: Equipment[]; incident: IncidentState & { name: string };
   canEdit: boolean; teams: Team[]; available: AvailableEquipment[]; availabilityError: string | null;

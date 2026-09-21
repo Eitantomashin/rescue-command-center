@@ -1,4 +1,5 @@
 "use client";
+import { EquipmentIcon } from "./equipment/equipment-indicators";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -276,7 +277,7 @@ export function IncidentCommandShell({
             <span className="nav-label">כח אדם באירוע</span>
           </Link>
           {canReadEquipment && <Link className={`incident-nav-item${activeClass(pathname, `${base}/equipment`)}`} href={`${base}/equipment`}>
-            <span className="nav-icon" aria-hidden="true">🧰</span>
+            <span className="nav-icon" aria-hidden="true"><EquipmentIcon /></span>
             <span className="nav-label">ניהול ציוד</span>
           </Link>}
           <details className="incident-site-node incident-report-node incident-nav-collapsible-section">

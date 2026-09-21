@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { actionPayload, actionRpcs, rpcError, uuid } from "./equipment-validation";
+import { teamCategory } from "./equipment-presentation";
 import { canAssign, canOperate, type ActionResult, type AvailableEquipment, type Equipment, type EquipmentAction, type ReadResult, type Team } from "./equipment-model";
 
 async function access(incidentId: string) {
@@ -37,7 +38,7 @@ export async function readEquipment(incidentId: string): Promise<ReadResult> {
             : client.from("incident_ad_hoc_teams").select("id,name").eq("status", "active").is("archived_at", null);
           const { data, error } = await query.eq("incident_id", incidentId).order("id").range(offset, offset + 499);
           if (error) return { ok: false, message: "לא ניתן לטעון את צוותי האירוע. יש לנסות לרענן." };
-          for (const row of data ?? []) teams.push({ key: `${kind}:${row.id}`,
+          for (const row of data ?? []) teams.push({ key: `${kind}:${row.id}`, category: teamCategory("team_number" in row && typeof row.team_number === "number" ? row.team_number : null, kind === "ad_hoc"),
             label: `${row.name || ("team_number" in row ? `צוות ${row.team_number}` : "צוות")} · ${kind === "regular" ? "צוות רגיל" : "צוות אד־הוק"}` });
           if (!data || data.length < 500) break;
         }

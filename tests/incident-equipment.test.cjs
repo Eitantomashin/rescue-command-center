@@ -19,7 +19,7 @@ function load(name, mocks = {}, globals = {}) {
     console, require(id) {
       if (Object.hasOwn(mocks, id)) return mocks[id];
       if (id.endsWith('.css')) return { default: new Proxy({}, { get: (_, key) => String(key) }) };
-      if (id.startsWith('./')) return load(`${id.slice(2)}.ts`, mocks, globals);
+      if (id.startsWith('./')) return load(`${id.slice(2)}.${fs.existsSync(path.join(root, id + '.tsx')) ? 'tsx' : 'ts'}`, mocks, globals);
       return require(id);
     }, ...globals }, { filename: file });
   return module.exports;

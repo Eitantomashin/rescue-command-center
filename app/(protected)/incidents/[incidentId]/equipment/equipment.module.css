@@ -2,9 +2,10 @@
 .heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .heading h3, .heading p { margin: 4px 0; }
 .summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-.summary > div { background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--brand-primary); padding: 16px; border-radius: 10px; }
-.summary dt { color: var(--muted); }
-.summary dd { margin: 8px 0 0; font-size: 28px; font-weight: 800; }
+.summary > button { background: var(--surface); color: var(--foreground); border: 1px solid var(--border); padding: 12px; border-radius: 10px; display: grid; gap: 6px; cursor: pointer; }
+.summary strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+.summary > .attention { border-top: 3px solid #b85a08; }
+.screen [aria-pressed="true"] { outline: 2px solid var(--brand-primary, #dc741d); outline-offset: 2px; }
 .filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0; align-items: end; }
 .screen label { display: grid; gap: 8px; min-width: 0; font-weight: 600; }
 .screen input, .screen textarea, .screen select { width: 100%; min-width: 0; max-width: 100%; }
@@ -22,7 +23,7 @@
 .notes { white-space: pre-wrap; }
 .clock { display: grid; text-align: center; gap: 8px; padding: 14px; border: 1px solid; border-radius: 10px; }
 .digits { font-size: clamp(26px, 4vw, 40px); font-variant-numeric: tabular-nums; }
-.clock progress { width: 100%; height: 12px; accent-color: currentColor; }
+.clock > .fuel { justify-self: center; }
 .clockDetails { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; font-size: 13px; }
 .normal, .success { background: #edf7ee; color: #225b28; border-color: #a5cfa8; }
 .warning { background: #fff5da; color: #795000; border-color: #e7c675; }
@@ -32,10 +33,37 @@ p.warning, .error, .success, .notice { padding: 14px; border: 1px solid; border-
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .editor { padding: 16px; border: 1px solid var(--border); background: #f5f8fc; border-radius: 10px; margin-top: 12px; }
 .fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 14px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; }
+.compactList { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.compactCard { padding: 12px 16px; gap: 8px; }
+.compactRow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; }
+.assetTitle { display: flex; gap: 10px; align-items: center; flex: 1 1 140px; min-width: 0; }
+.assetTitle svg { flex: 0 0 22px; }
+.assetTitle h3 { margin: 0 0 3px; font-size: 17px; }
+.assetTitle small { color: var(--muted); }
+.timeInline { display: flex; align-items: center; gap: 8px; }
+.timeLabel { display: block; font-size: 12px; }
+.compactDigits { display: block; font-size: 20px; font-variant-numeric: tabular-nums; min-width: 9ch; text-align: center; }
+.fuel { display: inline-flex; border-radius: 50%; flex: 0 0 40px; }
+.expandedContent { display: grid; gap: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.expandedContent[hidden] { display: none; }
+.groupHeading button { width: 100%; text-align: start; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: #eef2f7; color: #243449; cursor: pointer; }
+.groupHeading small { font-size: 13px; font-weight: 400; }
+.groupHeading button > span:last-child { font-size: 13px; font-weight: 600; }
+.highlight { outline: 3px solid #dc741d; outline-offset: 3px; border-radius: 12px; scroll-margin-block: 100px; animation: equipment-highlight 1s ease-out; }
+.screen :focus-visible { outline: 3px solid #265db5; outline-offset: 3px; }
+@keyframes equipment-highlight { from { background: #ffdf9a; } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .highlight { animation: none; scroll-behavior: auto; } }
 @media (max-width: 1000px) { .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 700px) {
   .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cards, .filters { grid-template-columns: minmax(0, 1fr); }
   .actions > button { flex: 1 1 130px; }
   .card { padding: 14px; }
+  .compactRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 8px; }
+  .compactRow > .actions { display: grid; gap: 6px; }
+  .compactRow > .actions > button { min-width: 70px; padding: 8px; }
+  .compactRow .timeInline { gap: 5px; }
+  .compactRow .compactDigits { font-size: 18px; }
+  .compactRow .timeLabel { max-width: 110px; }
 }
