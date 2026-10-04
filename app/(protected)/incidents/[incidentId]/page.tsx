@@ -649,6 +649,7 @@ export default async function IncidentDashboardPage({
   ]);
 
   const allSites = (siteRows ?? []) as SiteSummaryRow[];
+  const siteSummariesById = new Map(allSites.map((site) => [site.site_id, site]));
   const searchSites = (searchSiteRows ?? []) as SearchSiteDashboardRow[];
   const searchSiteIds = new Set(searchSites.map((site) => site.id));
   const sites = allSites.filter((site) => !searchSiteIds.has(site.site_id));
@@ -1026,6 +1027,9 @@ export default async function IncidentDashboardPage({
       parentName: site.parent_site_id ? searchSiteParentNames.get(site.parent_site_id) ?? null : null,
       searchPriority: site.search_priority,
       searchReason: site.search_reason,
+      initialPotential: siteSummariesById.get(site.id)?.initial_potential ?? null,
+      updatedPotential: siteSummariesById.get(site.id)?.updated_potential ?? null,
+      operationalGap: siteSummariesById.get(site.id)?.operational_gap ?? null,
       summary: searchSiteSummaries.get(site.id) ?? emptySearchSiteSummary,
       anxietyCasualtiesCount: (searchEntriesBySite.get(site.id) ?? []).reduce((sum, entry) => sum + entry.anxietyCasualtiesCount, 0),
       physicalCasualtiesCount: (searchEntriesBySite.get(site.id) ?? []).reduce((sum, entry) => sum + entry.physicalCasualtiesCount, 0),

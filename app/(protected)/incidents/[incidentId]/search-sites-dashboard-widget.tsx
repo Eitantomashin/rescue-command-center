@@ -31,6 +31,9 @@ export type SearchSiteWidgetSite = {
   parentName: string | null;
   searchPriority: string | null;
   searchReason: string | null;
+  initialPotential: number | null;
+  updatedPotential: number | null;
+  operationalGap: number | null;
   summary: SearchStatusSummary;
   anxietyCasualtiesCount: number;
   physicalCasualtiesCount: number;
@@ -253,6 +256,15 @@ export function SearchSitesDashboardWidget({
                 <div><dt>עדיפות</dt><dd>{site.searchPriority?.trim() || "-"}</dd></div>
                 <div><dt>סיבת סריקה</dt><dd>{site.searchReason?.trim() || "-"}</dd></div>
               </dl>
+              <section className="search-site-population-kpis" aria-label="תמונת אוכלוסייה לאתר">
+                <h3>תמונת אוכלוסייה</h3>
+                <dl>
+                  <div><dt>פוטנציאל ראשוני</dt><dd>{site.initialPotential === null ? "—" : formatNumber(site.initialPotential)}</dd></div>
+                  <div><dt>פוטנציאל מעודכן</dt><dd>{site.updatedPotential === null ? "—" : formatNumber(site.updatedPotential)}</dd></div>
+                  <div><dt>פער מבצעי</dt><dd>{site.operationalGap === null ? "—" : formatNumber(site.operationalGap)}</dd></div>
+                </dl>
+              </section>
+              <p className="search-site-metrics-heading">מצב הסריקה</p>
               <div className="search-site-card-kpis" aria-label={"\u05E1\u05D9\u05DB\u05D5\u05DD \u05E1\u05E8\u05D9\u05E7\u05D4 \u05DC\u05D0\u05EA\u05E8"}>
                 <SearchKpiCard className="search-kpi-total" label={"\u05E1\u05D4\u05F4\u05DB"} value={site.summary.total_units} title={"\u05DB\u05DC \u05D4\u05D3\u05D9\u05E8\u05D5\u05EA \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.all} />
                 <SearchKpiCard className="search-kpi-scanned" label={"\u05E0\u05E1\u05E8\u05E7\u05D5"} value={siteScanned} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E9\u05E0\u05E1\u05E8\u05E7\u05D5 \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.scanned} />

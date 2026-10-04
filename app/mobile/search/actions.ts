@@ -63,55 +63,43 @@ function revalidateSearchSiteViews(paths: ReturnType<typeof mobileSitePath>) {
   revalidatePath(paths.commanderSitePath, "page");
 }
 
-export async function saveMobileSearchUnit(formData: FormData) {
+
+
+export async function saveSearchUnitCard(formData: FormData) {
   const paths = mobileSitePath(formData);
   const siteId = requiredValue(formData, "siteId", "אתר");
   const unitId = requiredValue(formData, "unitId", "דירה");
-  const occupantsCount = optionalNonNegativeInteger(formData, "occupantsCount", "מספר דיירים");
-  const anxietyCasualtiesCount = optionalNonNegativeInteger(formData, "anxietyCasualtiesCount", "מספר נפגעי חרדה") ?? 0;
-  const physicalCasualtiesCount = optionalNonNegativeInteger(formData, "physicalCasualtiesCount", "מספר נפגעי גוף") ?? 0;
-
-  const supabase = createClient();
-  const { error } = await supabase.rpc("create_or_update_search_unit", {
-    p_site_id: siteId,
-    p_unit_id: unitId,
-    p_family_name: nullableValue(formData, "familyName"),
-    p_occupants_count: occupantsCount,
-    p_contact_phone: nullableValue(formData, "contactPhone"),
-    p_search_status: optionalSearchStatus(formData),
-    p_casualty_psych: formData.get("casualtyPsych") === "on",
-    p_casualty_body: formData.get("casualtyBody") === "on",
-    p_medical_evacuation: formData.get("medicalEvacuation") === "on",
-    p_notes: nullableValue(formData, "notes"),
-    p_anxiety_casualties_count: anxietyCasualtiesCount,
-    p_physical_casualties_count: physicalCasualtiesCount,
-    p_has_apartment_damage: formData.get("hasApartmentDamage") === "on",
-    p_apartment_damage_notes: nullableValue(formData, "apartmentDamageNotes")
+  const knownRaw = value(formData, "knownPeopleCount");
+  const knownPeopleCount = knownRaw === "" ? null : optionalNonNegativeInteger(formData, "knownPeopleCount", "מספר הדיירים הידוע");
+  if (knownPeopleCount !== null && knownPeopleCount > 10) throw new Error("ניתן להזין עד 10 דיירים");
+  const action = value(formData, "action") || "save";
+  if (!["save", "no_answer", "clear", "complete_casualties"].includes(action)) throw new Error("פעולה לא תקינה");
+  let residents: unknown;
+  let deactivateIds: unknown;
+  try {
+    residents = JSON.parse(value(formData, "residents") || "[]");
+    deactivateIds = JSON.parse(value(formData, "deactivateResidentIds") || "[]");
+  } catch { throw new Error("נתוני הדיירים אינם תקינים"); }
+  if (!Array.isArray(residents) || !Array.isArray(deactivateIds)) throw new Error("נתוני הדיירים אינם תקינים");
+  const residentStatuses = new Set(["not_checked", "resident_clear", "anxiety_casualty", "physical_casualty", "deceased"]);
+  const genders = new Set(["unknown", "male", "female"]);
+  residents = residents.map((resident) => {
+    if (!resident || typeof resident !== "object") throw new Error("נתוני דייר אינם תקינים");
+    const row = resident as Record<string, unknown>;
+    const status = String(row.status_key ?? "not_checked");
+    const gender = String(row.gender ?? "unknown");
+    if (!residentStatuses.has(status) || !genders.has(gender)) throw new Error("סטטוס או מגדר דייר אינם תקינים");
+    return { ...row, status_key: status, gender, requires_medical_evacuation: status === "physical_casualty" && row.requires_medical_evacuation === true };
   });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidateSearchSiteViews(paths);
-  redirect(paths.sitePath);
-}
-
-export async function completeMobileSearchUnit(formData: FormData) {
-  const paths = mobileSitePath(formData);
-  const siteId = requiredValue(formData, "siteId", "אתר");
-  const unitId = requiredValue(formData, "unitId", "דירה");
-
   const supabase = createClient();
-  const { error } = await supabase.rpc("complete_search_unit", {
-    p_site_id: siteId,
-    p_unit_id: unitId
+  const { error } = await supabase.rpc("save_search_unit_card", {
+    p_site_id: siteId, p_unit_id: unitId, p_known_people_count: knownPeopleCount,
+    p_has_apartment_damage: formData.get("hasApartmentDamage") === "yes",
+    p_apartment_damage_notes: nullableValue(formData, "apartmentDamageNotes"),
+    p_notes: nullableValue(formData, "notes"), p_residents: residents,
+    p_deactivate_resident_ids: deactivateIds, p_action: action
   });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  if (error) throw new Error(error.message);
   revalidateSearchSiteViews(paths);
   redirect(paths.sitePath);
 }

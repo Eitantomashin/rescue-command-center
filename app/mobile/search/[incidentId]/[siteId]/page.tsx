@@ -6,7 +6,8 @@ import {
   MobileSearchScanner,
   MobileSearchSite,
   MobileSearchSummary,
-  MobileSearchUnit
+  MobileSearchUnit,
+  MobileSearchResident
 } from "../../mobile-search-ui";
 
 function numberValue(value: unknown) {
@@ -80,7 +81,8 @@ export default async function MobileSearchSitePage({
     { data: floorRows, error: floorsError },
     { data: unitRows, error: unitsError },
     { data: searchRows },
-    { data: canEditSearch }
+    { data: canEditSearch },
+    { data: residentRows }
   ] = await Promise.all([
     supabase
       .from("sites")
@@ -99,7 +101,7 @@ export default async function MobileSearchSitePage({
       .order("floor_number", { ascending: false }),
     supabase
       .from("units")
-      .select("id,floor_id,unit_number,zone_name,zone_type,zone_sequence,is_active")
+      .select("id,floor_id,unit_number,zone_name,zone_type,zone_sequence,known_people_count,is_active")
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId)
       .eq("is_active", true)
@@ -110,6 +112,7 @@ export default async function MobileSearchSitePage({
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId),
     supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId })
+    ,supabase.from("unit_residents").select("id,unit_id,first_name,last_name,age,phone,notes,gender,requires_medical_evacuation,status_types!inner(status_key)").eq("incident_id", params.incidentId).eq("site_id", params.siteId).eq("is_active", true)
   ]);
 
   if (siteError || !site) {
@@ -124,6 +127,7 @@ export default async function MobileSearchSitePage({
     ((searchRows ?? []) as MobileSearchResult[]).map((result) => [result.unit_id, result])
   );
   const units = (unitRows ?? []) as MobileSearchUnit[];
+  const residentsByUnit = ((residentRows ?? []) as unknown as Array<Omit<MobileSearchResident, "status_key"> & { status_types: Array<{ status_key: string }> }>).reduce((grouped, row) => { const residents = grouped.get(row.unit_id) ?? []; residents.push({ ...row, status_key: row.status_types[0]?.status_key ?? "not_checked" }); grouped.set(row.unit_id, residents); return grouped; }, new Map<string, MobileSearchResident[]>());
   const unitsByFloor = units.reduce<Map<string, MobileSearchUnit[]>>((grouped, unit) => {
     const floorUnits = grouped.get(unit.floor_id) ?? [];
     floorUnits.push(unit);
@@ -138,6 +142,7 @@ export default async function MobileSearchSitePage({
       floors={(floorRows ?? []) as MobileSearchFloor[]}
       unitsByFloor={unitsByFloor}
       searchResultsByUnit={searchResultsByUnit}
+      residentsByUnit={residentsByUnit}
       summary={liveSummary}
       canEdit={Boolean(canEditSearch)}
       reporterName={userDisplayName(user)}

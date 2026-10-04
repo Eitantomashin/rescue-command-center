@@ -15,7 +15,6 @@ import {
   addApartmentToFloor,
   cancelSiteAction,
   clearUnit,
-  completeSearchUnitAction,
   createGeneralAreaResident,
   createUnitResident,
   deleteEmptyPlaceholderResident,
@@ -24,7 +23,6 @@ import {
   releaseImportedResidentLink,
   removeApartmentUnit,
   reopenClearedUnit,
-  saveSearchUnit,
   splitApartmentUnit,
   updateSiteDetails,
   updateUnitResident,
@@ -34,6 +32,8 @@ import { ImportedResidentLinkPicker, type ImportedResidentOption } from "./impor
 import { OperationalNumberLinkForm, type OperationalNumberLinkOption } from "./operational-number-link-form";
 import { ResidentLinkSuccessNotice } from "./resident-link-success-notice";
 import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
+import { SearchUnitCard } from "@/app/mobile/search/search-unit-card";
+import { normalizeResidentStatus } from "@/app/mobile/search/search-unit-card-logic";
 
 type SiteSummaryRow = {
   incident_id: string;
@@ -128,6 +128,8 @@ type ResidentRow = {
   linked_person_id: string | null;
   is_active: boolean;
   notes: string | null;
+  requires_medical_evacuation?: boolean | null;
+  status_key?: string | null;
 };
 
 type PersonRow = {
@@ -729,6 +731,7 @@ function SearchSiteMobileWorkflow({
   floors,
   unitsByFloor,
   searchResultsByUnit,
+  residentsByUnit,
   summary,
   canEdit,
   canCorrectSite,
@@ -740,6 +743,7 @@ function SearchSiteMobileWorkflow({
   floors: FloorRow[];
   unitsByFloor: Map<string, UnitRow[]>;
   searchResultsByUnit: Map<string, SearchUnitRow>;
+  residentsByUnit: Map<string, ResidentRow[]>;
   summary: SearchSiteSummaryRow;
   canEdit: boolean;
   canCorrectSite: boolean;
@@ -880,147 +884,7 @@ function SearchSiteMobileWorkflow({
                   const status = effectiveSearchStatus(result);
                   const tone = searchUnitTone(status);
 
-                  return (
-                    <article className={`search-unit-card ${tone}`} key={unit.id}>
-                      <div className="search-unit-card-header">
-                        <div>
-                          <h3>{unitDisplayLabel(unit)}</h3>
-                          {isManualSearchUnit(unit) ? <span className="search-manual-unit-badge">נוספה בשטח</span> : null}
-                          {result?.family_name ? <p>משפחה: {result.family_name}</p> : <p>משפחה לא צוינה</p>}
-                        </div>
-                        <span className={`search-unit-status ${tone}`}>{searchUnitStatusLabel(status)}</span>
-                      </div>
-
-                      <div className="search-quick-actions" aria-label="פעולות מהירות">
-                        {[
-                          { value: "clear", label: "תקין" },
-                          { value: "no_answer", label: "אין מענה" },
-                          { value: "casualties", label: "דווחו נפגעים" }
-                        ].map((action) => (
-                          <form action={saveSearchUnit} key={action.value}>
-                            {hiddenContext(incidentId, site.id, unit.id)}
-                            <input type="hidden" name="familyName" value={result?.family_name ?? ""} />
-                            <input type="hidden" name="occupantsCount" value={result?.occupants_count ?? ""} />
-                            <input type="hidden" name="contactPhone" value={result?.contact_phone ?? ""} />
-                            <input type="hidden" name="searchStatus" value={action.value} />
-                            {result?.casualty_psych ? <input type="hidden" name="casualtyPsych" value="on" /> : null}
-                            {result?.casualty_body ? <input type="hidden" name="casualtyBody" value="on" /> : null}
-                            {action.value === "casualties" ? <input type="hidden" name="casualtyBody" value="on" /> : null}
-                            {result?.medical_evacuation ? <input type="hidden" name="medicalEvacuation" value="on" /> : null}
-                            <input type="hidden" name="anxietyCasualtiesCount" value={result?.anxiety_casualties_count ?? 0} />
-                            <input type="hidden" name="physicalCasualtiesCount" value={result?.physical_casualties_count ?? 0} />
-                            {result?.has_apartment_damage ? <input type="hidden" name="hasApartmentDamage" value="on" /> : null}
-                            <input type="hidden" name="apartmentDamageNotes" value={result?.apartment_damage_notes ?? ""} />
-                            <input type="hidden" name="notes" value={result?.notes ?? ""} />
-                            <OperationalLoadingButton
-                              className={`button compact search-quick-button ${searchUnitTone(action.value as SearchUnitStatus)}`}
-                              label={action.label}
-                              loadingLabel={"\u05de\u05e2\u05d3\u05db\u05df..."}
-                              disabled={!canEdit}
-                            />
-                          </form>
-                        ))}
-                        <form action={completeSearchUnitAction}>
-                          {hiddenContext(incidentId, site.id, unit.id)}
-                          <OperationalLoadingButton
-                            className="button compact search-quick-button complete"
-                            label="סיום טיפול / מזוכה"
-                            loadingLabel="מעדכן..."
-                            disabled={!canEdit || status === "completed"}
-                          />
-                        </form>
-                      </div>
-
-                      <div className="search-unit-indicators">
-                        {hasSearchCasualtyFinding(result) && status === "completed" ? <span className="success">היו נפגעים - הטיפול הושלם</span> : null}
-                        {hasSearchCasualtyFinding(result) && status !== "completed" && !result?.casualties_resolved ? <span className="danger">נפגעים פתוחים</span> : null}
-                        {result?.occupants_count !== null && result?.occupants_count !== undefined ? <span>דיירים: {formatNumber(result.occupants_count)}</span> : null}
-                        {result?.contact_phone ? <span>טלפון: {result.contact_phone}</span> : null}
-                        {result?.casualty_psych ? <span className="warning">נפגע חרדה</span> : null}
-                        {result?.casualty_body ? <span className="danger">נפגע גוף</span> : null}
-                        {numberValue(result?.anxiety_casualties_count) > 0 ? <span className="warning">נפגעי חרדה: {formatNumber(numberValue(result?.anxiety_casualties_count))}</span> : null}
-                        {numberValue(result?.physical_casualties_count) > 0 ? <span className="danger">נפגעי גוף: {formatNumber(numberValue(result?.physical_casualties_count))}</span> : null}
-                        {result?.medical_evacuation ? <span className="danger">נדרש פינוי</span> : null}
-                        {result?.has_apartment_damage ? <span className="warning">נזק לדירה</span> : null}
-                        {result?.apartment_damage_notes ? <span className="search-unit-note-chip">פירוט נזק: {result.apartment_damage_notes}</span> : null}
-                        {result?.searched_at ? <span>נסרק: {formatDateTime(result.searched_at)}</span> : null}
-                        {result?.completed_at ? <span>הושלם: {formatDateTime(result.completed_at)}</span> : null}
-                        {result?.notes ? <span className="search-unit-note-chip">הערות: {result.notes}</span> : null}
-                      </div>
-
-                      <details className="search-unit-detail-panel">
-                        <summary>פתח טופס מלא</summary>
-                        <form action={saveSearchUnit} className="search-unit-form">
-                        {hiddenContext(incidentId, site.id, unit.id)}
-                        <label>
-                          שם משפחה
-                          <input className="input" name="familyName" defaultValue={result?.family_name ?? ""} disabled={!canEdit} />
-                        </label>
-                        <label>
-                          מספר דיירים
-                          <input className="input" name="occupantsCount" type="number" min="0" inputMode="numeric" defaultValue={result?.occupants_count ?? ""} disabled={!canEdit} />
-                        </label>
-                        <label>
-                          טלפון קשר
-                          <input className="input" name="contactPhone" type="tel" defaultValue={result?.contact_phone ?? ""} disabled={!canEdit} />
-                        </label>
-                        <label>
-                          מספר נפגעי חרדה
-                          <input className="input" name="anxietyCasualtiesCount" type="number" min="0" inputMode="numeric" defaultValue={result?.anxiety_casualties_count ?? 0} disabled={!canEdit} />
-                        </label>
-                        <label>
-                          מספר נפגעי גוף
-                          <input className="input" name="physicalCasualtiesCount" type="number" min="0" inputMode="numeric" defaultValue={result?.physical_casualties_count ?? 0} disabled={!canEdit} />
-                        </label>
-                        <label>
-                          סטטוס סריקה
-                          <select className="input" name="searchStatus" defaultValue={status} disabled={!canEdit}>
-                            {SEARCH_UNIT_STATUS_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <div className="search-unit-checks">
-                          <label><input type="checkbox" name="casualtyPsych" defaultChecked={Boolean(result?.casualty_psych)} disabled={!canEdit} /> נפגע חרדה</label>
-                          <label><input type="checkbox" name="casualtyBody" defaultChecked={Boolean(result?.casualty_body)} disabled={!canEdit} /> נפגע גוף</label>
-                          <label><input type="checkbox" name="medicalEvacuation" defaultChecked={Boolean(result?.medical_evacuation)} disabled={!canEdit} /> פינוי רפואי</label>
-                          <label><input type="checkbox" name="hasApartmentDamage" defaultChecked={Boolean(result?.has_apartment_damage)} disabled={!canEdit} /> קיים נזק לדירה</label>
-                        </div>
-
-                        <label className="search-unit-notes">
-                          פירוט נזק
-                          <textarea className="input" name="apartmentDamageNotes" rows={2} defaultValue={result?.apartment_damage_notes ?? ""} disabled={!canEdit} />
-                        </label>
-
-                        <label className="search-unit-notes">
-                          הערות
-                          <textarea className="input" name="notes" rows={3} defaultValue={result?.notes ?? ""} disabled={!canEdit} />
-                        </label>
-
-                        <div className="search-unit-actions">
-                          <OperationalLoadingButton
-                            className="button"
-                            label="שמור סריקה"
-                            loadingLabel="שומר..."
-                            disabled={!canEdit}
-                          />
-                        </div>
-                      </form>
-
-                      </details>
-
-                      <form action={completeSearchUnitAction} className="search-complete-form">
-                        {hiddenContext(incidentId, site.id, unit.id)}
-                        <OperationalLoadingButton
-                          className="button secondary"
-                          label="סיום טיפול / מזוכה"
-                          loadingLabel="מעדכן..."
-                          disabled={!canEdit || status === "completed"}
-                        />
-                      </form>
-                    </article>
-                  );
+                  return <SearchUnitCard key={unit.id} incidentId={incidentId} siteId={site.id} unitId={unit.id} label={unitDisplayLabel(unit)} floor={floor.floor_number} canEdit={canEdit} initial={{ knownPeopleCount: unit.known_people_count, damage: Boolean(result?.has_apartment_damage), damageNotes: result?.apartment_damage_notes ?? null, notes: result?.notes ?? null, status, hadCasualties: hasSearchCasualtyFinding(result) || Boolean(result?.casualties_resolved), residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({ id: resident.id, first_name: resident.first_name ?? "", last_name: resident.last_name ?? "", age: resident.age?.toString() ?? "", phone: resident.phone ?? "", notes: resident.notes ?? "", gender: resident.gender ?? "unknown", ...normalizeResidentStatus(resident.status_key, Boolean(resident.requires_medical_evacuation)) })) }} />;
                 })}
               </div>
             </details>
@@ -1069,7 +933,8 @@ export default async function SiteDetailsPage({
       { data: searchRows },
       { data: canEditSearch },
       { data: canCorrectSite },
-      { data: currentRole }
+      { data: currentRole },
+      { data: residentRows }
     ] = await Promise.all([
       supabase
         .from("floors")
@@ -1094,7 +959,8 @@ export default async function SiteDetailsPage({
         .eq("site_id", params.siteId),
       supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId }),
       supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId }),
-      supabase.rpc("current_user_role")
+      supabase.rpc("current_user_role"),
+      supabase.from("unit_residents").select("id,unit_id,first_name,last_name,gender,age,phone,notes,requires_medical_evacuation,status_types!inner(status_key)").eq("incident_id", params.incidentId).eq("site_id", params.siteId).eq("is_active", true)
     ]);
 
     if (floorsError || unitsError) {
@@ -1105,6 +971,12 @@ export default async function SiteDetailsPage({
       ((searchRows ?? []) as SearchUnitRow[]).map((result) => [result.unit_id, result])
     );
     const searchUnits = (unitRows ?? []) as UnitRow[];
+    const residentsByUnit = ((residentRows ?? []) as unknown as Array<Omit<ResidentRow, "status_key"> & { status_types: Array<{ status_key: string }> }>).reduce((grouped, row) => {
+      const residents = grouped.get(row.unit_id ?? "") ?? [];
+      residents.push({ ...row, status_key: row.status_types[0]?.status_key ?? "not_checked" });
+      grouped.set(row.unit_id ?? "", residents);
+      return grouped;
+    }, new Map<string, ResidentRow[]>());
     const liveSearchSummary = liveSearchSummaryFromRows(searchUnits, searchResultsByUnit);
     const searchUnitsByFloor = searchUnits.reduce<Map<string, UnitRow[]>>((grouped, unit) => {
       const floorUnits = grouped.get(unit.floor_id) ?? [];
@@ -1120,6 +992,7 @@ export default async function SiteDetailsPage({
         floors={(floorRows ?? []) as FloorRow[]}
         unitsByFloor={searchUnitsByFloor}
         searchResultsByUnit={searchResultsByUnit}
+        residentsByUnit={residentsByUnit}
         summary={liveSearchSummary}
         canEdit={Boolean(canEditSearch && initialSiteRecord.lifecycle_status !== "closed")}
         canCorrectSite={Boolean(canCorrectSite && initialSiteRecord.lifecycle_status !== "closed")}

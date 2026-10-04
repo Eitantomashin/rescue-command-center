@@ -14,6 +14,13 @@ type SearchSiteRow = {
   search_priority: string | null;
 };
 
+type SitePopulationRow = {
+  site_id: string;
+  initial_potential: number;
+  updated_potential: number;
+  operational_gap: number;
+};
+
 type FloorRow = {
   id: string;
   floor_number: number | null;
@@ -105,7 +112,7 @@ function unitLabel(unit: UnitRow) {
 export async function GET(_request: Request, { params }: { params: { incidentId: string } }) {
   const supabase = createClient();
 
-  const [{ data: searchSites }, { data: allSites }, { data: floors }, { data: units }, { data: searchResults }] = await Promise.all([
+  const [{ data: searchSites }, { data: allSites }, { data: siteSummaries }, { data: floors }, { data: units }, { data: searchResults }] = await Promise.all([
     supabase
       .from("sites")
       .select("id,name,city,street,house_number,parent_site_id,search_reason,search_priority")
@@ -118,6 +125,10 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       .select("id,name,city,street,house_number,parent_site_id,search_reason,search_priority")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true),
+    supabase
+      .from("site_dashboard_summary")
+      .select("site_id,initial_potential,updated_potential,operational_gap")
+      .eq("incident_id", params.incidentId),
     supabase
       .from("floors")
       .select("id,floor_number")
@@ -134,6 +145,7 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
   ]);
 
   const parentNames = new Map(((allSites ?? []) as SearchSiteRow[]).map((site) => [site.id, siteName(site)]));
+  const sitePopulationById = new Map(((siteSummaries ?? []) as SitePopulationRow[]).map((site) => [site.site_id, site]));
   const floorNumbers = new Map(((floors ?? []) as FloorRow[]).map((floor) => [floor.id, floor.floor_number]));
   const resultsByUnit = new Map(((searchResults ?? []) as SearchResultRow[]).map((result) => [result.unit_id, result]));
   const unitsBySite = ((units ?? []) as UnitRow[]).reduce((map, unit) => {
@@ -184,6 +196,9 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       parentName: site.parent_site_id ? parentNames.get(site.parent_site_id) ?? null : null,
       searchPriority: site.search_priority,
       searchReason: site.search_reason,
+      initialPotential: sitePopulationById.get(site.id)?.initial_potential ?? null,
+      updatedPotential: sitePopulationById.get(site.id)?.updated_potential ?? null,
+      operationalGap: sitePopulationById.get(site.id)?.operational_gap ?? null,
       summary: searchSummaryFromStatuses(entries.map((entry) => entry.status)),
       anxietyCasualtiesCount: entries.reduce((sum, entry) => sum + entry.anxietyCasualtiesCount, 0),
       physicalCasualtiesCount: entries.reduce((sum, entry) => sum + entry.physicalCasualtiesCount, 0),
