@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeSearchUnitStatus, searchSummaryFromStatuses, type SearchUnitStatus } from "@/lib/search-site-status";
+import { isActiveSearchCasualtyPerson, isSearchCasualtyPersonStatus, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
 import type { SearchSitesWidgetData, SearchSiteWidgetSite } from "../search-sites-dashboard-widget";
 
 type SearchSiteRow = {
@@ -50,6 +51,18 @@ type SearchResultRow = {
   has_apartment_damage: boolean | null;
   apartment_damage_notes: string | null;
   notes: string | null;
+};
+
+type SearchCasualtyResidentRow = {
+  id: string;
+  site_id: string;
+  unit_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  requires_medical_evacuation: boolean | null;
+  evacuated_at: string | null;
+  is_active: boolean;
+  status_types: { status_key: string } | null;
 };
 
 function numberValue(value: unknown) {
@@ -112,7 +125,7 @@ function unitLabel(unit: UnitRow) {
 export async function GET(_request: Request, { params }: { params: { incidentId: string } }) {
   const supabase = createClient();
 
-  const [{ data: searchSites }, { data: allSites }, { data: siteSummaries }, { data: floors }, { data: units }, { data: searchResults }] = await Promise.all([
+  const [{ data: searchSites }, { data: allSites }, { data: siteSummaries }, { data: floors }, { data: units }, { data: searchResults }, { data: casualtyResidents }] = await Promise.all([
     supabase
       .from("sites")
       .select("id,name,city,street,house_number,parent_site_id,search_reason,search_priority")
@@ -142,6 +155,12 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       .from("site_search_units")
       .select("unit_id,family_name,occupants_count,search_status,casualty_psych,casualty_body,medical_evacuation,anxiety_casualties_count,physical_casualties_count,casualties_resolved,has_apartment_damage,apartment_damage_notes,notes")
       .eq("incident_id", params.incidentId)
+    ,supabase
+      .from("unit_residents")
+      .select("id,site_id,unit_id,first_name,last_name,requires_medical_evacuation,evacuated_at,is_active,status_types!inner(status_key)")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true)
+      .in("status_types.status_key", ["anxiety_casualty", "physical_casualty", "deceased"])
   ]);
 
   const parentNames = new Map(((allSites ?? []) as SearchSiteRow[]).map((site) => [site.id, siteName(site)]));
@@ -154,6 +173,28 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
     map.set(unit.site_id, siteUnits);
     return map;
   }, new Map<string, UnitRow[]>());
+  const unitsById = new Map(((units ?? []) as UnitRow[]).map((unit) => [unit.id, unit]));
+  const casualtyPeopleBySite = ((casualtyResidents ?? []) as unknown as SearchCasualtyResidentRow[]).reduce((grouped, resident) => {
+    const unit = unitsById.get(resident.unit_id);
+    const status = resident.status_types?.status_key;
+    if (!unit || unit.site_id !== resident.site_id || !isActiveSearchCasualtyPerson({ isActive: resident.is_active, status }) || !isSearchCasualtyPersonStatus(status)) return grouped;
+    const people = grouped.get(resident.site_id) ?? [];
+    const result = resultsByUnit.get(unit.id);
+    people.push({
+      residentId: resident.id,
+      unitId: unit.id,
+      floorNumber: floorNumbers.get(unit.floor_id ?? "") ?? null,
+      unitNumber: unit.unit_number,
+      firstName: resident.first_name ?? "",
+      lastName: resident.last_name,
+      status,
+      requiresMedicalEvacuation: Boolean(resident.requires_medical_evacuation),
+      evacuatedAt: resident.evacuated_at,
+      casualtiesResolved: Boolean(result?.casualties_resolved)
+    });
+    grouped.set(resident.site_id, people);
+    return grouped;
+  }, new Map<string, SearchCasualtyPerson[]>());
 
   const sites: SearchSiteWidgetSite[] = ((searchSites ?? []) as SearchSiteRow[]).map((site) => {
     const siteUnits = unitsBySite.get(site.id) ?? [];
@@ -203,6 +244,7 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       anxietyCasualtiesCount: entries.reduce((sum, entry) => sum + entry.anxietyCasualtiesCount, 0),
       physicalCasualtiesCount: entries.reduce((sum, entry) => sum + entry.physicalCasualtiesCount, 0),
       damagedUnitsCount: entries.filter((entry) => entry.hasApartmentDamage).length,
+      casualtyPeople: casualtyPeopleBySite.get(site.id) ?? [],
       entries
     };
   });

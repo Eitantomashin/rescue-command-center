@@ -7635,6 +7635,11 @@ textarea {
   color: #8a5b00;
 }
 
+.search-unit-status.in-progress {
+  background: #fff7e8;
+  color: #8a5b00;
+}
+
 .search-unit-status.casualties {
   background: #fdecea;
   color: var(--critical);
@@ -12133,7 +12138,7 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
 .confirmation-dialog { display: grid; gap: 10px; padding: 12px; border: 2px solid #b91c1c; border-radius: 10px; background: #fff7ed; }
 @media (min-width: 768px) {
   .resident-desktop-table { display: grid; gap: 4px; overflow-x: auto; }
-  .resident-table-head, .resident-table-row { display: grid; grid-template-columns: minmax(120px,1.5fr) repeat(5,minmax(80px,1fr)); gap: 8px; align-items: center; min-width: 720px; }
+  .resident-table-head, .resident-table-row { display: grid; grid-template-columns: 36px repeat(2,minmax(90px,1.2fr)) repeat(5,minmax(72px,1fr)); gap: 8px; align-items: center; min-width: 820px; }
   .resident-table-head { color: #475569; font-size: .82rem; font-weight: 800; }
   .resident-table-row { padding: 8px; border-radius: 8px; background: #f8fafc; }
   .resident-mobile-cards { display: grid; }
@@ -12172,3 +12177,8 @@ body.war-room-presentation-mode .war-room-presentation-toggle {
     border-color: #cbd5e1 !important;
   }
 }
+.search-casualty-people-detail { display: grid; gap: .65rem; }
+.search-casualty-people-detail summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: .45rem; align-items: baseline; }
+.search-casualty-people-detail summary small { color: var(--muted); }
+.search-casualty-people-detail ul { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.search-casualty-people-detail li { display: flex; flex-wrap: wrap; gap: .45rem .75rem; align-items: baseline; border-block-start: 1px solid var(--border); padding-block-start: .45rem; }

@@ -65,8 +65,19 @@ function revalidateSearchSiteViews(paths: ReturnType<typeof mobileSitePath>) {
 
 
 
-export async function saveSearchUnitCard(formData: FormData) {
-  const paths = mobileSitePath(formData);
+export type SearchUnitCardSaveState = { saved: boolean; refreshVersion: number };
+
+export type MarkSearchResidentEvacuatedResult = { success: boolean; evacuatedAt?: string; error?: string };
+
+export async function markSearchResidentEvacuated(residentId: string): Promise<MarkSearchResidentEvacuatedResult> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(residentId)) return { success: false, error: "לא ניתן היה לעדכן את הפינוי הרפואי." };
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("mark_search_resident_evacuated", { p_resident_id: residentId });
+  if (error) return { success: false, error: "לא ניתן היה לעדכן את הפינוי הרפואי. נסה שוב." };
+  return { success: true, evacuatedAt: typeof data === "string" ? data : undefined };
+}
+
+export async function saveSearchUnitCard(_previousState: SearchUnitCardSaveState, formData: FormData): Promise<SearchUnitCardSaveState> {
   const siteId = requiredValue(formData, "siteId", "אתר");
   const unitId = requiredValue(formData, "unitId", "דירה");
   const knownRaw = value(formData, "knownPeopleCount");
@@ -89,7 +100,8 @@ export async function saveSearchUnitCard(formData: FormData) {
     const status = String(row.status_key ?? "not_checked");
     const gender = String(row.gender ?? "unknown");
     if (!residentStatuses.has(status) || !genders.has(gender)) throw new Error("סטטוס או מגדר דייר אינם תקינים");
-    return { ...row, status_key: status, gender, requires_medical_evacuation: status === "physical_casualty" && row.requires_medical_evacuation === true };
+    const { evacuated_at: _evacuatedAt, ...residentData } = row;
+    return { ...residentData, status_key: status, gender, requires_medical_evacuation: status === "physical_casualty" && row.requires_medical_evacuation === true };
   });
   const supabase = createClient();
   const { error } = await supabase.rpc("save_search_unit_card", {
@@ -100,8 +112,7 @@ export async function saveSearchUnitCard(formData: FormData) {
     p_deactivate_resident_ids: deactivateIds, p_action: action
   });
   if (error) throw new Error(error.message);
-  revalidateSearchSiteViews(paths);
-  redirect(paths.sitePath);
+  return { saved: true, refreshVersion: _previousState.refreshVersion + 1 };
 }
 
 export async function addMobileSearchUnit(formData: FormData) {

@@ -5,7 +5,9 @@ import { formatDateTime, formatNumber } from "@/lib/format";
 import {
   searchLiveStatus as sharedSearchLiveStatus,
   searchScannedCount,
-  searchSummaryFromStatuses
+  searchSummaryFromStatuses,
+  isOpenSearchCasualtyUnit,
+  isResolvedSearchCasualtyUnit
 } from "@/lib/search-site-status";
 import { isSearchSite, searchStatusLabel, siteTypeLabel } from "@/lib/site-display";
 import { CollaborativeLockSection } from "../../collaborative-lock";
@@ -33,7 +35,9 @@ import { OperationalNumberLinkForm, type OperationalNumberLinkOption } from "./o
 import { ResidentLinkSuccessNotice } from "./resident-link-success-notice";
 import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { SearchUnitCard } from "@/app/mobile/search/search-unit-card";
-import { normalizeResidentStatus } from "@/app/mobile/search/search-unit-card-logic";
+import { normalizeResidentStatus, residentStatusKeyFromEmbeddedStatus } from "@/app/mobile/search/search-unit-card-logic";
+import { SearchOperationalKpis } from "@/app/mobile/search/search-operational-kpis";
+import { isActiveSearchCasualtyPerson, isSearchCasualtyPersonStatus, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
 
 type SiteSummaryRow = {
   incident_id: string;
@@ -129,6 +133,7 @@ type ResidentRow = {
   is_active: boolean;
   notes: string | null;
   requires_medical_evacuation?: boolean | null;
+  evacuated_at?: string | null;
   status_key?: string | null;
 };
 
@@ -158,7 +163,7 @@ type StatusRow = {
   display_order: number | null;
 };
 
-type SearchUnitStatus = "not_visited" | "no_answer" | "clear" | "casualties" | "completed";
+type SearchUnitStatus = "not_visited" | "in_progress" | "no_answer" | "clear" | "casualties" | "completed";
 
 type SearchUnitRow = {
   unit_id: string;
@@ -212,6 +217,7 @@ const MANUAL_SEARCH_UNIT_ZONE_NAME = "הוספה ידנית";
 
 const SEARCH_UNIT_STATUS_OPTIONS: Array<{ value: SearchUnitStatus; label: string }> = [
   { value: "not_visited", label: "טרם נסרקה" },
+  { value: "in_progress", label: "בסריקה" },
   { value: "no_answer", label: "אין מענה" },
   { value: "clear", label: "תקין" },
   { value: "casualties", label: "דווחו נפגעים" },
@@ -220,6 +226,7 @@ const SEARCH_UNIT_STATUS_OPTIONS: Array<{ value: SearchUnitStatus; label: string
 
 const SEARCH_UNIT_STATUS_LABELS: Record<SearchUnitStatus, string> = {
   not_visited: "טרם נסרקה",
+  in_progress: "בסריקה",
   no_answer: "אין מענה",
   clear: "תקין",
   casualties: "דווחו נפגעים",
@@ -256,6 +263,7 @@ function hasSearchCasualtyFinding(result: SearchUnitRow | undefined) {
 }
 
 function searchUnitTone(status: SearchUnitStatus | null | undefined) {
+  if (status === "in_progress") return "in-progress";
   if (status === "completed") return "complete";
   if (status === "clear") return "clear";
   if (status === "casualties") return "casualties";
@@ -286,8 +294,8 @@ function SearchKpiDrilldown({ title, entries }: { title: string; entries: Search
               {entry.anxietyCasualtiesCount > 0 ? <span>נפגעי חרדה: {formatNumber(entry.anxietyCasualtiesCount)}</span> : null}
               {entry.physicalCasualtiesCount > 0 ? <span>נפגעי גוף: {formatNumber(entry.physicalCasualtiesCount)}</span> : null}
               {entry.hasApartmentDamage ? <span>נזק לדירה</span> : null}
-              {entry.hasCasualtyFinding && entry.casualtiesResolved ? <span>היו נפגעים - הטיפול הושלם</span> : null}
-              {entry.hasCasualtyFinding && !entry.casualtiesResolved ? <span>נפגעים פתוחים</span> : null}
+              {isResolvedSearchCasualtyUnit(entry.status, entry.casualtiesResolved) ? <span>הטיפול בנפגעים הושלם</span> : null}
+              {isOpenSearchCasualtyUnit(entry.status, entry.casualtiesResolved) ? <span>טיפול בנפגעים פתוח</span> : null}
               {entry.apartmentDamageNotes ? <span>{entry.apartmentDamageNotes}</span> : null}
               <span className={`search-unit-status ${searchUnitTone(entry.status)}`}>{searchUnitStatusLabel(entry.status)}</span>
             </li>
@@ -339,12 +347,10 @@ function liveSearchSummaryFromRows(units: UnitRow[], resultsByUnit: Map<string, 
     else summary.not_visited_count += 1;
 
     summary.reported_casualties_count = numberValue(summary.reported_casualties_count) + reportedCasualties;
-    if (hasSearchCasualtyFinding(result)) {
-      if (result?.casualties_resolved) {
-        summary.resolved_casualties_count = numberValue(summary.resolved_casualties_count) + 1;
-      } else {
-        summary.open_casualties_count = numberValue(summary.open_casualties_count) + 1;
-      }
+    if (isResolvedSearchCasualtyUnit(result?.search_status, result?.casualties_resolved)) {
+      summary.resolved_casualties_count = numberValue(summary.resolved_casualties_count) + 1;
+    } else if (isOpenSearchCasualtyUnit(result?.search_status, result?.casualties_resolved)) {
+      summary.open_casualties_count = numberValue(summary.open_casualties_count) + 1;
     }
   }
 
@@ -778,13 +784,28 @@ function SearchSiteMobileWorkflow({
     scanned: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "scanned")),
     completed: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "completed")),
     no_answer: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "no_answer")),
-    casualties: searchEntries.filter((entry) => matchesSearchKpi(entry.status, "casualties")),
+    casualties: searchEntries.filter((entry) => isOpenSearchCasualtyUnit(entry.status, entry.casualtiesResolved)),
     damaged: searchEntries.filter((entry) => entry.hasApartmentDamage)
   };
   const anxietyCasualtiesTotal = searchEntries.reduce((sum, entry) => sum + entry.anxietyCasualtiesCount, 0);
   const physicalCasualtiesTotal = searchEntries.reduce((sum, entry) => sum + entry.physicalCasualtiesCount, 0);
-  const openCasualtyUnits = searchEntries.filter((entry) => entry.hasCasualtyFinding && !entry.casualtiesResolved).length;
-  const resolvedCasualtyUnits = searchEntries.filter((entry) => entry.hasCasualtyFinding && entry.casualtiesResolved).length;
+  const openCasualtyUnits = searchEntries.filter((entry) => isOpenSearchCasualtyUnit(entry.status, entry.casualtiesResolved)).length;
+  const resolvedCasualtyUnits = searchEntries.filter((entry) => isResolvedSearchCasualtyUnit(entry.status, entry.casualtiesResolved)).length;
+  const casualtyPeople = Array.from(unitsByFloor.values()).flatMap((floorUnits) => floorUnits.flatMap((unit) => {
+    const result = searchResultsByUnit.get(unit.id);
+    return (residentsByUnit.get(unit.id) ?? []).flatMap((resident) => isActiveSearchCasualtyPerson({ isActive: resident.is_active, status: resident.status_key }) && isSearchCasualtyPersonStatus(resident.status_key) ? [{
+      residentId: resident.id,
+      unitId: unit.id,
+      floorNumber: floorsById.get(unit.floor_id)?.floor_number ?? null,
+      unitNumber: unit.unit_number,
+      firstName: resident.first_name ?? "",
+      lastName: resident.last_name,
+      status: resident.status_key,
+      requiresMedicalEvacuation: Boolean(resident.requires_medical_evacuation),
+      evacuatedAt: resident.evacuated_at ?? null,
+      casualtiesResolved: Boolean(result?.casualties_resolved)
+    } satisfies SearchCasualtyPerson] : []);
+  }));
 
   return (
     <main className="page search-site-mobile-page">
@@ -816,33 +837,7 @@ function SearchSiteMobileWorkflow({
           <p>{reportErrorMessage}</p>
         </section>
       ) : null}
-      <section className="search-site-summary-grid search-clickable-kpis" aria-label="סיכום סריקה">
-        <div><span>סה״כ דירות</span><strong>{formatNumber(summary.total_units)}</strong></div>
-        <details className="search-kpi-click-card search-kpi-scanned">
-          <summary><span>דירות שנסרקו</span><strong>{formatNumber(scannedUnits)}</strong></summary>
-          <SearchKpiDrilldown title="דירות שנסרקו" entries={searchEntriesByKpi.scanned} />
-        </details>
-        <details className="search-kpi-click-card search-kpi-completed">
-          <summary><span>דירות זוכו</span><strong>{formatNumber(summary.completed_count)}</strong></summary>
-          <SearchKpiDrilldown title="דירות זוכו" entries={searchEntriesByKpi.completed} />
-        </details>
-        <div><span>טרם נסרקו</span><strong>{formatNumber(summary.not_visited_count)}</strong></div>
-        <details className="search-kpi-click-card search-kpi-no-answer">
-          <summary><span>אין מענה</span><strong>{formatNumber(summary.no_answer_count)}</strong></summary>
-          <SearchKpiDrilldown title="דירות ללא מענה" entries={searchEntriesByKpi.no_answer} />
-        </details>
-        <details className="search-kpi-click-card search-kpi-casualties">
-          <summary><span>נפגעים פתוחים</span><strong>{formatNumber(openCasualtyUnits)}</strong></summary>
-          <SearchKpiDrilldown title="דירות עם נפגעים פתוחים" entries={searchEntriesByKpi.casualties} />
-        </details>
-        <div><span>נפגעים שטופלו</span><strong>{formatNumber(resolvedCasualtyUnits)}</strong></div>
-        <div><span>נפגעי חרדה</span><strong>{formatNumber(anxietyCasualtiesTotal)}</strong></div>
-        <div><span>נפגעי גוף</span><strong>{formatNumber(physicalCasualtiesTotal)}</strong></div>
-        <details className="search-kpi-click-card search-kpi-damage">
-          <summary><span>דירות עם נזק</span><strong>{formatNumber(searchEntriesByKpi.damaged.length)}</strong></summary>
-          <SearchKpiDrilldown title="דירות עם נזק" entries={searchEntriesByKpi.damaged} />
-        </details>
-      </section>
+      <SearchOperationalKpis units={searchEntries} people={casualtyPeople} canMarkEvacuated={canEdit} />
       {!canEdit ? (
         <section className="panel readonly-search-notice">
           <strong>תצוגה בלבד</strong>
@@ -884,7 +879,7 @@ function SearchSiteMobileWorkflow({
                   const status = effectiveSearchStatus(result);
                   const tone = searchUnitTone(status);
 
-                  return <SearchUnitCard key={unit.id} incidentId={incidentId} siteId={site.id} unitId={unit.id} label={unitDisplayLabel(unit)} floor={floor.floor_number} canEdit={canEdit} initial={{ knownPeopleCount: unit.known_people_count, damage: Boolean(result?.has_apartment_damage), damageNotes: result?.apartment_damage_notes ?? null, notes: result?.notes ?? null, status, hadCasualties: hasSearchCasualtyFinding(result) || Boolean(result?.casualties_resolved), residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({ id: resident.id, first_name: resident.first_name ?? "", last_name: resident.last_name ?? "", age: resident.age?.toString() ?? "", phone: resident.phone ?? "", notes: resident.notes ?? "", gender: resident.gender ?? "unknown", ...normalizeResidentStatus(resident.status_key, Boolean(resident.requires_medical_evacuation)) })) }} />;
+                  return <SearchUnitCard key={unit.id} incidentId={incidentId} siteId={site.id} unitId={unit.id} label={unitDisplayLabel(unit)} floor={floor.floor_number} canEdit={canEdit} returnSurface="protected" initial={{ knownPeopleCount: unit.known_people_count, damage: Boolean(result?.has_apartment_damage), damageNotes: result?.apartment_damage_notes ?? null, notes: result?.notes ?? null, status, hadCasualties: hasSearchCasualtyFinding(result) || Boolean(result?.casualties_resolved), residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({ id: resident.id, first_name: resident.first_name ?? "", last_name: resident.last_name ?? "", age: resident.age?.toString() ?? "", phone: resident.phone ?? "", notes: resident.notes ?? "", gender: resident.gender ?? "unknown", ...normalizeResidentStatus(resident.status_key, Boolean(resident.requires_medical_evacuation)), evacuated_at: resident.evacuated_at ?? null })) }} />;
                 })}
               </div>
             </details>
@@ -960,7 +955,7 @@ export default async function SiteDetailsPage({
       supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId }),
       supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId }),
       supabase.rpc("current_user_role"),
-      supabase.from("unit_residents").select("id,unit_id,first_name,last_name,gender,age,phone,notes,requires_medical_evacuation,status_types!inner(status_key)").eq("incident_id", params.incidentId).eq("site_id", params.siteId).eq("is_active", true)
+      supabase.from("unit_residents").select("id,unit_id,first_name,last_name,gender,age,phone,notes,is_active,requires_medical_evacuation,evacuated_at,status_types!inner(status_key)").eq("incident_id", params.incidentId).eq("site_id", params.siteId).eq("is_active", true)
     ]);
 
     if (floorsError || unitsError) {
@@ -971,9 +966,9 @@ export default async function SiteDetailsPage({
       ((searchRows ?? []) as SearchUnitRow[]).map((result) => [result.unit_id, result])
     );
     const searchUnits = (unitRows ?? []) as UnitRow[];
-    const residentsByUnit = ((residentRows ?? []) as unknown as Array<Omit<ResidentRow, "status_key"> & { status_types: Array<{ status_key: string }> }>).reduce((grouped, row) => {
+    const residentsByUnit = ((residentRows ?? []) as unknown as Array<Omit<ResidentRow, "status_key"> & { status_types: { status_key: string } | null }>).reduce((grouped, row) => {
       const residents = grouped.get(row.unit_id ?? "") ?? [];
-      residents.push({ ...row, status_key: row.status_types[0]?.status_key ?? "not_checked" });
+      residents.push({ ...row, status_key: residentStatusKeyFromEmbeddedStatus(row.status_types) });
       grouped.set(row.unit_id ?? "", residents);
       return grouped;
     }, new Map<string, ResidentRow[]>());

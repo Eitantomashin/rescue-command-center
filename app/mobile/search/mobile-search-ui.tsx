@@ -3,12 +3,19 @@ import { formatNumber } from "@/lib/format";
 import {
   searchLiveStatus,
   searchScannedCount,
-  searchSummaryFromStatuses
+  searchSummaryFromStatuses,
+  isOpenSearchCasualtyUnit,
+  isResolvedSearchCasualtyUnit,
+  searchUnitProcessLabel,
+  searchUnitStatusTone,
+  type SearchUnitStatus
 } from "@/lib/search-site-status";
 import { addMobileSearchUnit } from "./actions";
 import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { SearchUnitCard } from "./search-unit-card";
 import { normalizeResidentStatus } from "./search-unit-card-logic";
+import { SearchOperationalKpis } from "./search-operational-kpis";
+import { isActiveSearchCasualtyPerson, isSearchCasualtyPersonStatus, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
 
 export type MobileSearchFloor = {
   id: string;
@@ -66,14 +73,15 @@ export type MobileSearchSummary = {
   open_casualties_count?: number;
   resolved_casualties_count?: number;
 };
-export type MobileSearchResident = { id: string; unit_id: string; first_name: string | null; last_name: string | null; age: number | null; phone: string | null; notes: string | null; gender: "unknown" | "male" | "female" | null; requires_medical_evacuation: boolean | null; status_key: string | null };
+export type MobileSearchResident = { id: string; unit_id: string; first_name: string | null; last_name: string | null; age: number | null; phone: string | null; notes: string | null; gender: "unknown" | "male" | "female" | null; requires_medical_evacuation: boolean | null; evacuated_at: string | null; status_key: string | null };
 
-type MobileSearchStatus = "not_visited" | "no_answer" | "clear" | "casualties" | "completed";
+type MobileSearchStatus = SearchUnitStatus;
 
 const MANUAL_SEARCH_UNIT_ZONE_NAME = "הוספה ידנית";
 
 const SEARCH_UNIT_STATUS_OPTIONS: Array<{ value: MobileSearchStatus; label: string }> = [
   { value: "not_visited", label: "טרם נסרקה" },
+  { value: "in_progress", label: "בסריקה" },
   { value: "no_answer", label: "אין מענה" },
   { value: "clear", label: "תקין" },
   { value: "casualties", label: "דווחו נפגעים" },
@@ -82,6 +90,7 @@ const SEARCH_UNIT_STATUS_OPTIONS: Array<{ value: MobileSearchStatus; label: stri
 
 const SEARCH_UNIT_STATUS_LABELS: Record<MobileSearchStatus, string> = {
   not_visited: "טרם נסרקה",
+  in_progress: "בסריקה",
   no_answer: "אין מענה",
   clear: "תקין",
   casualties: "דווחו נפגעים",
@@ -117,15 +126,11 @@ function effectiveSearchStatus(result: MobileSearchResult | undefined): MobileSe
 }
 
 function searchUnitStatusLabel(status: MobileSearchStatus | null | undefined) {
-  return SEARCH_UNIT_STATUS_LABELS[normalizeStatus(status)];
+  return searchUnitProcessLabel(status);
 }
 
 function searchUnitTone(status: MobileSearchStatus | null | undefined) {
-  if (status === "completed") return "complete";
-  if (status === "clear") return "clear";
-  if (status === "casualties") return "casualties";
-  if (status === "no_answer") return "no-answer";
-  return "not-visited";
+  return searchUnitStatusTone(status);
 }
 
 function siteName(site: MobileSearchSite) {
@@ -244,8 +249,28 @@ export function MobileSearchScanner({
     (sum, result) => sum + numberValue(result.anxiety_casualties_count) + numberValue(result.physical_casualties_count),
     0
   );
-  const openCasualtyUnits = summary.open_casualties_count ?? allSearchResults.filter((result) => hasCasualtyFinding(result) && !result.casualties_resolved).length;
-  const resolvedCasualtyUnits = summary.resolved_casualties_count ?? allSearchResults.filter((result) => hasCasualtyFinding(result) && result.casualties_resolved).length;
+  const openCasualtyUnits = summary.open_casualties_count ?? allSearchResults.filter((result) => isOpenSearchCasualtyUnit(result.search_status, result.casualties_resolved)).length;
+  const resolvedCasualtyUnits = summary.resolved_casualties_count ?? allSearchResults.filter((result) => isResolvedSearchCasualtyUnit(result.search_status, result.casualties_resolved)).length;
+  const floorNumbersById = new Map(floors.map((floor) => [floor.id, floor.floor_number]));
+  const casualtyPeople = Array.from(unitsByFloor.values()).flatMap((floorUnits) => floorUnits.flatMap((unit) => {
+    const result = searchResultsByUnit.get(unit.id);
+    return (residentsByUnit.get(unit.id) ?? []).flatMap((resident) => isActiveSearchCasualtyPerson({ isActive: true, status: resident.status_key }) && isSearchCasualtyPersonStatus(resident.status_key) ? [{
+      residentId: resident.id,
+      unitId: unit.id,
+      floorNumber: floorNumbersById.get(unit.floor_id) ?? null,
+      unitNumber: unit.unit_number,
+      firstName: resident.first_name ?? "",
+      lastName: resident.last_name,
+      status: resident.status_key,
+      requiresMedicalEvacuation: Boolean(resident.requires_medical_evacuation),
+      evacuatedAt: resident.evacuated_at ?? null,
+      casualtiesResolved: Boolean(result?.casualties_resolved)
+    } satisfies SearchCasualtyPerson] : []);
+  }));
+  const operationalUnits = Array.from(unitsByFloor.values()).flatMap((floorUnits) => floorUnits.filter((unit) => unit.is_active).map((unit) => {
+    const result = searchResultsByUnit.get(unit.id);
+    return { unitId: unit.id, floorNumber: floorNumbersById.get(unit.floor_id) ?? null, unitLabel: unitDisplayLabel(unit), status: effectiveSearchStatus(result), casualtiesResolved: Boolean(result?.casualties_resolved), hasApartmentDamage: Boolean(result?.has_apartment_damage), apartmentDamageNotes: result?.apartment_damage_notes ?? null };
+  }));
 
   return (
     <main className="mobile-search-page">
@@ -269,6 +294,7 @@ export function MobileSearchScanner({
         </div>
       </section>
 
+      <SearchOperationalKpis units={operationalUnits} people={casualtyPeople} canMarkEvacuated={canEdit} />
       <section className="search-progress-header mobile-search-progress" aria-label="התקדמות סריקה">
         <div className="search-progress-bar" aria-hidden="true">
           <span style={{ inlineSize: `${progressPercent}%` }} />
@@ -280,8 +306,8 @@ export function MobileSearchScanner({
           <div><span>אין מענה</span><strong>{formatNumber(summary.no_answer_count)}</strong></div>
           <div><span>נפגעים</span><strong>{formatNumber(summary.casualties_count)}</strong></div>
           <div><span>סה״כ נפגעים</span><strong>{formatNumber(reportedCasualties)}</strong></div>
-          <div><span>נפגעים פתוחים</span><strong>{formatNumber(openCasualtyUnits)}</strong></div>
-          <div><span>טיפול הושלם</span><strong>{formatNumber(resolvedCasualtyUnits)}</strong></div>
+          <div><span>דירות עם נפגעים פתוחים</span><strong>{formatNumber(openCasualtyUnits)}</strong></div>
+          <div><span>דירות שטיפול בנפגעים בהן הסתיים</span><strong>{formatNumber(resolvedCasualtyUnits)}</strong></div>
         </div>
       </section>
 
@@ -347,7 +373,7 @@ export function MobileSearchScanner({
                   const status = effectiveSearchStatus(result);
                   const tone = searchUnitTone(status);
 
-                  return <SearchUnitCard key={unit.id} incidentId={site.incident_id} siteId={site.id} unitId={unit.id} label={unitDisplayLabel(unit)} floor={floor.floor_number} canEdit={canEdit} initial={{ knownPeopleCount: unit.known_people_count, damage: Boolean(result?.has_apartment_damage), damageNotes: result?.apartment_damage_notes ?? null, notes: result?.notes ?? null, status: status, hadCasualties: hasCasualtyFinding(result) || Boolean(result?.casualties_resolved), residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({ id: resident.id, first_name: resident.first_name ?? "", last_name: resident.last_name ?? "", age: resident.age?.toString() ?? "", phone: resident.phone ?? "", notes: resident.notes ?? "", gender: resident.gender ?? "unknown", ...normalizeResidentStatus(resident.status_key, Boolean(resident.requires_medical_evacuation)) })) }} />;
+                  return <SearchUnitCard key={unit.id} incidentId={site.incident_id} siteId={site.id} unitId={unit.id} label={unitDisplayLabel(unit)} floor={floor.floor_number} canEdit={canEdit} returnSurface="mobile" initial={{ knownPeopleCount: unit.known_people_count, damage: Boolean(result?.has_apartment_damage), damageNotes: result?.apartment_damage_notes ?? null, notes: result?.notes ?? null, status: status, hadCasualties: hasCasualtyFinding(result) || Boolean(result?.casualties_resolved), residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({ id: resident.id, first_name: resident.first_name ?? "", last_name: resident.last_name ?? "", age: resident.age?.toString() ?? "", phone: resident.phone ?? "", notes: resident.notes ?? "", gender: resident.gender ?? "unknown", ...normalizeResidentStatus(resident.status_key, Boolean(resident.requires_medical_evacuation)), evacuated_at: resident.evacuated_at ?? null })) }} />;
                 })}
               </div>
             </details>
