@@ -38,6 +38,8 @@ import { SearchUnitCard } from "@/app/mobile/search/search-unit-card";
 import { normalizeResidentStatus, residentStatusKeyFromEmbeddedStatus } from "@/app/mobile/search/search-unit-card-logic";
 import { SearchOperationalKpis } from "@/app/mobile/search/search-operational-kpis";
 import { isActiveSearchCasualtyPerson, isSearchCasualtyPersonStatus, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
+import { searchUnitDisplayLabel } from "@/lib/search-unit-label";
+import { ManualSearchUnitForm } from "@/app/mobile/search/manual-search-unit-form";
 
 type SiteSummaryRow = {
   incident_id: string;
@@ -212,8 +214,6 @@ type SearchKpiDrilldownEntry = {
   hasApartmentDamage: boolean;
   apartmentDamageNotes: string | null;
 };
-
-const MANUAL_SEARCH_UNIT_ZONE_NAME = "הוספה ידנית";
 
 const SEARCH_UNIT_STATUS_OPTIONS: Array<{ value: SearchUnitStatus; label: string }> = [
   { value: "not_visited", label: "טרם נסרקה" },
@@ -531,38 +531,12 @@ function residentEditVersion(resident: ResidentRow) {
   ].join("|");
 }
 
-function zoneTypeLabel(zoneType: string | null) {
-  const labels = new Map([
-    ["apartment", "דירה"],
-    ["store", "חנות"],
-    ["office", "משרד"],
-    ["parking_area", "חניה"],
-    ["lobby", "לובי"],
-    ["shelter", "מקלט"],
-    ["warehouse", "מחסן"],
-    ["machine_room", "חדר מכונות"],
-    ["commercial_area", "שטח מסחרי"],
-    ["other", "אזור"]
-  ]);
-
-  return labels.get(zoneType ?? "") ?? "אזור";
-}
-
 function unitDisplayLabel(unit: UnitRow) {
-  if (unit.zone_type === "apartment" || !unit.zone_type) {
-    return `דירה ${unit.unit_number}`;
-  }
-
-  if (unit.zone_type === "other" && unit.zone_name) {
-    const sequence = unit.zone_sequence ?? unit.unit_number;
-    return `${unit.zone_name} ${sequence}`;
-  }
-
-  return `${zoneTypeLabel(unit.zone_type)} ${unit.zone_sequence ?? unit.unit_number}`;
+  return searchUnitDisplayLabel(unit);
 }
 
 function isManualSearchUnit(unit: UnitRow) {
-  return unit.zone_type === "other" && unit.zone_name === MANUAL_SEARCH_UNIT_ZONE_NAME;
+  return unit.zone_type === "other" && unit.zone_name === "הוספה ידנית";
 }
 
 function unitPreviousLabel(unit: UnitRow) {
@@ -872,6 +846,8 @@ function SearchSiteMobileWorkflow({
                 <span className={`search-status-badge search-site-live-${floorStatus.tone}`}>{floorStatus.label}</span>
                 {floorSummary.casualties_count > 0 ? <span className="search-alert-badge">{formatNumber(floorSummary.casualties_count)} עם נפגעים</span> : null}
               </summary>
+
+              {canEdit ? <ManualSearchUnitForm incidentId={incidentId} siteId={site.id} floorId={floor.id} className="mobile-search-add-unit-form" /> : null}
 
               <div className="search-unit-list">
                 {floorUnits.map((unit) => {
@@ -1434,13 +1410,17 @@ export default async function SiteDetailsPage({
                     <div className="floor-structure-actions">
                       <details className="structure-action-card">
                         <summary>הוסף דירה</summary>
-                        <form action={addApartmentToFloor} className="form-grid">
+                        {isSearchSite(site) ? (
+                          <ManualSearchUnitForm incidentId={params.incidentId} siteId={params.siteId} floorId={floor.id} className="form-grid" />
+                        ) : (
+                          <form action={addApartmentToFloor} className="form-grid">
                           {hiddenContext(params.incidentId, params.siteId)}
                           <input type="hidden" name="floorId" value={floor.id} />
                           <input className="input" name="position" type="number" min="1" placeholder="הוסף אחרי דירה, ריק = סוף קומה" />
                           <input className="input wide" name="reason" placeholder="סיבה / הערה" />
                           <OperationalLoadingButton className="button secondary" label="הוסף דירה" loadingLabel="יוצר..." />
                         </form>
+                        )}
                       </details>
 
                       <details className="structure-action-card">

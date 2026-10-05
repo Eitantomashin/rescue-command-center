@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 const SEARCH_UNIT_STATUSES = new Set(["not_visited", "no_answer", "clear", "casualties", "completed"]);
@@ -66,6 +65,7 @@ function revalidateSearchSiteViews(paths: ReturnType<typeof mobileSitePath>) {
 
 
 export type SearchUnitCardSaveState = { saved: boolean; refreshVersion: number };
+export type AddManualSearchUnitState = { success: boolean; error: string | null; refreshVersion: number };
 
 export type MarkSearchResidentEvacuatedResult = { success: boolean; evacuatedAt?: string; error?: string };
 
@@ -115,23 +115,22 @@ export async function saveSearchUnitCard(_previousState: SearchUnitCardSaveState
   return { saved: true, refreshVersion: _previousState.refreshVersion + 1 };
 }
 
-export async function addMobileSearchUnit(formData: FormData) {
-  const paths = mobileSitePath(formData);
-  const siteId = requiredValue(formData, "siteId", "אתר");
-  const floorId = requiredValue(formData, "floorId", "קומה");
-
-  const supabase = createClient();
-  const { error } = await supabase.rpc("add_search_site_manual_unit", {
-    p_site_id: siteId,
-    p_floor_id: floorId,
-    p_reported_unit_number: nullableValue(formData, "reportedUnitNumber"),
-    p_notes: nullableValue(formData, "manualUnitNotes")
-  });
-
-  if (error) {
-    throw new Error(error.message);
+export async function addMobileSearchUnit(_previousState: AddManualSearchUnitState, formData: FormData): Promise<AddManualSearchUnitState> {
+  try {
+    const paths = mobileSitePath(formData);
+    const siteId = requiredValue(formData, "siteId", "אתר");
+    const floorId = requiredValue(formData, "floorId", "קומה");
+    const supabase = createClient();
+    const { error } = await supabase.rpc("add_search_site_manual_unit", {
+      p_site_id: siteId,
+      p_floor_id: floorId,
+      p_reported_unit_number: nullableValue(formData, "reportedUnitNumber"),
+      p_notes: nullableValue(formData, "manualUnitNotes")
+    });
+    if (error) return { success: false, error: error.message, refreshVersion: _previousState.refreshVersion + 1 };
+    revalidateSearchSiteViews(paths);
+    return { success: true, error: null, refreshVersion: _previousState.refreshVersion + 1 };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "לא ניתן להוסיף דירה", refreshVersion: _previousState.refreshVersion + 1 };
   }
-
-  revalidateSearchSiteViews(paths);
-  redirect(paths.sitePath);
 }

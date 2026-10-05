@@ -102,7 +102,7 @@ export default async function MobileSearchSitePage({
       .order("floor_number", { ascending: false }),
     supabase
       .from("units")
-      .select("id,floor_id,unit_number,zone_name,zone_type,zone_sequence,known_people_count,is_active")
+      .select("id,floor_id,unit_number,zone_name,zone_type,zone_sequence,known_people_count,notes,is_active")
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId)
       .eq("is_active", true)

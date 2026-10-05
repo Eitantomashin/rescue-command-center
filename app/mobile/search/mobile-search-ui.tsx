@@ -10,12 +10,12 @@ import {
   searchUnitStatusTone,
   type SearchUnitStatus
 } from "@/lib/search-site-status";
-import { addMobileSearchUnit } from "./actions";
-import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
+import { ManualSearchUnitForm } from "./manual-search-unit-form";
 import { SearchUnitCard } from "./search-unit-card";
 import { normalizeResidentStatus } from "./search-unit-card-logic";
 import { SearchOperationalKpis } from "./search-operational-kpis";
 import { isActiveSearchCasualtyPerson, isSearchCasualtyPersonStatus, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
+import { searchUnitDisplayLabel } from "@/lib/search-unit-label";
 
 export type MobileSearchFloor = {
   id: string;
@@ -31,6 +31,7 @@ export type MobileSearchUnit = {
   zone_type: string | null;
   zone_sequence: number | null;
   known_people_count: number | null;
+  notes: string | null;
   is_active: boolean;
 };
 
@@ -141,33 +142,8 @@ function siteAddress(site: MobileSearchSite) {
   return [site.street, site.house_number, site.city].filter(Boolean).join(" ").trim();
 }
 
-function zoneTypeLabel(zoneType: string | null) {
-  const labels = new Map([
-    ["apartment", "דירה"],
-    ["store", "חנות"],
-    ["office", "משרד"],
-    ["parking_area", "חניה"],
-    ["lobby", "לובי"],
-    ["shelter", "מקלט"],
-    ["warehouse", "מחסן"],
-    ["machine_room", "חדר מכונות"],
-    ["commercial_area", "שטח מסחרי"],
-    ["other", "אזור"]
-  ]);
-
-  return labels.get(zoneType ?? "") ?? "אזור";
-}
-
 function unitDisplayLabel(unit: MobileSearchUnit) {
-  if (unit.zone_type === "apartment" || !unit.zone_type) {
-    return `דירה ${unit.unit_number}`;
-  }
-
-  if (unit.zone_type === "other" && unit.zone_name) {
-    return `${unit.zone_name} ${unit.zone_sequence ?? unit.unit_number}`;
-  }
-
-  return `${zoneTypeLabel(unit.zone_type)} ${unit.zone_sequence ?? unit.unit_number}`;
+  return searchUnitDisplayLabel(unit);
 }
 
 function isManualSearchUnit(unit: MobileSearchUnit) {
@@ -189,16 +165,6 @@ function hiddenContext(incidentId: string, siteId: string, unitId?: string) {
       <input type="hidden" name="incidentId" value={incidentId} />
       <input type="hidden" name="siteId" value={siteId} />
       {unitId ? <input type="hidden" name="unitId" value={unitId} /> : null}
-    </>
-  );
-}
-
-function hiddenFloorContext(incidentId: string, siteId: string, floorId: string) {
-  return (
-    <>
-      <input type="hidden" name="incidentId" value={incidentId} />
-      <input type="hidden" name="siteId" value={siteId} />
-      <input type="hidden" name="floorId" value={floorId} />
     </>
   );
 }
@@ -349,21 +315,7 @@ export function MobileSearchScanner({
               {canEdit ? (
                 <details className="mobile-search-add-unit-panel">
                   <summary className="button compact secondary">+ הוסף דירה לקומה</summary>
-                  <form action={addMobileSearchUnit} className="mobile-search-add-unit-form">
-                    {hiddenFloorContext(site.incident_id, site.id, floor.id)}
-                    <label>
-                      מספר דירה שדווח בשטח
-                      <input className="input" name="reportedUnitNumber" inputMode="text" placeholder="אופציונלי" />
-                    </label>
-                    <label>
-                      הערות
-                      <textarea className="input" name="manualUnitNotes" rows={2} placeholder="אופציונלי" />
-                    </label>
-                    <p className="mobile-search-add-unit-help">
-                      הדירה תוצג כ"הוספה ידנית" ולא תשנה מספרי דירות קיימים.
-                    </p>
-                    <OperationalLoadingButton className="button" label={"הוסף דירה"} loadingLabel={"יוצר..."} />
-                  </form>
+                  <ManualSearchUnitForm incidentId={site.incident_id} siteId={site.id} floorId={floor.id} />
                 </details>
               ) : null}
 

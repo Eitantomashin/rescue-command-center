@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { searchUnitDisplayLabel } from "@/lib/search-unit-label";
 import { operationalTeamLabel } from "@/lib/operational-teams";
 import { isOpenSearchCasualtyUnit, isResolvedSearchCasualtyUnit, searchLiveStatus, searchScannedCount, searchSummaryFromStatuses } from "@/lib/search-site-status";
 import { isActiveSearchCasualtyPerson, isSearchCasualtyPersonStatus, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
@@ -436,33 +437,8 @@ function departmentTeamNumber(department: string) {
   return match ? Number(match[1]) : null;
 }
 
-function zoneTypeLabel(zoneType: string | null) {
-  const labels = new Map([
-    ["apartment", "דירה"],
-    ["store", "חנות"],
-    ["office", "משרד"],
-    ["parking_area", "חניה"],
-    ["lobby", "לובי"],
-    ["shelter", "מקלט"],
-    ["warehouse", "מחסן"],
-    ["machine_room", "חדר מכונות"],
-    ["commercial_area", "שטח מסחרי"],
-    ["other", "אזור"]
-  ]);
-
-  return labels.get(zoneType ?? "") ?? "אזור";
-}
-
 function unitDisplayLabel(unit: UnitRow) {
-  if (unit.zone_type === "apartment" || !unit.zone_type) {
-    return `דירה ${unit.zone_sequence ?? unit.unit_number}`;
-  }
-
-  if (unit.zone_type === "other" && unit.zone_name) {
-    return `${unit.zone_name} ${unit.zone_sequence ?? unit.unit_number}`;
-  }
-
-  return `${zoneTypeLabel(unit.zone_type)} ${unit.zone_sequence ?? unit.unit_number}`;
+  return searchUnitDisplayLabel(unit);
 }
 
 function statusSegmentGroup(group: string | null): keyof SiteStatusSegments {
@@ -619,7 +595,7 @@ export default async function IncidentDashboardPage({
       .eq("incident_id", params.incidentId),
     supabase
       .from("units")
-      .select("id,site_id,floor_id,unit_number,zone_type,zone_name,zone_sequence,expected_occupants,known_people_count,is_active")
+      .select("id,site_id,floor_id,unit_number,zone_type,zone_name,zone_sequence,expected_occupants,known_people_count,notes,is_active")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true),
     supabase

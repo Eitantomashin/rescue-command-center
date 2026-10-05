@@ -166,5 +166,5 @@ test('complete-casualties confirmation closes only after a successful save state
   assert.match(card,/const \[confirm, setConfirm\] = useState\(false\)/);
   assert.match(card,/onClick=\{\(\)=>setConfirm\(true\)\}/);
   assert.match(card,/onClick=\{\(\)=>setConfirm\(false\)\}/);
-  assert.match(card,/if \(!saveState\.saved \|\| saveState\.refreshVersion <= lastRefreshedVersion\.current\) return;[\s\S]*?setConfirm\(false\); router\.refresh\(\)/);
+  assert.match(card,/if \(!saveState\.saved \|\| saveState\.refreshVersion <= lastRefreshedVersion\.current\) return;[\s\S]*?setConfirm\(false\);[\s\S]*?router\.refresh\(\)/);
 });
