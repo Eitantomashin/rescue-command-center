@@ -20,7 +20,7 @@ export function SearchCasualtyPeopleDetail({ people, className = "" }: { people:
             <strong>{[person.firstName, person.lastName].filter(Boolean).join(" ") || "ללא שם"}</strong>
             <span>קומה {person.floorNumber ?? "-"} · דירה {person.unitNumber}</span>
             <span>{searchCasualtyPersonStatusLabel(person.status)}</span>
-            {person.status === "physical_casualty" && person.requiresMedicalEvacuation ? <span>נדרש פינוי רפואי</span> : null}
+            {person.requiresEvacuation ? <span>נדרש פינוי</span> : null}
             <span>{searchCasualtyPersonTreatmentLabel(person.casualtiesResolved)}</span>
           </li>
         ))}

@@ -4,7 +4,7 @@ import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { operationalTeamLabel } from "@/lib/operational-teams";
-import { isOpenSearchCasualtyUnit, isResolvedSearchCasualtyUnit, searchLiveStatus, searchScannedCount } from "@/lib/search-site-status";
+import { isOpenSearchCasualtyUnit, isResolvedSearchCasualtyUnit, searchLiveStatus, searchScannedCount, searchSummaryFromStatuses } from "@/lib/search-site-status";
 import { isActiveSearchCasualtyPerson, isSearchCasualtyPersonStatus, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
 import { DashboardCollapsibleSection } from "./dashboard-collapsible-section";
 import type { SiteAnalysisRow, SiteStatusSegments, SiteUnitAnalysisRow } from "./dashboard-site-command-summary-v2";
@@ -14,6 +14,7 @@ import { pauseIncident, renameIncident, reopenIncident } from "./lifecycle-actio
 import { CloseIncidentForm } from "./close-incident-form";
 import type { PersonnelTeamItem } from "./personnel-team-drilldown";
 import { SearchSitesDashboardWidget, type SearchSitesWidgetData } from "./search-sites-dashboard-widget";
+import { searchOperationalGapDrilldown } from "@/lib/search-population-operational-gap";
 import {
   ATTENDANCE_STATUSES,
   PERSONNEL_DEPARTMENTS,
@@ -186,7 +187,7 @@ type ResidentRow = {
   status_id: string | null;
   linked_person_id: string | null;
   is_active: boolean;
-  requires_medical_evacuation: boolean | null;
+  requires_evacuation: boolean | null;
   evacuated_at: string | null;
 };
 
@@ -623,7 +624,7 @@ export default async function IncidentDashboardPage({
       .eq("is_active", true),
     supabase
       .from("unit_residents")
-      .select("id,site_id,unit_id,first_name,last_name,status_id,linked_person_id,is_active,requires_medical_evacuation,evacuated_at")
+      .select("id,site_id,unit_id,first_name,last_name,status_id,linked_person_id,is_active,requires_evacuation,evacuated_at")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true),
     supabase
@@ -679,25 +680,7 @@ export default async function IncidentDashboardPage({
   const searchSiteSummaries = new Map(
     searchSites.map((site) => {
       const siteUnits = units.filter((unit) => unit.site_id === site.id && unit.is_active);
-      const siteSummary: SearchSiteSummaryRow = {
-        total_units: siteUnits.length,
-        not_visited_count: 0,
-        clear_count: 0,
-        no_answer_count: 0,
-        casualties_count: 0,
-        completed_count: 0
-      };
-
-      for (const unit of siteUnits) {
-        const status = effectiveSearchUnitStatus(searchResultsByUnitId.get(unit.id));
-        if (status === "clear") siteSummary.clear_count += 1;
-        else if (status === "no_answer") siteSummary.no_answer_count += 1;
-        else if (status === "casualties") siteSummary.casualties_count += 1;
-        else if (status === "completed") siteSummary.completed_count += 1;
-        else siteSummary.not_visited_count += 1;
-      }
-
-      return [site.id, normalizeSearchSiteSummary(siteSummary)] as const;
+      return [site.id, searchSummaryFromStatuses(siteUnits.map((unit) => effectiveSearchUnitStatus(searchResultsByUnitId.get(unit.id))))] as const;
     })
   );
   const searchFloorNumbersById = new Map(floors.map((floor) => [floor.id, floor.floor_number]));
@@ -817,7 +800,7 @@ export default async function IncidentDashboardPage({
       firstName: resident.first_name ?? "",
       lastName: resident.last_name,
       status,
-      requiresMedicalEvacuation: Boolean(resident.requires_medical_evacuation),
+      requiresEvacuation: Boolean(resident.requires_evacuation),
       evacuatedAt: resident.evacuated_at,
       casualtiesResolved: Boolean(result?.casualties_resolved)
     });
@@ -834,6 +817,30 @@ export default async function IncidentDashboardPage({
     map.set(resident.unit_id, unitResidents);
     return map;
   }, new Map<string, ResidentRow[]>());
+  const searchOperationalGapBySite = new Map(
+    searchSites.map((site) => [site.id, searchOperationalGapDrilldown(
+      units.filter((unit) => unit.site_id === site.id && unit.is_active).map((unit) => {
+        const result = searchResultsByUnitId.get(unit.id);
+        return {
+          unitId: unit.id,
+          siteName: searchSiteDisplayName(site),
+          floorNumber: searchFloorNumbersById.get(unit.floor_id ?? "") ?? null,
+          unitLabel: unitDisplayLabel(unit),
+          knownPeopleCount: unit.known_people_count,
+          casualtiesResolved: Boolean(result?.casualties_resolved),
+          residents: (residentsByUnitId.get(unit.id) ?? []).map((resident) => ({
+            residentId: resident.id,
+            firstName: resident.first_name ?? "",
+            lastName: resident.last_name,
+            isActive: resident.is_active,
+            statusKey: resident.status_id ? residentStatuses.get(resident.status_id)?.status_key ?? null : null,
+            requiresEvacuation: Boolean(resident.requires_evacuation),
+            evacuatedAt: resident.evacuated_at
+          }))
+        };
+      })
+    )] as const)
+  );
   const unitsBySiteId = units.reduce((map, unit) => {
     const siteUnits = map.get(unit.site_id) ?? [];
     siteUnits.push(unit);
@@ -1058,10 +1065,8 @@ export default async function IncidentDashboardPage({
       initialPotential: siteSummariesById.get(site.id)?.initial_potential ?? null,
       updatedPotential: siteSummariesById.get(site.id)?.updated_potential ?? null,
       operationalGap: siteSummariesById.get(site.id)?.operational_gap ?? null,
+      operationalGapEntries: searchOperationalGapBySite.get(site.id)?.entries ?? [],
       summary: searchSiteSummaries.get(site.id) ?? emptySearchSiteSummary,
-      anxietyCasualtiesCount: (searchEntriesBySite.get(site.id) ?? []).reduce((sum, entry) => sum + entry.anxietyCasualtiesCount, 0),
-      physicalCasualtiesCount: (searchEntriesBySite.get(site.id) ?? []).reduce((sum, entry) => sum + entry.physicalCasualtiesCount, 0),
-      damagedUnitsCount: (searchEntriesBySite.get(site.id) ?? []).filter((entry) => entry.hasApartmentDamage).length,
       casualtyPeople: searchCasualtyPeopleBySite.get(site.id) ?? [],
       entries: searchEntriesBySite.get(site.id) ?? []
     })),

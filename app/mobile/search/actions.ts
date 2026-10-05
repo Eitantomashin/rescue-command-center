@@ -70,10 +70,10 @@ export type SearchUnitCardSaveState = { saved: boolean; refreshVersion: number }
 export type MarkSearchResidentEvacuatedResult = { success: boolean; evacuatedAt?: string; error?: string };
 
 export async function markSearchResidentEvacuated(residentId: string): Promise<MarkSearchResidentEvacuatedResult> {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(residentId)) return { success: false, error: "לא ניתן היה לעדכן את הפינוי הרפואי." };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(residentId)) return { success: false, error: "לא ניתן היה לעדכן את הפינוי." };
   const supabase = createClient();
   const { data, error } = await supabase.rpc("mark_search_resident_evacuated", { p_resident_id: residentId });
-  if (error) return { success: false, error: "לא ניתן היה לעדכן את הפינוי הרפואי. נסה שוב." };
+  if (error) return { success: false, error: "לא ניתן היה לעדכן את הפינוי. נסה שוב." };
   return { success: true, evacuatedAt: typeof data === "string" ? data : undefined };
 }
 
@@ -101,7 +101,7 @@ export async function saveSearchUnitCard(_previousState: SearchUnitCardSaveState
     const gender = String(row.gender ?? "unknown");
     if (!residentStatuses.has(status) || !genders.has(gender)) throw new Error("סטטוס או מגדר דייר אינם תקינים");
     const { evacuated_at: _evacuatedAt, ...residentData } = row;
-    return { ...residentData, status_key: status, gender, requires_medical_evacuation: status === "physical_casualty" && row.requires_medical_evacuation === true };
+    return { ...residentData, status_key: status, gender, requires_evacuation: ["anxiety_casualty", "physical_casualty", "deceased"].includes(status) && row.requires_evacuation === true };
   });
   const supabase = createClient();
   const { error } = await supabase.rpc("save_search_unit_card", {

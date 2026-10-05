@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { formatNumber } from "@/lib/format";
-import { isOpenSearchCasualtyUnit, isResolvedSearchCasualtyUnit, searchUnitProcessLabel, searchUnitStatusTone, searchLiveStatus, searchScannedCount, type SearchStatusSummary, type SearchUnitStatus } from "@/lib/search-site-status";
+import { isOpenSearchCasualtyUnit, isResolvedSearchCasualtyUnit, searchLiveStatus, searchUnitProcessLabel, searchUnitStatusTone, type SearchStatusSummary, type SearchUnitStatus } from "@/lib/search-site-status";
 import { DashboardCollapsibleSection } from "./dashboard-collapsible-section";
 import { SearchOperationalKpis } from "@/app/mobile/search/search-operational-kpis";
-import type { SearchCasualtyPerson } from "@/lib/search-casualty-person";
+import { formatSearchEvacuatedAt, searchCasualtyPersonStatusLabel, searchEvacuationState, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
+import { searchOperationalKpiCollections } from "@/lib/search-operational-kpis";
+import type { SearchOperationalGapEntry } from "@/lib/search-population-operational-gap";
 
 export type SearchKpiDrilldownEntry = {
   unitId: string;
@@ -36,10 +38,8 @@ export type SearchSiteWidgetSite = {
   initialPotential: number | null;
   updatedPotential: number | null;
   operationalGap: number | null;
+  operationalGapEntries: SearchOperationalGapEntry[];
   summary: SearchStatusSummary;
-  anxietyCasualtiesCount: number;
-  physicalCasualtiesCount: number;
-  damagedUnitsCount: number;
   casualtyPeople: SearchCasualtyPerson[];
   entries: SearchKpiDrilldownEntry[];
 };
@@ -57,26 +57,7 @@ function searchUnitTone(status: SearchUnitStatus) {
   return searchUnitStatusTone(status);
 }
 
-function isScannedEntry(entry: SearchKpiDrilldownEntry) {
-  return ["clear", "no_answer", "casualties", "completed"].includes(entry.status);
-}
-
-function searchKpiBuckets(entries: SearchKpiDrilldownEntry[]) {
-  return {
-    all: entries,
-    scanned: entries.filter(isScannedEntry),
-    completed: entries.filter((entry) => entry.status === "completed"),
-    no_answer: entries.filter((entry) => entry.status === "no_answer"),
-    reported_casualties: entries.filter((entry) => entry.hasCasualtyFinding),
-    casualties: entries.filter((entry) => isOpenSearchCasualtyUnit(entry.status, entry.casualtiesResolved)),
-    resolved_casualties: entries.filter((entry) => isResolvedSearchCasualtyUnit(entry.status, entry.casualtiesResolved)),
-    anxiety: entries.filter((entry) => entry.anxietyCasualtiesCount > 0),
-    physical: entries.filter((entry) => entry.physicalCasualtiesCount > 0),
-    damaged: entries.filter((entry) => entry.hasApartmentDamage)
-  };
-}
-
-function SearchKpiCard({
+function SearchApartmentKpiCard({
   className,
   label,
   value,
@@ -129,6 +110,24 @@ function SearchKpiDrilldown({ title, entries }: { title: string; entries: Search
   );
 }
 
+function SearchPersonKpiCard({ className, label, title, people }: { className: string; label: string; title: string; people: SearchCasualtyPerson[] }) {
+  return <details className={"search-kpi-click-card " + className}><summary><span>{label}</span><strong>{formatNumber(people.length)}</strong></summary><div className="search-kpi-drilldown-panel"><strong>{title}</strong>{people.length ? <ul className="search-kpi-drilldown-list">{people.map((person) => { const evacuation = searchEvacuationState(person); return <li key={person.residentId}><strong>{[person.firstName, person.lastName].filter(Boolean).join(" ") || "ללא שם"}</strong><span>קומה {person.floorNumber ?? "-"} · דירה {person.unitNumber}</span><span>{searchCasualtyPersonStatusLabel(person.status)}</span>{evacuation === "waiting" ? <span>ממתין לפינוי</span> : evacuation === "evacuated" ? <span>פונה{formatSearchEvacuatedAt(person.evacuatedAt) ? ` ב־${formatSearchEvacuatedAt(person.evacuatedAt)}` : ""}</span> : null}</li>; })}</ul> : <p className="muted">אין פריטים להצגה</p>}</div></details>;
+}
+
+function operationalGapStatusLabel(status: string | null) {
+  if (status === "not_checked") return "טרם נבדק";
+  if (status === "resident_clear") return "תקין";
+  return status === "anxiety_casualty" ? "נפגע חרדה" : status === "physical_casualty" ? "נפגע גוף" : status === "deceased" ? "חלל" : "מצב דייר לא ידוע";
+}
+
+function SearchOperationalGapKpiCard({ value, entries }: { value: number; entries: SearchOperationalGapEntry[] }) {
+  return <details className="search-operational-gap-card search-kpi-click-card"><summary><span>פער מבצעי</span><strong>{formatNumber(value)}</strong></summary><div className="search-kpi-drilldown-panel"><strong>פירוט אנשים שטרם נסגרו מבצעית</strong>{entries.length ? <ul className="search-kpi-drilldown-list">{entries.map((entry, index) => <li key={entry.kind === "resident" ? entry.residentId ?? String(index) : `${entry.unitId}-unidentified`}><strong>{entry.kind === "unidentified" ? `${entry.reason}: ${formatNumber(entry.representedCount)}` : [entry.firstName, entry.lastName].filter(Boolean).join(" ") || "ללא שם"}</strong><span>{entry.siteName} · קומה {entry.floorNumber ?? "-"} · {entry.unitLabel}</span>{entry.kind === "resident" ? <><span>{operationalGapStatusLabel(entry.statusKey)}</span><span>{entry.reason}</span>{entry.requiresEvacuation ? <span>{searchEvacuationState({ status: entry.statusKey as "anxiety_casualty" | "physical_casualty" | "deceased", requiresEvacuation: entry.requiresEvacuation, evacuatedAt: entry.evacuatedAt }) === "waiting" ? "ממתין לפינוי" : "פונה"}</span> : null}</> : null}</li>)}</ul> : <p className="muted">אין אנשים פתוחים להצגה</p>}</div></details>;
+}
+
+function SearchSiteKpiRow({ label, children }: { label: string; children: ReactNode }) {
+  return <section className="search-site-card-kpi-row"><h3>{label}</h3><div className="search-site-card-kpis">{children}</div></section>;
+}
+
 function formatUpdatedAt(value: string) {
   return new Intl.DateTimeFormat("he-IL", {
     hour: "2-digit",
@@ -165,33 +164,6 @@ export function SearchSitesDashboardWidget({
     return () => window.clearInterval(interval);
   }, [refresh]);
 
-  const entriesByKpi = useMemo(() => {
-    const allEntries = data.sites.flatMap((site) => site.entries);
-    return searchKpiBuckets(allEntries);
-  }, [data.sites]);
-
-  const totals = useMemo(
-    () =>
-      data.sites.reduce(
-        (acc, site) => {
-          acc.totalUnits += site.summary.total_units;
-          acc.scanned += searchScannedCount(site.summary);
-          acc.completed += site.summary.completed_count;
-          acc.noAnswer += site.summary.no_answer_count;
-          acc.casualties += site.summary.casualties_count;
-          acc.anxietyCasualties += site.anxietyCasualtiesCount;
-          acc.physicalCasualties += site.physicalCasualtiesCount;
-          acc.reportedCasualties += site.entries.filter((entry) => entry.hasCasualtyFinding).length;
-          acc.openCasualtyUnits += site.entries.filter((entry) => isOpenSearchCasualtyUnit(entry.status, entry.casualtiesResolved)).length;
-          acc.resolvedCasualtyUnits += site.entries.filter((entry) => isResolvedSearchCasualtyUnit(entry.status, entry.casualtiesResolved)).length;
-          acc.damagedUnits += site.damagedUnitsCount;
-          return acc;
-        },
-        { totalUnits: 0, scanned: 0, completed: 0, noAnswer: 0, casualties: 0, anxietyCasualties: 0, physicalCasualties: 0, reportedCasualties: 0, openCasualtyUnits: 0, resolvedCasualtyUnits: 0, damagedUnits: 0 }
-      ),
-    [data.sites]
-  );
-
   if (data.sites.length === 0) {
     return null;
   }
@@ -214,12 +186,8 @@ export function SearchSitesDashboardWidget({
 
       <div className="search-sites-dashboard-list">
         {data.sites.map((site) => {
-          const siteScanned = searchScannedCount(site.summary);
+          const kpis = searchOperationalKpiCollections(site.entries, site.casualtyPeople);
           const siteLiveStatus = searchLiveStatus(site.summary);
-          const siteEntriesByKpi = searchKpiBuckets(site.entries);
-          const siteReportedCasualties = site.entries.filter((entry) => entry.hasCasualtyFinding).length;
-          const siteOpenCasualtyUnits = site.entries.filter((entry) => isOpenSearchCasualtyUnit(entry.status, entry.casualtiesResolved)).length;
-          const siteResolvedCasualtyUnits = site.entries.filter((entry) => isResolvedSearchCasualtyUnit(entry.status, entry.casualtiesResolved)).length;
 
           return (
             <article className="search-site-dashboard-card" key={site.id}>
@@ -241,21 +209,29 @@ export function SearchSitesDashboardWidget({
                 <dl>
                   <div><dt>פוטנציאל ראשוני</dt><dd>{site.initialPotential === null ? "—" : formatNumber(site.initialPotential)}</dd></div>
                   <div><dt>פוטנציאל מעודכן</dt><dd>{site.updatedPotential === null ? "—" : formatNumber(site.updatedPotential)}</dd></div>
-                  <div><dt>פער מבצעי</dt><dd>{site.operationalGap === null ? "—" : formatNumber(site.operationalGap)}</dd></div>
+                  <div><dt>פער מבצעי</dt><dd><SearchOperationalGapKpiCard value={site.operationalGap ?? 0} entries={site.operationalGapEntries} /></dd></div>
                 </dl>
               </section>
-              <p className="search-site-metrics-heading">מצב הסריקה</p>
-              <div className="search-site-card-kpis" aria-label={"\u05E1\u05D9\u05DB\u05D5\u05DD \u05E1\u05E8\u05D9\u05E7\u05D4 \u05DC\u05D0\u05EA\u05E8"}>
-                <SearchKpiCard className="search-kpi-total" label={"\u05E1\u05D4\u05F4\u05DB"} value={site.summary.total_units} title={"\u05DB\u05DC \u05D4\u05D3\u05D9\u05E8\u05D5\u05EA \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.all} />
-                <SearchKpiCard className="search-kpi-scanned" label={"\u05E0\u05E1\u05E8\u05E7\u05D5"} value={siteScanned} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E9\u05E0\u05E1\u05E8\u05E7\u05D5 \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.scanned} />
-                <SearchKpiCard className="search-kpi-completed" label={"\u05D6\u05D5\u05DB\u05D5"} value={site.summary.completed_count} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E9\u05D6\u05D5\u05DB\u05D5 \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.completed} />
-                <SearchKpiCard className="search-kpi-no-answer" label={"\u05D0\u05D9\u05DF \u05DE\u05E2\u05E0\u05D4"} value={site.summary.no_answer_count} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05DC\u05DC\u05D0 \u05DE\u05E2\u05E0\u05D4 \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.no_answer} />
-                <SearchKpiCard className="search-kpi-casualties" label={"\u05D3\u05D5\u05D5\u05D7\u05D5 \u05E0\u05E4\u05D2\u05E2\u05D9\u05DD"} value={siteReportedCasualties} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E2\u05DD \u05D3\u05D9\u05D5\u05D5\u05D7 \u05E0\u05E4\u05D2\u05E2\u05D9\u05DD \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.reported_casualties} />
-                <SearchKpiCard className="search-kpi-danger" label={"\u05D8\u05D9\u05E4\u05D5\u05DC \u05E4\u05EA\u05D5\u05D7"} value={siteOpenCasualtyUnits} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E2\u05DD \u05D8\u05D9\u05E4\u05D5\u05DC \u05E0\u05E4\u05D2\u05E2\u05D9\u05DD \u05E4\u05EA\u05D5\u05D7 \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.casualties} />
-                <SearchKpiCard className="search-kpi-completed" label={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E9\u05D8\u05D5\u05E4\u05DC\u05D5"} value={siteResolvedCasualtyUnits} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E9\u05D1\u05D4\u05DF \u05D4\u05D8\u05D9\u05E4\u05DC\u05D5 \u05D1\u05E0\u05E4\u05D2\u05E2\u05D9\u05DD \u05D4\u05D5\u05E9\u05DC\u05DD \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.resolved_casualties} />
-                <SearchKpiCard className="search-kpi-warning" label={"\u05D7\u05E8\u05D3\u05D4"} value={site.anxietyCasualtiesCount} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E2\u05DD \u05E0\u05E4\u05D2\u05E2\u05D9 \u05D7\u05E8\u05D3\u05D4 \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.anxiety} />
-                <SearchKpiCard className="search-kpi-danger" label={"\u05D2\u05D5\u05E3"} value={site.physicalCasualtiesCount} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E2\u05DD \u05E0\u05E4\u05D2\u05E2\u05D9 \u05D2\u05D5\u05E3 \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.physical} />
-                <SearchKpiCard className="search-kpi-damage" label={"\u05E0\u05D6\u05E7"} value={site.damagedUnitsCount} title={"\u05D3\u05D9\u05E8\u05D5\u05EA \u05E2\u05DD \u05E0\u05D6\u05E7 \u05D1\u05D0\u05EA\u05E8"} entries={siteEntriesByKpi.damaged} />
+              <div className="search-site-kpi-rows" aria-label={"\u05E1\u05D9\u05DB\u05D5\u05DD \u05E1\u05E8\u05D9\u05E7\u05D4 \u05DC\u05D0\u05EA\u05E8"}>
+              <SearchSiteKpiRow label="סטטוס הסריקה">
+                <SearchApartmentKpiCard className="search-kpi-total" label="סה״כ דירות" value={kpis.process.total.length} title="כל הדירות באתר" entries={kpis.process.total} />
+                <SearchApartmentKpiCard className="search-kpi-no-answer" label="טרם התחילה" value={kpis.process.notStarted.length} title="דירות שטרם החלה בהן סריקה" entries={kpis.process.notStarted} />
+                <SearchApartmentKpiCard className="search-kpi-scanned" label="בסריקה" value={kpis.process.inProgress.length} title="דירות בסריקה" entries={kpis.process.inProgress} />
+                <SearchApartmentKpiCard className="search-kpi-no-answer" label="אין מענה" value={kpis.process.noAnswer.length} title="דירות ללא מענה" entries={kpis.process.noAnswer} />
+                <SearchApartmentKpiCard className="search-kpi-completed" label="סריקה הושלמה" value={kpis.process.completed.length} title="דירות שהסריקה בהן הושלמה" entries={kpis.process.completed} />
+              </SearchSiteKpiRow>
+              <SearchSiteKpiRow label="ממצאים בדירות">
+                <SearchApartmentKpiCard className="search-kpi-completed" label="דירות שזוכו" value={kpis.findings.cleared.length} title="דירות שזוכו" entries={kpis.findings.cleared} />
+                <SearchApartmentKpiCard className="search-kpi-damage" label="דירות עם נזק" value={kpis.findings.damaged.length} title="דירות עם נזק" entries={kpis.findings.damaged} />
+                <SearchApartmentKpiCard className="search-kpi-danger" label="טיפול בנפגעים פתוח" value={kpis.findings.openCasualties.length} title="דירות עם טיפול פתוח בנפגעים" entries={kpis.findings.openCasualties} />
+                <SearchApartmentKpiCard className="search-kpi-completed" label="טיפול בנפגעים הסתיים" value={kpis.findings.resolvedCasualties.length} title="דירות שבהן הטיפול בנפגעים הסתיים" entries={kpis.findings.resolvedCasualties} />
+              </SearchSiteKpiRow>
+              <SearchSiteKpiRow label="תמונת נפגעים ופינוי">
+                <SearchPersonKpiCard className="search-kpi-warning" label="נפגעי חרדה" title="נפגעי חרדה" people={kpis.findings.anxiety} />
+                <SearchPersonKpiCard className="search-kpi-danger" label="נפגעי גוף" title="נפגעי גוף" people={kpis.findings.physical} />
+                <SearchPersonKpiCard className="search-kpi-danger" label="חללים" title="חללים" people={kpis.findings.deceased} />
+                <SearchPersonKpiCard className="search-kpi-warning" label="ממתינים לפינוי" title="ממתינים לפינוי" people={kpis.findings.waitingEvacuation} />
+              </SearchSiteKpiRow>
               </div>
               <Link className="button compact secondary" href={`/incidents/${incidentId}/sites/${site.id}`}>
                 פתח אתר

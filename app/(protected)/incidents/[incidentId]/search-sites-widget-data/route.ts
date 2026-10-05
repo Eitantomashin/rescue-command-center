@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeSearchUnitStatus, searchSummaryFromStatuses, type SearchUnitStatus } from "@/lib/search-site-status";
 import { isActiveSearchCasualtyPerson, isSearchCasualtyPersonStatus, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
+import { searchOperationalGapDrilldown } from "@/lib/search-population-operational-gap";
 import type { SearchSitesWidgetData, SearchSiteWidgetSite } from "../search-sites-dashboard-widget";
 
 type SearchSiteRow = {
@@ -35,6 +36,7 @@ type UnitRow = {
   zone_type: string | null;
   zone_name: string | null;
   zone_sequence: number | null;
+  known_people_count: number | null;
 };
 
 type SearchResultRow = {
@@ -59,7 +61,7 @@ type SearchCasualtyResidentRow = {
   unit_id: string;
   first_name: string | null;
   last_name: string | null;
-  requires_medical_evacuation: boolean | null;
+  requires_evacuation: boolean | null;
   evacuated_at: string | null;
   is_active: boolean;
   status_types: { status_key: string } | null;
@@ -148,7 +150,7 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       .eq("incident_id", params.incidentId),
     supabase
       .from("units")
-      .select("id,site_id,floor_id,unit_number,zone_type,zone_name,zone_sequence")
+      .select("id,site_id,floor_id,unit_number,zone_type,zone_name,zone_sequence,known_people_count")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true),
     supabase
@@ -157,10 +159,9 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       .eq("incident_id", params.incidentId)
     ,supabase
       .from("unit_residents")
-      .select("id,site_id,unit_id,first_name,last_name,requires_medical_evacuation,evacuated_at,is_active,status_types!inner(status_key)")
+      .select("id,site_id,unit_id,first_name,last_name,requires_evacuation,evacuated_at,is_active,status_types!inner(status_key)")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true)
-      .in("status_types.status_key", ["anxiety_casualty", "physical_casualty", "deceased"])
   ]);
 
   const parentNames = new Map(((allSites ?? []) as SearchSiteRow[]).map((site) => [site.id, siteName(site)]));
@@ -174,6 +175,12 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
     return map;
   }, new Map<string, UnitRow[]>());
   const unitsById = new Map(((units ?? []) as UnitRow[]).map((unit) => [unit.id, unit]));
+  const residentsByUnit = ((casualtyResidents ?? []) as unknown as SearchCasualtyResidentRow[]).reduce((grouped, resident) => {
+    const rows = grouped.get(resident.unit_id) ?? [];
+    rows.push(resident);
+    grouped.set(resident.unit_id, rows);
+    return grouped;
+  }, new Map<string, SearchCasualtyResidentRow[]>());
   const casualtyPeopleBySite = ((casualtyResidents ?? []) as unknown as SearchCasualtyResidentRow[]).reduce((grouped, resident) => {
     const unit = unitsById.get(resident.unit_id);
     const status = resident.status_types?.status_key;
@@ -188,7 +195,7 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       firstName: resident.first_name ?? "",
       lastName: resident.last_name,
       status,
-      requiresMedicalEvacuation: Boolean(resident.requires_medical_evacuation),
+      requiresEvacuation: Boolean(resident.requires_evacuation),
       evacuatedAt: resident.evacuated_at,
       casualtiesResolved: Boolean(result?.casualties_resolved)
     });
@@ -240,10 +247,24 @@ export async function GET(_request: Request, { params }: { params: { incidentId:
       initialPotential: sitePopulationById.get(site.id)?.initial_potential ?? null,
       updatedPotential: sitePopulationById.get(site.id)?.updated_potential ?? null,
       operationalGap: sitePopulationById.get(site.id)?.operational_gap ?? null,
+      operationalGapEntries: searchOperationalGapDrilldown(siteUnits.map((unit) => ({
+        unitId: unit.id,
+        siteName: siteName(site),
+        floorNumber: floorNumbers.get(unit.floor_id ?? "") ?? null,
+        unitLabel: unitLabel(unit),
+        knownPeopleCount: unit.known_people_count,
+        casualtiesResolved: Boolean(resultsByUnit.get(unit.id)?.casualties_resolved),
+        residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({
+          residentId: resident.id,
+          firstName: resident.first_name ?? "",
+          lastName: resident.last_name,
+          isActive: resident.is_active,
+          statusKey: resident.status_types?.status_key ?? null,
+          requiresEvacuation: Boolean(resident.requires_evacuation),
+          evacuatedAt: resident.evacuated_at
+        }))
+      }))).entries,
       summary: searchSummaryFromStatuses(entries.map((entry) => entry.status)),
-      anxietyCasualtiesCount: entries.reduce((sum, entry) => sum + entry.anxietyCasualtiesCount, 0),
-      physicalCasualtiesCount: entries.reduce((sum, entry) => sum + entry.physicalCasualtiesCount, 0),
-      damagedUnitsCount: entries.filter((entry) => entry.hasApartmentDamage).length,
       casualtyPeople: casualtyPeopleBySite.get(site.id) ?? [],
       entries
     };

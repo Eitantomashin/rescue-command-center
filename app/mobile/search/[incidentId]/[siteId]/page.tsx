@@ -113,7 +113,7 @@ export default async function MobileSearchSitePage({
       .eq("incident_id", params.incidentId)
       .eq("site_id", params.siteId),
     supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId })
-    ,supabase.from("unit_residents").select("id,unit_id,first_name,last_name,age,phone,notes,gender,requires_medical_evacuation,evacuated_at,status_types!inner(status_key)").eq("incident_id", params.incidentId).eq("site_id", params.siteId).eq("is_active", true)
+    ,supabase.from("unit_residents").select("id,unit_id,first_name,last_name,age,phone,notes,gender,requires_evacuation,evacuated_at,status_types!inner(status_key)").eq("incident_id", params.incidentId).eq("site_id", params.siteId).eq("is_active", true)
   ]);
 
   if (siteError || !site) {

@@ -73,7 +73,7 @@ export type MobileSearchSummary = {
   open_casualties_count?: number;
   resolved_casualties_count?: number;
 };
-export type MobileSearchResident = { id: string; unit_id: string; first_name: string | null; last_name: string | null; age: number | null; phone: string | null; notes: string | null; gender: "unknown" | "male" | "female" | null; requires_medical_evacuation: boolean | null; evacuated_at: string | null; status_key: string | null };
+export type MobileSearchResident = { id: string; unit_id: string; first_name: string | null; last_name: string | null; age: number | null; phone: string | null; notes: string | null; gender: "unknown" | "male" | "female" | null; requires_evacuation: boolean | null; evacuated_at: string | null; status_key: string | null };
 
 type MobileSearchStatus = SearchUnitStatus;
 
@@ -262,7 +262,7 @@ export function MobileSearchScanner({
       firstName: resident.first_name ?? "",
       lastName: resident.last_name,
       status: resident.status_key,
-      requiresMedicalEvacuation: Boolean(resident.requires_medical_evacuation),
+      requiresEvacuation: Boolean(resident.requires_evacuation),
       evacuatedAt: resident.evacuated_at ?? null,
       casualtiesResolved: Boolean(result?.casualties_resolved)
     } satisfies SearchCasualtyPerson] : []);
@@ -373,7 +373,7 @@ export function MobileSearchScanner({
                   const status = effectiveSearchStatus(result);
                   const tone = searchUnitTone(status);
 
-                  return <SearchUnitCard key={unit.id} incidentId={site.incident_id} siteId={site.id} unitId={unit.id} label={unitDisplayLabel(unit)} floor={floor.floor_number} canEdit={canEdit} returnSurface="mobile" initial={{ knownPeopleCount: unit.known_people_count, damage: Boolean(result?.has_apartment_damage), damageNotes: result?.apartment_damage_notes ?? null, notes: result?.notes ?? null, status: status, hadCasualties: hasCasualtyFinding(result) || Boolean(result?.casualties_resolved), residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({ id: resident.id, first_name: resident.first_name ?? "", last_name: resident.last_name ?? "", age: resident.age?.toString() ?? "", phone: resident.phone ?? "", notes: resident.notes ?? "", gender: resident.gender ?? "unknown", ...normalizeResidentStatus(resident.status_key, Boolean(resident.requires_medical_evacuation)), evacuated_at: resident.evacuated_at ?? null })) }} />;
+                  return <SearchUnitCard key={unit.id} incidentId={site.incident_id} siteId={site.id} unitId={unit.id} label={unitDisplayLabel(unit)} floor={floor.floor_number} canEdit={canEdit} returnSurface="mobile" initial={{ knownPeopleCount: unit.known_people_count, damage: Boolean(result?.has_apartment_damage), damageNotes: result?.apartment_damage_notes ?? null, notes: result?.notes ?? null, status: status, hadCasualties: hasCasualtyFinding(result) || Boolean(result?.casualties_resolved), residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({ id: resident.id, first_name: resident.first_name ?? "", last_name: resident.last_name ?? "", age: resident.age?.toString() ?? "", phone: resident.phone ?? "", notes: resident.notes ?? "", gender: resident.gender ?? "unknown", ...normalizeResidentStatus(resident.status_key, Boolean(resident.requires_evacuation)), evacuated_at: resident.evacuated_at ?? null })) }} />;
                 })}
               </div>
             </details>

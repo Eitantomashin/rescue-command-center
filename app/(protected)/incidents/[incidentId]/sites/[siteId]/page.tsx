@@ -132,7 +132,7 @@ type ResidentRow = {
   linked_person_id: string | null;
   is_active: boolean;
   notes: string | null;
-  requires_medical_evacuation?: boolean | null;
+  requires_evacuation?: boolean | null;
   evacuated_at?: string | null;
   status_key?: string | null;
 };
@@ -801,7 +801,7 @@ function SearchSiteMobileWorkflow({
       firstName: resident.first_name ?? "",
       lastName: resident.last_name,
       status: resident.status_key,
-      requiresMedicalEvacuation: Boolean(resident.requires_medical_evacuation),
+      requiresEvacuation: Boolean(resident.requires_evacuation),
       evacuatedAt: resident.evacuated_at ?? null,
       casualtiesResolved: Boolean(result?.casualties_resolved)
     } satisfies SearchCasualtyPerson] : []);
@@ -879,7 +879,7 @@ function SearchSiteMobileWorkflow({
                   const status = effectiveSearchStatus(result);
                   const tone = searchUnitTone(status);
 
-                  return <SearchUnitCard key={unit.id} incidentId={incidentId} siteId={site.id} unitId={unit.id} label={unitDisplayLabel(unit)} floor={floor.floor_number} canEdit={canEdit} returnSurface="protected" initial={{ knownPeopleCount: unit.known_people_count, damage: Boolean(result?.has_apartment_damage), damageNotes: result?.apartment_damage_notes ?? null, notes: result?.notes ?? null, status, hadCasualties: hasSearchCasualtyFinding(result) || Boolean(result?.casualties_resolved), residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({ id: resident.id, first_name: resident.first_name ?? "", last_name: resident.last_name ?? "", age: resident.age?.toString() ?? "", phone: resident.phone ?? "", notes: resident.notes ?? "", gender: resident.gender ?? "unknown", ...normalizeResidentStatus(resident.status_key, Boolean(resident.requires_medical_evacuation)), evacuated_at: resident.evacuated_at ?? null })) }} />;
+                  return <SearchUnitCard key={unit.id} incidentId={incidentId} siteId={site.id} unitId={unit.id} label={unitDisplayLabel(unit)} floor={floor.floor_number} canEdit={canEdit} returnSurface="protected" initial={{ knownPeopleCount: unit.known_people_count, damage: Boolean(result?.has_apartment_damage), damageNotes: result?.apartment_damage_notes ?? null, notes: result?.notes ?? null, status, hadCasualties: hasSearchCasualtyFinding(result) || Boolean(result?.casualties_resolved), residents: (residentsByUnit.get(unit.id) ?? []).map((resident) => ({ id: resident.id, first_name: resident.first_name ?? "", last_name: resident.last_name ?? "", age: resident.age?.toString() ?? "", phone: resident.phone ?? "", notes: resident.notes ?? "", gender: resident.gender ?? "unknown", ...normalizeResidentStatus(resident.status_key, Boolean(resident.requires_evacuation)), evacuated_at: resident.evacuated_at ?? null })) }} />;
                 })}
               </div>
             </details>
@@ -955,7 +955,7 @@ export default async function SiteDetailsPage({
       supabase.rpc("can_edit_search_site_data", { p_incident_id: params.incidentId }),
       supabase.rpc("can_edit_operational_data", { p_incident_id: params.incidentId }),
       supabase.rpc("current_user_role"),
-      supabase.from("unit_residents").select("id,unit_id,first_name,last_name,gender,age,phone,notes,is_active,requires_medical_evacuation,evacuated_at,status_types!inner(status_key)").eq("incident_id", params.incidentId).eq("site_id", params.siteId).eq("is_active", true)
+      supabase.from("unit_residents").select("id,unit_id,first_name,last_name,gender,age,phone,notes,is_active,requires_evacuation,evacuated_at,status_types!inner(status_key)").eq("incident_id", params.incidentId).eq("site_id", params.siteId).eq("is_active", true)
     ]);
 
     if (floorsError || unitsError) {

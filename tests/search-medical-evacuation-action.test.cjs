@@ -12,10 +12,10 @@ test("evacuation action uses only the installed secure RPC and returns a safe st
   assert.match(action, /supabase\.rpc\("mark_search_resident_evacuated", \{ p_resident_id: residentId \}\)/);
   assert.match(action, /MarkSearchResidentEvacuatedResult/);
   assert.doesNotMatch(action, /from\("unit_residents"\)\.update/);
-  assert.match(action, /לא ניתן היה לעדכן את הפינוי הרפואי/);
+  assert.match(action, /לא ניתן היה לעדכן את הפינוי/);
 });
 
-test("shared drilldown offers evacuation only to editable waiting physical casualties", () => {
+test("shared drilldown offers evacuation to every editable waiting casualty", () => {
   assert.match(kpi, /canMarkEvacuated && evacuation === "waiting"/);
   assert.match(kpi, /window\.confirm/);
   assert.match(kpi, /markSearchResidentEvacuated\(person\.residentId\)/);
@@ -31,4 +31,6 @@ test("card displays structured evacuation state, locks evacuation requirement af
   assert.match(action, /const \{ evacuated_at: _evacuatedAt, \.\.\.residentData \} = row/);
   assert.match(casualty, /timeZone: "Asia\/Jerusalem"/);
   assert.match(casualty, /hour: "2-digit", minute: "2-digit"/);
+  assert.match(card, /\["anxiety_casualty", "physical_casualty", "deceased"\]/);
+  assert.match(card, /נדרש פינוי\?/);
 });

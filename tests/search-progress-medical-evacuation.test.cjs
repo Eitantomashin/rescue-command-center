@@ -38,12 +38,12 @@ test('process partition covers all valid statuses and findings remain independen
   assert.equal(status.isResolvedSearchCasualtyUnit('casualties', true), true);
 });
 
-test('canonical evacuation state only applies to physical casualties requiring evacuation', () => {
+test('canonical evacuation state applies to every casualty requiring evacuation', () => {
   const base = { residentId: 'r', unitId: 'u', floorNumber: 1, unitNumber: '1', firstName: '', lastName: null, casualtiesResolved: false };
-  assert.equal(casualty.searchMedicalEvacuationState({ ...base, status: 'physical_casualty', requiresMedicalEvacuation: true, evacuatedAt: null }), 'waiting');
-  assert.equal(casualty.searchMedicalEvacuationState({ ...base, status: 'physical_casualty', requiresMedicalEvacuation: true, evacuatedAt: '2026-10-04T10:00:00Z' }), 'evacuated');
-  assert.equal(casualty.searchMedicalEvacuationState({ ...base, status: 'physical_casualty', requiresMedicalEvacuation: false, evacuatedAt: null }), 'not_required');
-  assert.equal(casualty.searchMedicalEvacuationState({ ...base, status: 'anxiety_casualty', requiresMedicalEvacuation: true, evacuatedAt: null }), 'not_required');
+  assert.equal(casualty.searchEvacuationState({ ...base, status: 'physical_casualty', requiresEvacuation: true, evacuatedAt: null }), 'waiting');
+  assert.equal(casualty.searchEvacuationState({ ...base, status: 'physical_casualty', requiresEvacuation: true, evacuatedAt: '2026-10-04T10:00:00Z' }), 'evacuated');
+  assert.equal(casualty.searchEvacuationState({ ...base, status: 'physical_casualty', requiresEvacuation: false, evacuatedAt: null }), 'not_required');
+  assert.equal(casualty.searchEvacuationState({ ...base, status: 'anxiety_casualty', requiresEvacuation: true, evacuatedAt: null }), 'waiting');
 });
 
 test('migration persists in-progress work, preserves evacuation history, and makes evacuation audited and idempotent', () => {

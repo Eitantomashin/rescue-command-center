@@ -6,7 +6,7 @@ import {
   searchProcessCategory,
   type SearchUnitStatus
 } from "@/lib/search-site-status";
-import { searchMedicalEvacuationState, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
+import { searchEvacuationState, type SearchCasualtyPerson } from "@/lib/search-casualty-person";
 
 export type SearchOperationalUnit = {
   unitId: string;
@@ -36,7 +36,7 @@ export function searchOperationalKpiCollections<T extends SearchOperationalUnit>
       anxiety: people.filter((person) => person.status === "anxiety_casualty"),
       physical: people.filter((person) => person.status === "physical_casualty"),
       deceased: people.filter((person) => person.status === "deceased"),
-      waitingEvacuation: people.filter((person) => searchMedicalEvacuationState(person) === "waiting")
+      waitingEvacuation: people.filter((person) => searchEvacuationState(person) === "waiting")
     }
   };
 }

@@ -10,12 +10,12 @@ export type SearchCasualtyPerson = {
   firstName: string;
   lastName: string | null;
   status: SearchCasualtyPersonStatus;
-  requiresMedicalEvacuation: boolean;
+  requiresEvacuation: boolean;
   evacuatedAt?: string | null;
   casualtiesResolved: boolean;
 };
 
-export type SearchMedicalEvacuationState = "not_required" | "waiting" | "evacuated";
+export type SearchEvacuationState = "not_required" | "waiting" | "evacuated";
 
 export function isSearchCasualtyPersonStatus(status: unknown): status is SearchCasualtyPersonStatus {
   return typeof status === "string" && (SEARCH_CASUALTY_PERSON_STATUSES as readonly string[]).includes(status);
@@ -33,8 +33,8 @@ export function searchCasualtyPersonTreatmentLabel(casualtiesResolved: boolean) 
   return casualtiesResolved ? "הטיפול הסתיים" : "טיפול פתוח";
 }
 
-export function searchMedicalEvacuationState(person: Pick<SearchCasualtyPerson, "status" | "requiresMedicalEvacuation" | "evacuatedAt">): SearchMedicalEvacuationState {
-  if (person.status !== "physical_casualty" || !person.requiresMedicalEvacuation) return "not_required";
+export function searchEvacuationState(person: Pick<SearchCasualtyPerson, "status" | "requiresEvacuation" | "evacuatedAt">): SearchEvacuationState {
+  if (!person.requiresEvacuation) return "not_required";
   return person.evacuatedAt ? "evacuated" : "waiting";
 }
 
