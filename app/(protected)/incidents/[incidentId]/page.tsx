@@ -16,6 +16,7 @@ import { CloseIncidentForm } from "./close-incident-form";
 import type { PersonnelTeamItem } from "./personnel-team-drilldown";
 import { SearchSitesDashboardWidget, type SearchSitesWidgetData } from "./search-sites-dashboard-widget";
 import { searchOperationalGapDrilldown } from "@/lib/search-population-operational-gap";
+import { commanderMissingUnknownResidents } from "@/lib/commander-missing-unknown";
 import {
   ATTENDANCE_STATUSES,
   PERSONNEL_DEPARTMENTS,
@@ -188,6 +189,11 @@ type ResidentRow = {
   status_id: string | null;
   linked_person_id: string | null;
   is_active: boolean;
+  notes: string | null;
+  gender: string | null;
+  age: number | null;
+  phone: string | null;
+  requires_medical_evacuation: boolean | null;
   requires_evacuation: boolean | null;
   evacuated_at: string | null;
 };
@@ -600,7 +606,7 @@ export default async function IncidentDashboardPage({
       .eq("is_active", true),
     supabase
       .from("unit_residents")
-      .select("id,site_id,unit_id,first_name,last_name,status_id,linked_person_id,is_active,requires_evacuation,evacuated_at")
+      .select("id,site_id,unit_id,first_name,last_name,status_id,linked_person_id,is_active,requires_evacuation,evacuated_at,notes,gender,age,phone,requires_medical_evacuation")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true),
     supabase
@@ -762,6 +768,37 @@ export default async function IncidentDashboardPage({
   const activeOperationalPersonIds = new Set(operationalNumbers.map((person) => person.person_id));
   const floorsById = new Map(floors.map((floor) => [floor.id, floor]));
   const unitsById = new Map(units.map((unit) => [unit.id, unit]));
+  const missingUnknownResidents = commanderMissingUnknownResidents({
+    residents: residents.map((resident) => ({
+      id: resident.id,
+      siteId: resident.site_id,
+      firstName: resident.first_name,
+      lastName: resident.last_name,
+      statusKey: resident.status_id ? residentStatuses.get(resident.status_id)?.status_key ?? null : null,
+      linkedPersonId: resident.linked_person_id,
+      isActive: resident.is_active,
+      notes: resident.notes,
+      gender: resident.gender,
+      age: resident.age,
+      phone: resident.phone,
+      requiresMedicalEvacuation: resident.requires_medical_evacuation
+    })),
+    nonMergedPersonIds: activeOperationalPersonIds,
+    searchSiteIds
+  }).map((resident) => {
+    const source = residents.find((candidate) => candidate.id === resident.id)!;
+    const unit = source.unit_id ? unitsById.get(source.unit_id) ?? null : null;
+    return {
+      residentId: source.id,
+      siteId: source.site_id,
+      firstName: source.first_name,
+      lastName: source.last_name,
+      floorNumber: unit?.floor_id ? floorsById.get(unit.floor_id)?.floor_number ?? null : null,
+      unitNumber: unit?.unit_number ?? null,
+      phone: source.phone,
+      notes: source.notes
+    };
+  });
   const searchCasualtyPeopleBySite = residents.reduce((grouped, resident) => {
     const unit = resident.unit_id ? unitsById.get(resident.unit_id) : null;
     const status = resident.status_id ? residentStatuses.get(resident.status_id)?.status_key : null;
@@ -1125,6 +1162,7 @@ export default async function IncidentDashboardPage({
         latestSitrepAt={latestSitrep?.created_at ?? null}
         sites={siteAnalysisRows}
         operationalNumbers={dashboardScopeOperationalNumbers}
+        missingUnknownResidents={missingUnknownResidents}
         personnelTeams={personnelTeamItems}
       />
 

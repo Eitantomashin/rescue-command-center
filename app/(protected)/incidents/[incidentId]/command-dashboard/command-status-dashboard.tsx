@@ -8,10 +8,12 @@ import { loadOperationalPersonCommandTimeline, type CommandTimelineEvent } from 
 
 export type CommandStatusDefinition = { id: string; label: string; tone: string; icon?: string };
 export type CommandStatusRow = {
-  personId: string;
+  id?: string;
+  entityType?: "person" | "resident";
+  personId: string | null;
   statusId: string;
   statusLabel: string;
-  operationalNumber: number;
+  operationalNumber: number | null;
   name: string | null;
   siteName: string | null;
   floorApartment: string | null;
@@ -86,7 +88,7 @@ export function StatusOverviewCards({ statuses, rows, selectedStatusId, onSelect
   );
 }
 
-export function StatusDrilldownTable({ title, rows, selectedPersonId, onClose, onDetails }: { title: string; rows: CommandStatusRow[]; selectedPersonId: string | null; onClose: () => void; onDetails: (row: CommandStatusRow) => void }) {
+export function StatusDrilldownTable({ title, rows, selectedRowId, onClose, onDetails }: { title: string; rows: CommandStatusRow[]; selectedRowId: string | null; onClose: () => void; onDetails: (row: CommandStatusRow) => void }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("number");
   const normalizedQuery = query.trim().toLocaleLowerCase("he");
@@ -95,7 +97,7 @@ export function StatusDrilldownTable({ title, rows, selectedPersonId, onClose, o
       ? rows.filter((row) => [row.operationalNumber, row.name, row.siteName, row.floorApartment, row.assignedTeam, row.statusLabel].join(" ").toLocaleLowerCase("he").includes(normalizedQuery))
       : rows;
     return Array.from(next).sort((a, b) => {
-      if (sortKey === "number") return a.operationalNumber - b.operationalNumber;
+      if (sortKey === "number") return (a.operationalNumber ?? Number.MAX_SAFE_INTEGER) - (b.operationalNumber ?? Number.MAX_SAFE_INTEGER);
       if (sortKey === "updated") return compareNullableDate(a.lastUpdatedAt, b.lastUpdatedAt);
       const av = sortKey === "name" ? text(a.name) : sortKey === "site" ? text(a.siteName) : text(a.assignedTeam);
       const bv = sortKey === "name" ? text(b.name) : sortKey === "site" ? text(b.siteName) : text(b.assignedTeam);
@@ -121,14 +123,14 @@ export function StatusDrilldownTable({ title, rows, selectedPersonId, onClose, o
           <thead><tr><th>{"\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"}</th><th>{"\u05e9\u05dd"}</th><th>{"\u05d0\u05ea\u05e8"}</th><th>{"\u05e7\u05d5\u05de\u05d4 / \u05d3\u05d9\u05e8\u05d4"}</th><th>{"\u05e9\u05d9\u05d5\u05da"}</th><th>{"\u05d6\u05de\u05df \u05e2\u05d3\u05db\u05d5\u05df \u05d0\u05d7\u05e8\u05d5\u05df"}</th><th className="command-action-col">{"\u05e4\u05e2\u05d5\u05dc\u05d4"}</th></tr></thead>
           <tbody>
             {filteredRows.length ? filteredRows.map((row) => (
-              <tr key={row.personId} className={selectedPersonId === row.personId ? "selected-row" : ""}>
-                <td data-label="\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"><strong>#{formatNumber(row.operationalNumber)}</strong></td>
+              <tr key={row.id ?? row.personId ?? row.name ?? "unknown"} className={selectedRowId === (row.id ?? row.personId) ? "selected-row" : ""}>
+                <td data-label="\u05de\u05e1\u05e4\u05e8 \u05de\u05d1\u05e6\u05e2\u05d9"><strong>{row.operationalNumber === null ? "ללא מספר" : `#${formatNumber(row.operationalNumber)}`}</strong></td>
                 <td data-label="\u05e9\u05dd">{text(row.name)}</td>
                 <td data-label="\u05d0\u05ea\u05e8">{text(row.siteName)}</td>
                 <td data-label="\u05e7\u05d5\u05de\u05d4 / \u05d3\u05d9\u05e8\u05d4">{text(row.floorApartment)}</td>
                 <td data-label="\u05e9\u05d9\u05d5\u05da">{text(row.assignedTeam)}</td>
                 <td data-label="\u05e2\u05d3\u05db\u05d5\u05df \u05d0\u05d7\u05e8\u05d5\u05df">{row.lastUpdatedAt ? formatDateTime(row.lastUpdatedAt) : "\u2014"}</td>
-                <td className="command-action-cell"><button className="small-action-button command-details-button" type="button" onClick={() => onDetails(row)}>{"\u05e6\u05e4\u05d4 \u05d1\u05e4\u05e8\u05d8\u05d9\u05dd"}</button></td>
+                <td className="command-action-cell">{row.entityType === "resident" ? (row.siteHref ? <Link className="small-action-button command-details-button" href={row.siteHref}>תמונת מבנה</Link> : "—") : <button className="small-action-button command-details-button" type="button" onClick={() => onDetails(row)}>{"\u05e6\u05e4\u05d4 \u05d1\u05e4\u05e8\u05d8\u05d9\u05dd"}</button>}</td>
               </tr>
             )) : <tr><td colSpan={7}>No casualties in this status.</td></tr>}
           </tbody>
@@ -175,6 +177,7 @@ export function CommandStatusDashboard({ statuses, rows, initialStatusId = null,
   }
 
   function openDetails(row: CommandStatusRow) {
+    if (!row.personId) return;
     setSelectedRow(row);
     setTimeline([]);
     startTransition(async () => {
@@ -188,7 +191,7 @@ export function CommandStatusDashboard({ statuses, rows, initialStatusId = null,
       {selectedStatus ? (
         <div className="command-dashboard-main">
           <CasualtyDetailsDrawer row={selectedRow} timeline={timeline} loading={isPending} onClose={() => setSelectedRow(null)} />
-          <StatusDrilldownTable title={`${selectedStatus.label} (${formatNumber(selectedRows.length)})`} rows={selectedRows} selectedPersonId={selectedRow?.personId ?? null} onClose={closeDrilldown} onDetails={openDetails} />
+          <StatusDrilldownTable title={`${selectedStatus.label} (${formatNumber(selectedRows.length)})`} rows={selectedRows} selectedRowId={selectedRow?.id ?? null} onClose={closeDrilldown} onDetails={openDetails} />
         </div>
       ) : null}
     </div>

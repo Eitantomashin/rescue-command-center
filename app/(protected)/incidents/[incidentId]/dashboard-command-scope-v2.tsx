@@ -31,6 +31,17 @@ export type DashboardScopeOperationalNumber = {
   mergedOperationalNumbers?: number[] | null;
 };
 
+export type DashboardScopeMissingUnknownResident = {
+  residentId: string;
+  siteId: string;
+  firstName: string | null;
+  lastName: string | null;
+  floorNumber: number | null;
+  unitNumber: string | null;
+  phone: string | null;
+  notes: string | null;
+};
+
 type CommandKpi = {
   id: string;
   label: string;
@@ -180,10 +191,12 @@ function floorApartmentLabel(person: DashboardScopeOperationalNumber) {
   return parts.join(" / ") || null;
 }
 
-function statusDashboardRows(incidentId: string, operationalNumbers: DashboardScopeOperationalNumber[], sitesById: Map<string, SiteAnalysisRow>): CommandStatusRow[] {
-  return operationalNumbers.map((person) => {
+function statusDashboardRows(incidentId: string, operationalNumbers: DashboardScopeOperationalNumber[], missingUnknownResidents: DashboardScopeMissingUnknownResident[], sitesById: Map<string, SiteAnalysisRow>): CommandStatusRow[] {
+  const personRows = operationalNumbers.map((person) => {
     const site = person.siteId ? sitesById.get(person.siteId) : null;
     return {
+      id: `person:${person.personId}`,
+      entityType: "person" as const,
       personId: person.personId,
       statusId: person.dashboardStatusGroup ?? "missing_unknown",
       statusLabel: person.latestReportStatusLabel?.trim() || person.currentStatusLabel?.trim() || person.currentStatusKey?.trim() || "\u05dc\u05d0 \u05d9\u05d3\u05d5\u05e2",
@@ -200,6 +213,33 @@ function statusDashboardRows(incidentId: string, operationalNumbers: DashboardSc
       operationalNumberHref: site ? site.operationalNumbersHref + "?personId=" + person.personId : null
     };
   });
+  const residentRows = missingUnknownResidents.map((resident) => {
+    const site = sitesById.get(resident.siteId);
+    const name = [resident.firstName, resident.lastName].filter(Boolean).join(" ").trim();
+    const floorApartment = [
+      resident.floorNumber !== null ? `קומה ${resident.floorNumber}` : null,
+      resident.unitNumber ? `דירה ${resident.unitNumber}` : null
+    ].filter(Boolean).join(" / ") || null;
+    return {
+      id: `resident:${resident.residentId}`,
+      entityType: "resident" as const,
+      personId: null,
+      statusId: "missing_unknown",
+      statusLabel: "נעדר / לא ידוע",
+      operationalNumber: null,
+      name: name || "דייר ללא שם",
+      siteName: site?.name ?? null,
+      floorApartment,
+      assignedTeam: null,
+      lastUpdatedAt: null,
+      phone: resident.phone,
+      notes: resident.notes,
+      siteHref: site?.structureHref ?? null,
+      teamHref: null,
+      operationalNumberHref: null
+    };
+  });
+  return [...personRows, ...residentRows];
 }
 
 export function DashboardCommandScope({
@@ -209,6 +249,7 @@ export function DashboardCommandScope({
   latestSitrepAt,
   sites,
   operationalNumbers,
+  missingUnknownResidents,
   personnelTeams
 }: {
   incidentId: string;
@@ -217,6 +258,7 @@ export function DashboardCommandScope({
   latestSitrepAt: string | null;
   sites: SiteAnalysisRow[];
   operationalNumbers: DashboardScopeOperationalNumber[];
+  missingUnknownResidents: DashboardScopeMissingUnknownResident[];
   personnelTeams: PersonnelTeamItem[];
 }) {
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
@@ -226,6 +268,9 @@ export function DashboardCommandScope({
   const visibleOperationalNumbers = selectedSite
     ? operationalNumbers.filter((person) => person.siteId === selectedSite.siteId)
     : operationalNumbers;
+  const visibleMissingUnknownResidents = selectedSite
+    ? missingUnknownResidents.filter((resident) => resident.siteId === selectedSite.siteId)
+    : missingUnknownResidents;
   const visiblePersonIds = useMemo(
     () => new Set(visibleOperationalNumbers.map((person) => person.personId)),
     [visibleOperationalNumbers]
@@ -240,7 +285,7 @@ export function DashboardCommandScope({
   const visiblePersonnelTeams = scopedTeams(personnelTeams, visiblePersonIds);
   const visibleMergedGroups = mergedNumberGroups(visibleOperationalNumbers);
   const sitesById = useMemo(() => new Map(sites.map((site) => [site.siteId, site])), [sites]);
-  const anchorRows = statusDashboardRows(incidentId, visibleOperationalNumbers, sitesById);
+  const anchorRows = statusDashboardRows(incidentId, visibleOperationalNumbers, visibleMissingUnknownResidents, sitesById);
   const clockParts = activityClockParts(now, openedAt);
   const kpis: CommandKpi[] = [
     {
