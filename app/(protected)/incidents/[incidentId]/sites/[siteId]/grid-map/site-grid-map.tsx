@@ -298,20 +298,9 @@ function statusLabel(status: string | null) {
   return SECTOR_STATUSES.find(([value]) => value === status)?.[1] ?? "פתוחה";
 }
 
-function sectorVisualColor(sector: MapObject, scannedLayerEnabled: boolean) {
-  if (!scannedLayerEnabled) {
-    return sector.color ?? "#2563eb";
-  }
-
-  if (sector.operationalStatus === "completed" || sector.operationalStatus === "scanned") {
-    return "#2E7D32";
-  }
-
-  if (sector.operationalStatus === "searching") {
-    return "#F9A825";
-  }
-
-  return sector.color ?? "#64748b";
+function sectorVisualColor(sector: MapObject) {
+  const color = sector.color?.trim();
+  return SECTOR_COLORS.some((option) => option.value === color) ? color : "#2563eb";
 }
 
 function pointerPercent(event: MouseEvent<Element>) {
@@ -609,7 +598,7 @@ export function SiteGridMap({
               {layers.sectors ? sectors.map((sector) => {
                 const points = pointsFromGeometry(sector.geometry);
                 const cells = cellsFromGeometry(sector.geometry);
-                const color = sectorVisualColor(sector, layers.scanned);
+                const color = sectorVisualColor(sector);
                 const isSelected = selectedObjectId === sector.id;
                 return (
                   <g key={sector.id} onClick={(event) => { event.stopPropagation(); openExistingObject(sector); }}>
@@ -624,7 +613,7 @@ export function SiteGridMap({
                           height={rect.height}
                           fill={color}
                           opacity={isSelected ? "0.34" : "0.24"}
-                          stroke={isSelected ? "#ffffff" : color}
+                          stroke={color}
                           strokeWidth={isSelected ? "1.1" : "0.4"}
                         />
                       ) : null;
@@ -634,7 +623,7 @@ export function SiteGridMap({
                         points={polygonString(points)}
                         fill={color}
                         opacity={isSelected ? "0.34" : "0.24"}
-                        stroke={isSelected ? "#ffffff" : color}
+                        stroke={color}
                         strokeWidth={isSelected ? "1.2" : "0.7"}
                       />
                     ) : null}
@@ -671,7 +660,7 @@ export function SiteGridMap({
             </svg>
             {layers.sectors ? sectors.map((sector) => {
               const position = sectorLabelPosition(sector);
-              const color = sectorVisualColor(sector, layers.scanned);
+              const color = sectorVisualColor(sector);
               return position ? (
                 <button
                   className={`sector-map-label${selectedObjectId === sector.id ? " selected" : ""}`}
