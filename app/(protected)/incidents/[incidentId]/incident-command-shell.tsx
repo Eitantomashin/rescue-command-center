@@ -23,10 +23,10 @@ export type IncidentShellSite = {
   city: string | null;
   street: string | null;
   house_number: string | null;
-  updated_potential: number;
+  updated_potential: number | null;
   active_operational_numbers_count?: number | null;
   gap_resolved_count?: number | null;
-  operational_gap: number;
+  operational_gap: number | null;
   site_type?: string | null;
   search_status?: string | null;
 };
@@ -88,6 +88,10 @@ function gapLevel(updatedPotential: number, activeOperationalNumbers: number) {
 }
 
 function siteGapLevel(site: IncidentShellSite) {
+  if (site.operational_gap === null || site.updated_potential === null) {
+    return "unknown";
+  }
+
   if (site.operational_gap <= 0) {
     return "low";
   }
@@ -333,7 +337,7 @@ export function IncidentCommandShell({
                       <span className="nav-badge-stack">
                         <span className={`nav-badge site-type-badge ${searchSite ? "search-site" : "rescue-site"}`}>{siteTypeLabel(site.site_type)}</span>
                         {searchSite ? <span className="nav-badge search-status-badge">{searchStatusLabel(site.search_status)}</span> : null}
-                        {site.operational_gap > 0 ? <span className="nav-badge danger">{"\u05e4\u05e2\u05e8"} {formatNumber(site.operational_gap)}</span> : null}
+                        {site.operational_gap !== null && site.operational_gap > 0 ? <span className="nav-badge danger">{"\u05e4\u05e2\u05e8"} {formatNumber(site.operational_gap)}</span> : null}
                       </span>
                     </span>
                   </summary>

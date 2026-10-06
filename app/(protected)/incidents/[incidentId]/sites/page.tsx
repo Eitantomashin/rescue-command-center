@@ -19,15 +19,15 @@ type SiteRow = {
   street: string;
   house_number: string;
   site_status_label: string | null;
-  initial_potential: number;
-  updated_potential: number;
-  total_active_units: number;
-  fully_cleared_units: number;
-  open_units: number;
-  open_persons: number;
-  gap_resolved_count: number;
-  resolved_persons: number;
-  operational_gap: number;
+  initial_potential: number | null;
+  updated_potential: number | null;
+  total_active_units: number | null;
+  fully_cleared_units: number | null;
+  open_units: number | null;
+  open_persons: number | null;
+  gap_resolved_count: number | null;
+  resolved_persons: number | null;
+  operational_gap: number | null;
   site_type?: string | null;
   search_status?: string | null;
   search_reason?: string | null;
@@ -56,9 +56,10 @@ export default async function SitesPage({
     supabase.from("site_dashboard_summary").select("*").eq("incident_id", params.incidentId).order("site_number", { ascending: true }),
     supabase
       .from("sites")
-      .select("id,site_type,search_status,search_reason,search_priority")
+      .select("id,site_number,name,city,street,house_number,site_type,search_status,search_reason,search_priority")
       .eq("incident_id", params.incidentId)
-      .eq("is_active", true),
+      .eq("is_active", true)
+      .order("site_number", { ascending: true }),
     supabase
       .from("imported_site_residents")
       .select("id,site_id,floor,apartment,first_name,last_name,gender,age,phone,notes,linked_resident_id")
@@ -70,24 +71,45 @@ export default async function SitesPage({
     supabase.rpc("current_user_role")
   ]);
 
-  const siteMetadata = new Map(
-    (
-      (siteMetadataRows ?? []) as Array<{
-        id: string;
-        site_type: string | null;
-        search_status: string | null;
-        search_reason: string | null;
-        search_priority: string | null;
-      }>
-    ).map((site) => [site.id, site])
-  );
-  const sites = ((data ?? []) as SiteRow[]).map((site) => ({
-    ...site,
-    site_type: siteMetadata.get(site.site_id)?.site_type ?? "rescue_site",
-    search_status: siteMetadata.get(site.site_id)?.search_status ?? null,
-    search_reason: siteMetadata.get(site.site_id)?.search_reason ?? null,
-    search_priority: siteMetadata.get(site.site_id)?.search_priority ?? null
-  }));
+  const siteMetadataRowsTyped = (siteMetadataRows ?? []) as Array<{
+    id: string;
+    site_number: number;
+    name: string | null;
+    city: string | null;
+    street: string;
+    house_number: string;
+    site_type: string | null;
+    search_status: string | null;
+    search_reason: string | null;
+    search_priority: string | null;
+  }>;
+  const summaryBySite = new Map(((data ?? []) as SiteRow[]).map((site) => [site.site_id, site]));
+  const sites: SiteRow[] = siteMetadataRowsTyped.map((site) => {
+    const summarySite = error ? undefined : summaryBySite.get(site.id);
+    return {
+      incident_id: params.incidentId,
+      site_id: site.id,
+      site_number: site.site_number,
+      name: site.name,
+      city: site.city,
+      street: site.street,
+      house_number: site.house_number,
+      site_status_label: summarySite?.site_status_label ?? null,
+      initial_potential: summarySite?.initial_potential ?? null,
+      updated_potential: summarySite?.updated_potential ?? null,
+      total_active_units: summarySite?.total_active_units ?? null,
+      fully_cleared_units: summarySite?.fully_cleared_units ?? null,
+      open_units: summarySite?.open_units ?? null,
+      open_persons: summarySite?.open_persons ?? null,
+      gap_resolved_count: summarySite?.gap_resolved_count ?? null,
+      resolved_persons: summarySite?.resolved_persons ?? null,
+      operational_gap: summarySite?.operational_gap ?? null,
+      site_type: site.site_type ?? "rescue_site",
+      search_status: site.search_status,
+      search_reason: site.search_reason,
+      search_priority: site.search_priority
+    };
+  });
   const siteLabelById = new Map(
     sites.map((site) => [
       site.site_id,
@@ -127,8 +149,8 @@ export default async function SitesPage({
       </div>
 
       {error ? (
-        <section className="panel">
-          <p className="error">לא ניתן לטעון אתרים: {error.message}</p>
+        <section className="panel warning-text">
+          <p>לא ניתן לטעון כרגע את נתוני הסיכום המבצעיים. רשימת האתרים מוצגת ללא נתוני KPI.</p>
         </section>
       ) : null}
 
@@ -194,16 +216,16 @@ export default async function SitesPage({
                   </td>
                   <td>{site.site_status_label ?? "-"}</td>
                   <td>
-                    {formatNumber(site.initial_potential)} /{" "}
-                    {formatNumber(site.updated_potential)}
+                    {site.initial_potential === null ? "—" : formatNumber(site.initial_potential)} /{" "}
+                    {site.updated_potential === null ? "—" : formatNumber(site.updated_potential)}
                   </td>
-                  <td>{formatNumber(site.open_units)}</td>
+                  <td>{site.open_units === null ? "—" : formatNumber(site.open_units)}</td>
                   <td>
-                    {formatNumber(site.fully_cleared_units)} /{" "}
-                    {formatNumber(site.total_active_units)}
+                    {site.fully_cleared_units === null ? "—" : formatNumber(site.fully_cleared_units)} /{" "}
+                    {site.total_active_units === null ? "—" : formatNumber(site.total_active_units)}
                   </td>
-                  <td>{formatNumber(site.gap_resolved_count)}</td>
-                  <td className="table-emphasis">{formatNumber(site.operational_gap)}</td>
+                  <td>{site.gap_resolved_count === null ? "—" : formatNumber(site.gap_resolved_count)}</td>
+                  <td className="table-emphasis">{site.operational_gap === null ? "—" : formatNumber(site.operational_gap)}</td>
                   <td>
                     <div className="site-list-actions">
                     <Link

@@ -21,10 +21,10 @@ type SiteRow = {
   city: string | null;
   street: string | null;
   house_number: string | null;
-  updated_potential: number;
+  updated_potential: number | null;
   active_operational_numbers_count?: number | null;
   gap_resolved_count?: number | null;
-  operational_gap: number;
+  operational_gap: number | null;
   site_type?: string | null;
   search_status?: string | null;
 };
@@ -55,7 +55,7 @@ export default async function IncidentLayout({
       data: { user }
     },
     { data: incident, error: incidentError },
-    { data: sites },
+    { data: sites, error: sitesError },
     { data: siteMetadataRows },
     { data: summary },
     { data: currentRole },
@@ -73,7 +73,8 @@ export default async function IncidentLayout({
       .from("sites")
       .select("id,site_number,name,city,street,house_number,site_type,search_status")
       .eq("incident_id", params.incidentId)
-      .eq("is_active", true),
+      .eq("is_active", true)
+      .order("site_number", { ascending: true }),
     supabase
       .from("incident_dashboard_summary")
       .select("updated_potential,active_operational_numbers_count,gap_resolved_count,operational_gap,total_sites,active_teams,operational_numbers_rescued_count,operational_numbers_evacuated_count,operational_numbers_located_outside_site_count,operational_numbers_deceased_count")
@@ -100,29 +101,26 @@ export default async function IncidentLayout({
   }>;
   const siteMetadata = new Map(siteMetadataRowsTyped.map((site) => [site.id, site]));
   const isSearchUser = currentRole === "search_user";
-  const searchUserSites: SiteRow[] = siteMetadataRowsTyped
-    .filter((site) => site.site_type === "search_site")
-    .map((site) => ({
-      site_id: site.id,
-      site_number: site.site_number,
-      name: site.name,
-      city: site.city,
-      street: site.street,
-      house_number: site.house_number,
-      updated_potential: 0,
-      active_operational_numbers_count: 0,
-      gap_resolved_count: 0,
-      operational_gap: 0,
-      site_type: site.site_type,
-      search_status: site.search_status
-    }));
-  const shellSites = isSearchUser
-    ? searchUserSites
-    : ((sites ?? []) as SiteRow[]).map((site) => ({
-        ...site,
-        site_type: siteMetadata.get(site.site_id)?.site_type ?? "rescue_site",
-        search_status: siteMetadata.get(site.site_id)?.search_status ?? null
-      }));
+  const summaryBySite = new Map(((sites ?? []) as SiteRow[]).map((site) => [site.site_id, site]));
+  const shellSites: SiteRow[] = siteMetadataRowsTyped
+    .filter((site) => !isSearchUser || site.site_type === "search_site")
+    .map((site) => {
+      const summarySite = sitesError ? undefined : summaryBySite.get(site.id);
+      return {
+        site_id: site.id,
+        site_number: site.site_number,
+        name: site.name,
+        city: site.city,
+        street: site.street,
+        house_number: site.house_number,
+        updated_potential: summarySite?.updated_potential ?? null,
+        active_operational_numbers_count: summarySite?.active_operational_numbers_count ?? null,
+        gap_resolved_count: summarySite?.gap_resolved_count ?? null,
+        operational_gap: summarySite?.operational_gap ?? null,
+        site_type: site.site_type ?? "rescue_site",
+        search_status: site.search_status
+      };
+    });
 
   return (
     <IncidentPresenceProvider
@@ -143,7 +141,7 @@ export default async function IncidentLayout({
             active_operational_numbers_count: 0,
             gap_resolved_count: 0,
             operational_gap: 0,
-            total_sites: 0,
+            total_sites: shellSites.length,
             active_teams: 0,
             operational_numbers_rescued_count: 0,
             operational_numbers_evacuated_count: 0,
