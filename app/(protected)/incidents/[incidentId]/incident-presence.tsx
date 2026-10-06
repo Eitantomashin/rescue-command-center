@@ -66,6 +66,8 @@ const text = {
   siteSetup: "\u05d4\u05e7\u05de\u05ea \u05d0\u05ea\u05e8",
   operationalNumbers: "\u05de\u05e1\u05e4\u05e8\u05d9\u05dd \u05de\u05d1\u05e6\u05e2\u05d9\u05d9\u05dd",
   grid: "\u05d2\u05e8\u05d9\u05d3",
+  mobileSearch: "\u05e1\u05e8\u05d9\u05e7\u05d4 \u05e0\u05d9\u05d9\u05d3\u05ea",
+  mobileSearchSites: "\u05d1\u05d7\u05d9\u05e8\u05ea \u05d0\u05ea\u05e8 \u05e1\u05e8\u05d9\u05e7\u05d4",
   inIncident: "\u05d1\u05d0\u05d9\u05e8\u05d5\u05e2",
   connectedUsers: "\u05de\u05e9\u05ea\u05de\u05e9\u05d9\u05dd \u05de\u05d7\u05d5\u05d1\u05e8\u05d9\u05dd",
   noConnectedUsers: "\u05d0\u05d9\u05df \u05de\u05e9\u05ea\u05de\u05e9\u05d9\u05dd \u05de\u05d7\u05d5\u05d1\u05e8\u05d9\u05dd \u05db\u05e8\u05d2\u05e2.",
@@ -120,8 +122,29 @@ function displayNameFromUser(user: {
 
 function locationForPath(incidentId: string, pathname: string, sites: PresenceSite[]) {
   const base = `/incidents/${incidentId}`;
+  const mobileBase = `/mobile/search/${incidentId}`;
   const currentSite = sites.find((site) => pathname.includes(`/sites/${site.site_id}`)) ?? null;
   const currentSiteLabel = currentSite ? siteLabel(currentSite) : null;
+  const currentMobileSite = sites.find((site) => pathname.includes(`${mobileBase}/${site.site_id}`)) ?? null;
+  const currentMobileSiteLabel = currentMobileSite ? siteLabel(currentMobileSite) : null;
+
+  if (pathname === mobileBase) {
+    return {
+      screenKey: "mobile-search-sites",
+      siteId: null,
+      siteName: null,
+      label: `${text.mobileSearch} - ${text.mobileSearchSites}`
+    };
+  }
+
+  if (currentMobileSite && currentMobileSiteLabel) {
+    return {
+      screenKey: "mobile-search-site",
+      siteId: currentMobileSite.site_id,
+      siteName: currentMobileSiteLabel,
+      label: `${text.mobileSearch} - ${currentMobileSiteLabel}`
+    };
+  }
 
   if (pathname === base) {
     return { screenKey: "dashboard", siteId: null, siteName: null, label: text.watchingDashboard };
