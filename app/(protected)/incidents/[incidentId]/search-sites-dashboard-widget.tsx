@@ -49,6 +49,12 @@ export type SearchSitesWidgetData = {
   updatedAt: string;
 };
 
+type SearchKpiDrilldownSelection = {
+  title: string;
+  count: number;
+  content: ReactNode;
+};
+
 function searchUnitStatusLabel(status: SearchUnitStatus) {
   return searchUnitProcessLabel(status);
 }
@@ -62,19 +68,20 @@ function SearchApartmentKpiCard({
   label,
   value,
   title,
-  entries
+  entries,
+  onOpen
 }: {
   className: string;
   label: string;
   value: number;
   title: string;
   entries: SearchKpiDrilldownEntry[];
+  onOpen: (selection: SearchKpiDrilldownSelection) => void;
 }) {
   return (
-    <details className={"search-kpi-click-card " + className}>
-      <summary><span>{label}</span><strong>{formatNumber(value)}</strong></summary>
-      <SearchKpiDrilldown title={title} entries={entries} />
-    </details>
+    <button className={"search-kpi-click-card " + className} type="button" aria-haspopup="dialog" aria-label={`פירוט ${label}: ${formatNumber(value)}`} onClick={() => onOpen({ title, count: value, content: <SearchKpiDrilldown title={title} entries={entries} /> })} style={{ appearance: "none", cursor: "pointer", display: "grid", font: "inherit", gap: 4, textAlign: "right", width: "100%" }}>
+      <span>{label}</span><strong>{formatNumber(value)}</strong><span>פירוט</span>
+    </button>
   );
 }
 
@@ -110,8 +117,8 @@ function SearchKpiDrilldown({ title, entries }: { title: string; entries: Search
   );
 }
 
-function SearchPersonKpiCard({ className, label, title, people }: { className: string; label: string; title: string; people: SearchCasualtyPerson[] }) {
-  return <details className={"search-kpi-click-card " + className}><summary><span>{label}</span><strong>{formatNumber(people.length)}</strong></summary><div className="search-kpi-drilldown-panel"><strong>{title}</strong>{people.length ? <ul className="search-kpi-drilldown-list">{people.map((person) => { const evacuation = searchEvacuationState(person); return <li key={person.residentId}><strong>{[person.firstName, person.lastName].filter(Boolean).join(" ") || "ללא שם"}</strong><span>קומה {person.floorNumber ?? "-"} · דירה {person.unitNumber}</span><span>{searchCasualtyPersonStatusLabel(person.status)}</span>{evacuation === "waiting" ? <span>ממתין לפינוי</span> : evacuation === "evacuated" ? <span>פונה{formatSearchEvacuatedAt(person.evacuatedAt) ? ` ב־${formatSearchEvacuatedAt(person.evacuatedAt)}` : ""}</span> : null}</li>; })}</ul> : <p className="muted">אין פריטים להצגה</p>}</div></details>;
+function SearchPersonKpiCard({ className, label, title, people, onOpen }: { className: string; label: string; title: string; people: SearchCasualtyPerson[]; onOpen: (selection: SearchKpiDrilldownSelection) => void }) {
+  return <button className={"search-kpi-click-card " + className} type="button" aria-haspopup="dialog" aria-label={`פירוט ${label}: ${formatNumber(people.length)}`} onClick={() => onOpen({ title, count: people.length, content: <div className="search-kpi-drilldown-panel"><strong>{title}</strong>{people.length ? <ul className="search-kpi-drilldown-list">{people.map((person) => { const evacuation = searchEvacuationState(person); return <li key={person.residentId}><strong>{[person.firstName, person.lastName].filter(Boolean).join(" ") || "ללא שם"}</strong><span>קומה {person.floorNumber ?? "-"} · דירה {person.unitNumber}</span><span>{searchCasualtyPersonStatusLabel(person.status)}</span>{evacuation === "waiting" ? <span>ממתין לפינוי</span> : evacuation === "evacuated" ? <span>פונה{formatSearchEvacuatedAt(person.evacuatedAt) ? ` ב־${formatSearchEvacuatedAt(person.evacuatedAt)}` : ""}</span> : null}</li>; })}</ul> : <p className="muted">אין פריטים להצגה</p>}</div> })} style={{ appearance: "none", cursor: "pointer", display: "grid", font: "inherit", gap: 4, textAlign: "right", width: "100%" }}><span>{label}</span><strong>{formatNumber(people.length)}</strong><span>פירוט</span></button>;
 }
 
 function operationalGapStatusLabel(status: string | null) {
@@ -120,8 +127,9 @@ function operationalGapStatusLabel(status: string | null) {
   return status === "anxiety_casualty" ? "נפגע חרדה" : status === "physical_casualty" ? "נפגע גוף" : status === "deceased" ? "חלל" : "מצב דייר לא ידוע";
 }
 
-function SearchOperationalGapKpiCard({ value, entries }: { value: number; entries: SearchOperationalGapEntry[] }) {
-  return <details className="search-operational-gap-card search-kpi-click-card"><summary><span>פער מבצעי</span><strong>{formatNumber(value)}</strong></summary><div className="search-kpi-drilldown-panel"><strong>פירוט אנשים שטרם נסגרו מבצעית</strong>{entries.length ? <ul className="search-kpi-drilldown-list">{entries.map((entry, index) => <li key={entry.kind === "resident" ? entry.residentId ?? String(index) : `${entry.unitId}-unidentified`}><strong>{entry.kind === "unidentified" ? `${entry.reason}: ${formatNumber(entry.representedCount)}` : [entry.firstName, entry.lastName].filter(Boolean).join(" ") || "ללא שם"}</strong><span>{entry.siteName} · קומה {entry.floorNumber ?? "-"} · {entry.unitLabel}</span>{entry.kind === "resident" ? <><span>{operationalGapStatusLabel(entry.statusKey)}</span><span>{entry.reason}</span>{entry.requiresEvacuation ? <span>{searchEvacuationState({ status: entry.statusKey as "anxiety_casualty" | "physical_casualty" | "deceased", requiresEvacuation: entry.requiresEvacuation, evacuatedAt: entry.evacuatedAt }) === "waiting" ? "ממתין לפינוי" : "פונה"}</span> : null}</> : null}</li>)}</ul> : <p className="muted">אין אנשים פתוחים להצגה</p>}</div></details>;
+function SearchOperationalGapKpiCard({ value, entries, onOpen }: { value: number; entries: SearchOperationalGapEntry[]; onOpen: (selection: SearchKpiDrilldownSelection) => void }) {
+  const title = "פירוט אנשים שטרם נסגרו מבצעית";
+  return <button className="search-operational-gap-card search-kpi-click-card" type="button" aria-haspopup="dialog" aria-label={`פירוט פער מבצעי: ${formatNumber(value)}`} onClick={() => onOpen({ title, count: value, content: <div className="search-kpi-drilldown-panel"><strong>{title}</strong>{entries.length ? <ul className="search-kpi-drilldown-list">{entries.map((entry, index) => <li key={entry.kind === "resident" ? entry.residentId ?? String(index) : `${entry.unitId}-unidentified`}><strong>{entry.kind === "unidentified" ? `${entry.reason}: ${formatNumber(entry.representedCount)}` : [entry.firstName, entry.lastName].filter(Boolean).join(" ") || "ללא שם"}</strong><span>{entry.siteName} · קומה {entry.floorNumber ?? "-"} · {entry.unitLabel}</span>{entry.kind === "resident" ? <><span>{operationalGapStatusLabel(entry.statusKey)}</span><span>{entry.reason}</span>{entry.requiresEvacuation ? <span>{searchEvacuationState({ status: entry.statusKey as "anxiety_casualty" | "physical_casualty" | "deceased", requiresEvacuation: entry.requiresEvacuation, evacuatedAt: entry.evacuatedAt }) === "waiting" ? "ממתין לפינוי" : "פונה"}</span> : null}</> : null}</li>)}</ul> : <p className="muted">אין אנשים פתוחים להצגה</p>}</div> })} style={{ appearance: "none", cursor: "pointer", display: "grid", font: "inherit", gap: 4, textAlign: "right", width: "100%" }}><span>פער מבצעי</span><strong>{formatNumber(value)}</strong><span>פירוט</span></button>;
 }
 
 function SearchSiteKpiRow({ label, children }: { label: string; children: ReactNode }) {
@@ -145,6 +153,7 @@ export function SearchSitesDashboardWidget({
 }) {
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
+  const [selectedDrilldown, setSelectedDrilldown] = useState<SearchKpiDrilldownSelection | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -163,6 +172,15 @@ export function SearchSitesDashboardWidget({
     const interval = window.setInterval(refresh, 10000);
     return () => window.clearInterval(interval);
   }, [refresh]);
+
+  useEffect(() => {
+    if (!selectedDrilldown) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedDrilldown(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedDrilldown]);
 
   if (data.sites.length === 0) {
     return null;
@@ -209,28 +227,28 @@ export function SearchSitesDashboardWidget({
                 <dl>
                   <div><dt>פוטנציאל ראשוני</dt><dd>{site.initialPotential === null ? "—" : formatNumber(site.initialPotential)}</dd></div>
                   <div><dt>פוטנציאל מעודכן</dt><dd>{site.updatedPotential === null ? "—" : formatNumber(site.updatedPotential)}</dd></div>
-                  <div><dt>פער מבצעי</dt><dd><SearchOperationalGapKpiCard value={site.operationalGap ?? 0} entries={site.operationalGapEntries} /></dd></div>
+                  <div><dt>פער מבצעי</dt><dd><SearchOperationalGapKpiCard value={site.operationalGap ?? 0} entries={site.operationalGapEntries} onOpen={setSelectedDrilldown} /></dd></div>
                 </dl>
               </section>
               <div className="search-site-kpi-rows" aria-label={"\u05E1\u05D9\u05DB\u05D5\u05DD \u05E1\u05E8\u05D9\u05E7\u05D4 \u05DC\u05D0\u05EA\u05E8"}>
               <SearchSiteKpiRow label="סטטוס הסריקה">
-                <SearchApartmentKpiCard className="search-kpi-total" label="סה״כ דירות" value={kpis.process.total.length} title="כל הדירות באתר" entries={kpis.process.total} />
-                <SearchApartmentKpiCard className="search-kpi-no-answer" label="טרם התחילה" value={kpis.process.notStarted.length} title="דירות שטרם החלה בהן סריקה" entries={kpis.process.notStarted} />
-                <SearchApartmentKpiCard className="search-kpi-scanned" label="בסריקה" value={kpis.process.inProgress.length} title="דירות בסריקה" entries={kpis.process.inProgress} />
-                <SearchApartmentKpiCard className="search-kpi-no-answer" label="אין מענה" value={kpis.process.noAnswer.length} title="דירות ללא מענה" entries={kpis.process.noAnswer} />
-                <SearchApartmentKpiCard className="search-kpi-completed" label="סריקה הושלמה" value={kpis.process.completed.length} title="דירות שהסריקה בהן הושלמה" entries={kpis.process.completed} />
+                <SearchApartmentKpiCard className="search-kpi-total" label="סה״כ דירות" value={kpis.process.total.length} title="כל הדירות באתר" entries={kpis.process.total} onOpen={setSelectedDrilldown} />
+                <SearchApartmentKpiCard className="search-kpi-no-answer" label="טרם התחילה" value={kpis.process.notStarted.length} title="דירות שטרם החלה בהן סריקה" entries={kpis.process.notStarted} onOpen={setSelectedDrilldown} />
+                <SearchApartmentKpiCard className="search-kpi-scanned" label="בסריקה" value={kpis.process.inProgress.length} title="דירות בסריקה" entries={kpis.process.inProgress} onOpen={setSelectedDrilldown} />
+                <SearchApartmentKpiCard className="search-kpi-no-answer" label="אין מענה" value={kpis.process.noAnswer.length} title="דירות ללא מענה" entries={kpis.process.noAnswer} onOpen={setSelectedDrilldown} />
+                <SearchApartmentKpiCard className="search-kpi-completed" label="סריקה הושלמה" value={kpis.process.completed.length} title="דירות שהסריקה בהן הושלמה" entries={kpis.process.completed} onOpen={setSelectedDrilldown} />
               </SearchSiteKpiRow>
               <SearchSiteKpiRow label="ממצאים בדירות">
-                <SearchApartmentKpiCard className="search-kpi-completed" label="דירות שזוכו" value={kpis.findings.cleared.length} title="דירות שזוכו" entries={kpis.findings.cleared} />
-                <SearchApartmentKpiCard className="search-kpi-damage" label="דירות עם נזק" value={kpis.findings.damaged.length} title="דירות עם נזק" entries={kpis.findings.damaged} />
-                <SearchApartmentKpiCard className="search-kpi-danger" label="טיפול בנפגעים פתוח" value={kpis.findings.openCasualties.length} title="דירות עם טיפול פתוח בנפגעים" entries={kpis.findings.openCasualties} />
-                <SearchApartmentKpiCard className="search-kpi-completed" label="טיפול בנפגעים הסתיים" value={kpis.findings.resolvedCasualties.length} title="דירות שבהן הטיפול בנפגעים הסתיים" entries={kpis.findings.resolvedCasualties} />
+                <SearchApartmentKpiCard className="search-kpi-completed" label="דירות שזוכו" value={kpis.findings.cleared.length} title="דירות שזוכו" entries={kpis.findings.cleared} onOpen={setSelectedDrilldown} />
+                <SearchApartmentKpiCard className="search-kpi-damage" label="דירות עם נזק" value={kpis.findings.damaged.length} title="דירות עם נזק" entries={kpis.findings.damaged} onOpen={setSelectedDrilldown} />
+                <SearchApartmentKpiCard className="search-kpi-danger" label="טיפול בנפגעים פתוח" value={kpis.findings.openCasualties.length} title="דירות עם טיפול פתוח בנפגעים" entries={kpis.findings.openCasualties} onOpen={setSelectedDrilldown} />
+                <SearchApartmentKpiCard className="search-kpi-completed" label="טיפול בנפגעים הסתיים" value={kpis.findings.resolvedCasualties.length} title="דירות שבהן הטיפול בנפגעים הסתיים" entries={kpis.findings.resolvedCasualties} onOpen={setSelectedDrilldown} />
               </SearchSiteKpiRow>
               <SearchSiteKpiRow label="תמונת נפגעים ופינוי">
-                <SearchPersonKpiCard className="search-kpi-warning" label="נפגעי חרדה" title="נפגעי חרדה" people={kpis.findings.anxiety} />
-                <SearchPersonKpiCard className="search-kpi-danger" label="נפגעי גוף" title="נפגעי גוף" people={kpis.findings.physical} />
-                <SearchPersonKpiCard className="search-kpi-danger" label="חללים" title="חללים" people={kpis.findings.deceased} />
-                <SearchPersonKpiCard className="search-kpi-warning" label="ממתינים לפינוי" title="ממתינים לפינוי" people={kpis.findings.waitingEvacuation} />
+                <SearchPersonKpiCard className="search-kpi-warning" label="נפגעי חרדה" title="נפגעי חרדה" people={kpis.findings.anxiety} onOpen={setSelectedDrilldown} />
+                <SearchPersonKpiCard className="search-kpi-danger" label="נפגעי גוף" title="נפגעי גוף" people={kpis.findings.physical} onOpen={setSelectedDrilldown} />
+                <SearchPersonKpiCard className="search-kpi-danger" label="חללים" title="חללים" people={kpis.findings.deceased} onOpen={setSelectedDrilldown} />
+                <SearchPersonKpiCard className="search-kpi-warning" label="ממתינים לפינוי" title="ממתינים לפינוי" people={kpis.findings.waitingEvacuation} onOpen={setSelectedDrilldown} />
               </SearchSiteKpiRow>
               </div>
               <Link className="button compact secondary" href={`/incidents/${incidentId}/sites/${site.id}`}>
@@ -240,6 +258,7 @@ export function SearchSitesDashboardWidget({
           );
         })}
       </div>
+      {selectedDrilldown ? <div className="updated-potential-modal-backdrop" role="presentation" onClick={() => setSelectedDrilldown(null)}><section className="updated-potential-modal" dir="rtl" role="dialog" aria-modal="true" aria-labelledby="search-kpi-drilldown-modal-title" onClick={(event) => event.stopPropagation()}><div className="updated-potential-modal-header"><h2 id="search-kpi-drilldown-modal-title">{selectedDrilldown.title} ({formatNumber(selectedDrilldown.count)})</h2><button className="button compact secondary" type="button" onClick={() => setSelectedDrilldown(null)}>סגור</button></div>{selectedDrilldown.content}</section></div> : null}
     </DashboardCollapsibleSection>
   );
 }
