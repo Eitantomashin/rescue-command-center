@@ -23,6 +23,13 @@ const STATUS_LABELS: Record<string, string> = {
   completed: "סיום טיפול / מזוכה"
 };
 
+const RESIDENT_STATUS_LABELS: Record<string, string> = {
+  not_checked: "טרם נבדק",
+  anxiety_casualty: "נפגע חרדה",
+  physical_casualty: "נפגע גוף",
+  deceased: "חלל"
+};
+
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -70,6 +77,20 @@ function statusLabel(value: unknown) {
   return (STATUS_LABELS[key] ?? key) || "-";
 }
 
+function residentStatusLabel(resident: Record<string, unknown>) {
+  return textValue(resident.status_label) || RESIDENT_STATUS_LABELS[textValue(resident.status_key)] || "-";
+}
+
+function residentTreatmentText(resident: Record<string, unknown>) {
+  if (!["anxiety_casualty", "physical_casualty", "deceased"].includes(textValue(resident.status_key))) return "—";
+  return booleanValue(resident.treatment_resolved) ? "טיפול הסתיים" : "טיפול פתוח";
+}
+
+function residentEvacuationText(resident: Record<string, unknown>) {
+  if (!booleanValue(resident.requires_evacuation)) return "לא נדרש";
+  return textValue(resident.evacuated_at) ? "פונה" : "ממתין לפינוי";
+}
+
 export default async function SearchSiteReportPage({
   params
 }: {
@@ -101,6 +122,10 @@ export default async function SearchSiteReportPage({
   const casualties = objectValue(snapshot.casualties);
   const damage = objectValue(snapshot.damage);
   const finalSummary = objectValue(snapshot.final_summary);
+  const hasPopulationAttention = snapshot.population_attention !== null && typeof snapshot.population_attention === "object" && !Array.isArray(snapshot.population_attention);
+  const populationAttention = objectValue(snapshot.population_attention);
+  const populationAttentionSummary = objectValue(populationAttention.summary);
+  const attentionResidents = arrayValue(populationAttention.residents);
   const apartments = arrayValue(snapshot.apartments);
   const damageDescriptions = arrayValue(damage.descriptions);
   const hasWarnings =
@@ -179,6 +204,43 @@ export default async function SearchSiteReportPage({
             <div><span className="muted">נפגעי גוף</span><strong>{formatNumber(numberValue(casualties.physical_casualties_total))}</strong></div>
             <div><span className="muted">פינויים רפואיים</span><strong>{formatNumber(numberValue(casualties.medical_evacuations))}</strong></div>
           </div>
+        </section>
+
+        <section className="sitrep-section">
+          <h2>נפגעים ואוכלוסייה במעקב</h2>
+          {hasPopulationAttention ? (
+            <>
+              <div className="summary-grid">
+                <div><span className="muted">טרם נבדק</span><strong>{formatNumber(numberValue(populationAttentionSummary.not_checked))}</strong></div>
+                <div><span className="muted">נפגעי חרדה</span><strong>{formatNumber(numberValue(populationAttentionSummary.anxiety))}</strong></div>
+                <div><span className="muted">נפגעי גוף</span><strong>{formatNumber(numberValue(populationAttentionSummary.physical))}</strong></div>
+                <div><span className="muted">חללים</span><strong>{formatNumber(numberValue(populationAttentionSummary.deceased))}</strong></div>
+                <div><span className="muted">ממתינים לפינוי</span><strong>{formatNumber(numberValue(populationAttentionSummary.waiting_evacuation))}</strong></div>
+              </div>
+              {attentionResidents.length ? (
+                <div className="table-wrap">
+                  <table className="table sitrep-table">
+                    <thead>
+                      <tr><th>שם</th><th>קומה</th><th>דירה</th><th>סטטוס</th><th>מצב טיפול</th><th>מצב פינוי</th><th>הערות</th></tr>
+                    </thead>
+                    <tbody>
+                      {attentionResidents.map((resident, index) => (
+                        <tr key={`${textValue(resident.unit_label)}-${textValue(resident.first_name)}-${textValue(resident.last_name)}-${index}`}>
+                          <td>{[textValue(resident.first_name), textValue(resident.last_name)].filter(Boolean).join(" ") || "ללא שם"}</td>
+                          <td>{formatNumber(numberValue(resident.floor_number))}</td>
+                          <td>{textValue(resident.unit_label, "-")}</td>
+                          <td>{residentStatusLabel(resident)}</td>
+                          <td>{residentTreatmentText(resident)}</td>
+                          <td>{residentEvacuationText(resident)}</td>
+                          <td>{textValue(resident.notes, "-")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="muted">לא נמצאו דיירים הדורשים מעקב במועד הפקת הדוח.</p>}
+            </>
+          ) : <p className="muted">פירוט דיירים לא נשמר בדוח היסטורי זה.</p>}
         </section>
 
         <section className="sitrep-section">
