@@ -281,6 +281,100 @@ export async function removeAdHocTeamMemberAction(formData: FormData) {
   revalidatePath(`/incidents/${incidentId}/personnel`, "page");
 }
 
+function friendlyAdHocManagementError(error: unknown) {
+  const record = error && typeof error === "object" ? error as Record<string, unknown> : {};
+  const code = typeof record.code === "string" ? record.code : "";
+  const message = typeof record.message === "string" ? record.message : "";
+
+  if (code === "42501") return "אין לך הרשאה לנהל צוותי אד־הוק באירוע זה.";
+  if (code === "22023") return "התפקיד המבצעי שנבחר אינו תקין.";
+  if (code === "23505") return "בצוות היעד כבר מוגדר מפקד או סגן מפקד פעיל בתפקיד שנבחר.";
+  if (code === "55000") return "ניתן לבצע פעולה רק עבור איש צוות פעיל שנוכח באירוע.";
+  if (code === "P0002") return "הצוות או השיוך אינם זמינים עוד. יש לרענן את המסך ולנסות שוב.";
+  if (message.includes("Authentication")) return "נדרשת התחברות פעילה כדי לנהל צוותי אד־הוק.";
+  return "הפעולה בצוות האד־הוק נכשלה. יש לרענן את הנתונים ולנסות שוב.";
+}
+
+export async function setAdHocTeamMemberRoleAction(
+  _prevState: PersonnelActionState = INITIAL_ACTION_STATE,
+  formData: FormData
+): Promise<PersonnelActionState> {
+  const incidentId = value(formData, "incidentId");
+  const memberId = value(formData, "memberId");
+  const operationalRole = value(formData, "operationalRole");
+  if (!incidentId || !memberId || !["member", "commander", "deputy"].includes(operationalRole)) {
+    return { error: "יש לבחור תפקיד מבצעי תקין.", success: null };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("set_incident_ad_hoc_team_member_role", {
+    p_incident_id: incidentId,
+    p_member_id: memberId,
+    p_operational_role: operationalRole
+  });
+  if (error) {
+    logServerActionError("setAdHocTeamMemberRoleAction", { incidentId, memberId, operationalRole }, error);
+    return { error: friendlyAdHocManagementError(error), success: null };
+  }
+
+  await revalidatePersonnel(incidentId);
+  return { error: null, success: "התפקיד המבצעי של חבר הצוות עודכן." };
+}
+
+export async function transferAdHocTeamMemberAction(
+  _prevState: PersonnelActionState = INITIAL_ACTION_STATE,
+  formData: FormData
+): Promise<PersonnelActionState> {
+  const incidentId = value(formData, "incidentId");
+  const memberId = value(formData, "memberId");
+  const targetAdHocTeamId = value(formData, "targetAdHocTeamId");
+  const targetOperationalRole = value(formData, "targetOperationalRole");
+  if (!incidentId || !memberId || !targetAdHocTeamId || !["member", "commander", "deputy"].includes(targetOperationalRole)) {
+    return { error: "יש לבחור צוות יעד ותפקיד מבצעי תקינים.", success: null };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("transfer_incident_ad_hoc_team_member", {
+    p_incident_id: incidentId,
+    p_member_id: memberId,
+    p_target_ad_hoc_team_id: targetAdHocTeamId,
+    p_target_operational_role: targetOperationalRole,
+    p_notes: value(formData, "notes") || null
+  });
+  if (error) {
+    logServerActionError("transferAdHocTeamMemberAction", { incidentId, memberId, targetAdHocTeamId, targetOperationalRole }, error);
+    return { error: friendlyAdHocManagementError(error), success: null };
+  }
+
+  await revalidatePersonnel(incidentId);
+  return { error: null, success: "איש הצוות הועבר לצוות האד־הוק שנבחר." };
+}
+
+export async function returnAdHocTeamMemberAction(
+  _prevState: PersonnelActionState = INITIAL_ACTION_STATE,
+  formData: FormData
+): Promise<PersonnelActionState> {
+  const incidentId = value(formData, "incidentId");
+  const memberId = value(formData, "memberId");
+  if (!incidentId || !memberId) {
+    return { error: "לא ניתן לזהות את שיוך איש הצוות.", success: null };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("return_incident_ad_hoc_team_member", {
+    p_incident_id: incidentId,
+    p_member_id: memberId,
+    p_notes: value(formData, "notes") || null
+  });
+  if (error) {
+    logServerActionError("returnAdHocTeamMemberAction", { incidentId, memberId }, error);
+    return { error: friendlyAdHocManagementError(error), success: null };
+  }
+
+  await revalidatePersonnel(incidentId);
+  return { error: null, success: "איש הצוות שוחרר מצוות האד־הוק ונשאר במצבת כוח האדם באירוע." };
+}
+
 function rosterActionResult(data: unknown, fallback: string): VehicleRosterActionState {
   if (data && typeof data === "object") {
     const record = data as Record<string, unknown>;

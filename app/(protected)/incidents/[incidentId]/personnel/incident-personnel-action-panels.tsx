@@ -9,7 +9,9 @@ import {
   addManualIncidentPersonnelAction,
   archiveAdHocTeamAction,
   createAdHocTeamAction,
-  removeAdHocTeamMemberAction,
+  returnAdHocTeamMemberAction,
+  setAdHocTeamMemberRoleAction,
+  transferAdHocTeamMemberAction,
   updateAdHocTeamAction,
   type PersonnelActionState
 } from "./actions";
@@ -38,6 +40,8 @@ type AdHocMember = {
   name: string;
   phone: string | null;
   sourceLabel: string;
+  sourceKind: "roster" | "manual";
+  operationalRole: "member" | "commander" | "deputy";
   notes: string | null;
 };
 
@@ -60,12 +64,23 @@ type IncidentPersonnelActionPanelsProps = {
   sites: SiteOption[];
   personnelOptions: PersonnelOption[];
   adHocTeams: AdHocTeam[];
+  canManageAdHocTeams: boolean;
 };
 
 const initialState: PersonnelActionState = {
   error: null,
   success: null
 };
+
+const OPERATIONAL_ROLE_OPTIONS = [
+  ["member", "חבר/ת צוות"],
+  ["commander", "מפקד/ת"],
+  ["deputy", "סגן/ית מפקד"]
+] as const;
+
+function operationalRoleLabel(role: AdHocMember["operationalRole"]) {
+  return OPERATIONAL_ROLE_OPTIONS.find(([key]) => key === role)?.[1] ?? "חבר/ת צוות";
+}
 
 function ActionMessage({ state }: { state: PersonnelActionState | undefined }) {
   const currentState = state ?? initialState;
@@ -345,13 +360,105 @@ function ManualAdHocMemberForm({
   );
 }
 
+function OperationalRoleForm({
+  incidentId,
+  member,
+  disabled
+}: {
+  incidentId: string;
+  member: AdHocMember;
+  disabled: boolean;
+}) {
+  const [state, formAction] = useFormState(setAdHocTeamMemberRoleAction, initialState);
+  return (
+    <form action={formAction} className="ad-hoc-member-form">
+      <input type="hidden" name="incidentId" value={incidentId} />
+      <input type="hidden" name="memberId" value={member.id} />
+      <ActionMessage state={state} />
+      <label>
+        תפקיד מבצעי
+        <select className="input" name="operationalRole" defaultValue={member.operationalRole} disabled={disabled}>
+          {OPERATIONAL_ROLE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </label>
+      <OperationalLoadingButton className="button secondary" label="עדכן תפקיד" loadingLabel="מעדכן..." disabled={disabled} />
+    </form>
+  );
+}
+
+function TransferAdHocMemberForm({
+  incidentId,
+  member,
+  sourceTeamId,
+  teams,
+  disabled
+}: {
+  incidentId: string;
+  member: AdHocMember;
+  sourceTeamId: string;
+  teams: AdHocTeam[];
+  disabled: boolean;
+}) {
+  const [state, formAction] = useFormState(transferAdHocTeamMemberAction, initialState);
+  const targetTeams = teams.filter((team) => team.status === "active" && team.id !== sourceTeamId);
+  return (
+    <form action={formAction} className="ad-hoc-member-form">
+      <input type="hidden" name="incidentId" value={incidentId} />
+      <input type="hidden" name="memberId" value={member.id} />
+      <ActionMessage state={state} />
+      <label>
+        צוות יעד
+        <select className="input" name="targetAdHocTeamId" required disabled={disabled || targetTeams.length === 0}>
+          <option value="">בחר צוות יעד</option>
+          {targetTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+        </select>
+      </label>
+      <label>
+        תפקיד ביעד
+        <select className="input" name="targetOperationalRole" defaultValue="member" disabled={disabled || targetTeams.length === 0}>
+          {OPERATIONAL_ROLE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </label>
+      <label className="wide">
+        הערת העברה
+        <input className="input" name="notes" disabled={disabled || targetTeams.length === 0} />
+      </label>
+      {targetTeams.length === 0 ? <p className="muted">אין צוות אד־הוק פעיל אחר להעברה.</p> : null}
+      <OperationalLoadingButton className="button secondary" label="העבר לצוות" loadingLabel="מעביר..." disabled={disabled || targetTeams.length === 0} />
+    </form>
+  );
+}
+
+function ReleaseAdHocMemberForm({
+  incidentId,
+  member,
+  disabled
+}: {
+  incidentId: string;
+  member: AdHocMember;
+  disabled: boolean;
+}) {
+  const [state, formAction] = useFormState(returnAdHocTeamMemberAction, initialState);
+  const destination = member.sourceKind === "roster" ? "לצוות האורגני" : "למאגר כוח האדם הכלל־אירועי";
+  return (
+    <form action={formAction} className="ad-hoc-member-form">
+      <input type="hidden" name="incidentId" value={incidentId} />
+      <input type="hidden" name="memberId" value={member.id} />
+      <ActionMessage state={state} />
+      <p className="muted">השחרור מחזיר {destination}; הנוכחות והשיוך האורגני אינם משתנים.</p>
+      <OperationalLoadingButton className="button ghost" label="שחרר מצוות אד־הוק" loadingLabel="משחרר..." disabled={disabled} />
+    </form>
+  );
+}
+
 export function IncidentPersonnelActionPanels({
   incidentId,
   canEdit,
   teams,
   sites,
   personnelOptions,
-  adHocTeams
+  adHocTeams,
+  canManageAdHocTeams
 }: IncidentPersonnelActionPanelsProps) {
   return (
     <section className="panel incident-personnel-actions">
@@ -367,9 +474,11 @@ export function IncidentPersonnelActionPanels({
       ) : (
         <div className="personnel-action-grid">
           <ManualPersonnelForm incidentId={incidentId} teams={teams} disabled={!canEdit} />
-          <CreateAdHocTeamForm incidentId={incidentId} sites={sites} disabled={!canEdit} />
+          {canManageAdHocTeams ? <CreateAdHocTeamForm incidentId={incidentId} sites={sites} disabled={!canManageAdHocTeams} /> : null}
         </div>
       )}
+
+      {!canManageAdHocTeams ? <p className="muted">ניהול צוותי אד־הוק זמין למנהל מערכת או מפקד בלבד.</p> : null}
 
       <div className="ad-hoc-team-list">
         {adHocTeams.length === 0 ? (
@@ -388,7 +497,7 @@ export function IncidentPersonnelActionPanels({
                     {team.relatedSiteName ? <span className="status-pill neutral">{team.relatedSiteName}</span> : null}
                   </div>
                 </div>
-                {canEdit && team.status === "active" ? (
+                {canManageAdHocTeams && team.status === "active" ? (
                   <form action={archiveAdHocTeamAction}>
                     <input type="hidden" name="incidentId" value={incidentId} />
                     <input type="hidden" name="adHocTeamId" value={team.id} />
@@ -398,7 +507,7 @@ export function IncidentPersonnelActionPanels({
               </div>
               {team.purpose || team.commanderName || team.notes ? (
                 <p className="muted">
-                  {[team.purpose, team.commanderName ? `מפקד/ת: ${team.commanderName}` : null, team.notes]
+                  {[team.purpose, team.commanderName ? `מפקד/ת (תיאור צוות): ${team.commanderName}` : null, team.notes]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
@@ -411,25 +520,37 @@ export function IncidentPersonnelActionPanels({
                     <div className="event-personnel-row" key={member.id}>
                       <div>
                         <strong>{member.name}</strong>
-                        <span>{member.phone ?? "אין טלפון"} · {member.sourceLabel}</span>
+                        <span>{member.phone ?? "אין טלפון"} · {member.sourceLabel} · {operationalRoleLabel(member.operationalRole)}</span>
                       </div>
-                      {member.notes ? <span className="muted">{member.notes}</span> : <span />}
-                      {canEdit && team.status === "active" ? (
-                        <form action={removeAdHocTeamMemberAction}>
-                          <input type="hidden" name="incidentId" value={incidentId} />
-                          <input type="hidden" name="memberId" value={member.id} />
-                          <OperationalLoadingButton className="button ghost" label="הסר שיוך" loadingLabel="מסיר..." />
-                        </form>
+                      <div className="badge-row">
+                        <span className="status-pill neutral">{operationalRoleLabel(member.operationalRole)}</span>
+                        {member.notes ? <span className="muted">{member.notes}</span> : null}
+                      </div>
+                      {canManageAdHocTeams && team.status === "active" ? (
+                        <div className="ad-hoc-team-forms">
+                          <OperationalRoleForm incidentId={incidentId} member={member} disabled={!canManageAdHocTeams} />
+                          <details>
+                            <summary>העבר לצוות אד־הוק אחר</summary>
+                            <TransferAdHocMemberForm
+                              incidentId={incidentId}
+                              member={member}
+                              sourceTeamId={team.id}
+                              teams={adHocTeams}
+                              disabled={!canManageAdHocTeams}
+                            />
+                          </details>
+                          <ReleaseAdHocMemberForm incidentId={incidentId} member={member} disabled={!canManageAdHocTeams} />
+                        </div>
                       ) : null}
                     </div>
                   ))
                 )}
               </div>
-              {canEdit && team.status === "active" ? (
+              {canManageAdHocTeams && team.status === "active" ? (
                 <div className="ad-hoc-team-forms">
                   <details>
                     <summary>עריכת צוות</summary>
-                    <EditAdHocTeamForm incidentId={incidentId} team={team} sites={sites} disabled={!canEdit} />
+                    <EditAdHocTeamForm incidentId={incidentId} team={team} sites={sites} disabled={!canManageAdHocTeams} />
                   </details>
                   <details>
                     <summary>הוסף איש צוות קיים</summary>
@@ -437,12 +558,12 @@ export function IncidentPersonnelActionPanels({
                       incidentId={incidentId}
                       adHocTeamId={team.id}
                       personnelOptions={personnelOptions}
-                      disabled={!canEdit}
+                      disabled={!canManageAdHocTeams}
                     />
                   </details>
                   <details>
                     <summary>צור איש צוות ושייך</summary>
-                    <ManualAdHocMemberForm incidentId={incidentId} adHocTeamId={team.id} disabled={!canEdit} />
+                    <ManualAdHocMemberForm incidentId={incidentId} adHocTeamId={team.id} disabled={!canManageAdHocTeams} />
                   </details>
                 </div>
               ) : null}

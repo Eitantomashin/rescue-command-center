@@ -79,6 +79,7 @@ type AdHocMemberRow = {
   ad_hoc_team_id: string;
   unit_personnel_id: string | null;
   manual_personnel_id: string | null;
+  operational_role: "member" | "commander" | "deputy";
   notes: string | null;
   unit_personnel?: {
     first_name: string;
@@ -141,7 +142,9 @@ export default async function IncidentPersonnelPage({
     { data: siteRows },
     { data: manualRows },
     { data: adHocTeamRows },
-    { data: adHocMemberRows }
+    { data: adHocMemberRows },
+    { data: systemRole },
+    { data: canViewIncident }
   ] = await Promise.all([
     supabase.from("incidents").select("id,name").eq("id", params.incidentId).maybeSingle(),
     supabase
@@ -179,9 +182,11 @@ export default async function IncidentPersonnelPage({
       .order("name", { ascending: true }),
     supabase
       .from("incident_ad_hoc_team_members")
-      .select("id,ad_hoc_team_id,unit_personnel_id,manual_personnel_id,notes,unit_personnel:unit_personnel_id(first_name,last_name,mobile_phone),manual_personnel:manual_personnel_id(first_name,last_name,mobile_phone)")
+      .select("id,ad_hoc_team_id,unit_personnel_id,manual_personnel_id,operational_role,notes,unit_personnel:unit_personnel_id(first_name,last_name,mobile_phone),manual_personnel:manual_personnel_id(first_name,last_name,mobile_phone)")
       .eq("incident_id", params.incidentId)
-      .eq("is_active", true)
+      .eq("is_active", true),
+    supabase.rpc("current_user_role"),
+    supabase.rpc("can_view_incident", { p_incident_id: params.incidentId })
   ]);
 
   const statusesByPerson = new Map(
@@ -241,6 +246,8 @@ export default async function IncidentPersonnelPage({
       name: person ? `${person.first_name} ${person.last_name}` : "איש צוות",
       phone: person?.mobile_phone ?? null,
       sourceLabel: rosterPerson ? "צוות אורגני" : "נוסף ידנית",
+      sourceKind: rosterPerson ? "roster" as const : "manual" as const,
+      operationalRole: member.operational_role,
       notes: member.notes
     };
   });
@@ -262,6 +269,7 @@ export default async function IncidentPersonnelPage({
     inactive: personnel.filter((row) => row.attendanceStatus === "inactive").length,
     total: personnel.length
   };
+  const canManageAdHocTeams = Boolean(canViewIncident) && (systemRole === "admin" || systemRole === "commander");
 
   return (
     <main className={`page personnel-page${canEditPersonnel ? "" : " permission-readonly"}`}>
@@ -293,6 +301,7 @@ export default async function IncidentPersonnelPage({
         sites={sites}
         personnelOptions={personnelOptions}
         adHocTeams={adHocTeams}
+        canManageAdHocTeams={canManageAdHocTeams}
       />
 
       <section className="panel">
