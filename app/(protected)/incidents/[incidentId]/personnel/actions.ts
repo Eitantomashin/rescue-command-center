@@ -40,20 +40,49 @@ function optionalBoolean(formData: FormData, key: string, defaultValue = false) 
   return raw === "on" || raw === "true" || raw === "1";
 }
 
-export async function setEventPersonnelStatus(formData: FormData) {
-  const incidentId = requiredValue(formData, "incidentId", "אירוע");
+function isActiveAdHocAttendanceBlock(error: unknown) {
+  const record = error && typeof error === "object" ? error as Record<string, unknown> : {};
+  const code = typeof record.code === "string" ? record.code : "";
+  const message = typeof record.message === "string" ? record.message : "";
+
+  return code === "55000"
+    && message.includes("לא ניתן לשנות נוכחות")
+    && /צוות אד.?הוק/.test(message);
+}
+
+export async function setEventPersonnelStatus(
+  _prevState: PersonnelActionState = INITIAL_ACTION_STATE,
+  formData: FormData
+): Promise<PersonnelActionState> {
+  const incidentId = value(formData, "incidentId");
+  const personnelId = value(formData, "personnelId");
+  const attendanceStatus = value(formData, "attendanceStatus");
+
+  if (!incidentId || !personnelId || !attendanceStatus) {
+    return { error: "יש לבחור סטטוס נוכחות תקין.", success: null };
+  }
+
   const supabase = createClient();
   const { error } = await supabase.rpc("set_event_personnel_status", {
     p_incident_id: incidentId,
-    p_personnel_id: requiredValue(formData, "personnelId", "איש צוות"),
-    p_attendance_status: requiredValue(formData, "attendanceStatus", "סטטוס")
+    p_personnel_id: personnelId,
+    p_attendance_status: attendanceStatus
   });
 
   if (error) {
-    throw new Error(error.message);
+    logServerActionError("setEventPersonnelStatus", { incidentId, personnelId, attendanceStatus }, error);
+    if (isActiveAdHocAttendanceBlock(error)) {
+      return {
+        error: "לא ניתן לשנות את סטטוס הנוכחות. המחלץ משויך לצוות אד־הוק פעיל. יש לשחרר אותו מהצוות לפני שינוי הנוכחות.",
+        success: null
+      };
+    }
+
+    return { error: friendlyPersonnelError(error), success: null };
   }
 
-  revalidatePath(`/incidents/${incidentId}/personnel`, "page");
+  await revalidatePersonnel(incidentId);
+  return { error: null, success: "סטטוס הנוכחות עודכן." };
 }
 
 function friendlyPersonnelError(_error: unknown) {

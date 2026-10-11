@@ -10,10 +10,10 @@ import {
   personnelDepartmentLabel,
   personnelRoleLabel
 } from "../../../personnel/personnel-options";
-import { setEventPersonnelStatus } from "./actions";
 import { setManualIncidentPersonnelStatusAction } from "./actions";
 import { IncidentPersonnelActionPanels } from "./incident-personnel-action-panels";
 import { OperationalLoadingButton } from "@/app/(protected)/operational-loading-button";
+import { EventPersonnelStatusForm } from "./event-personnel-status-form";
 
 type PersonnelRow = {
   id: string;
@@ -368,14 +368,11 @@ export default async function IncidentPersonnelPage({
                     </span>
                     <time>{person.attendanceUpdatedAt ? formatDateTime(person.attendanceUpdatedAt) : "לא עודכן"}</time>
                     <CollaborativeLockSection objectType="event_personnel" objectId={person.id}>
-                    <form action={setEventPersonnelStatus} className="inline-status-form">
-                      <input type="hidden" name="incidentId" value={params.incidentId} />
-                      <input type="hidden" name="personnelId" value={person.id} />
-                      <select className="input" name="attendanceStatus" defaultValue={person.attendanceStatus}>
-                        <PersonnelStatusOptions />
-                      </select>
-                      <OperationalLoadingButton className="button secondary" label="עדכן" loadingLabel="מעדכן..." />
-                    </form>
+                    <EventPersonnelStatusForm
+                      incidentId={params.incidentId}
+                      personnelId={person.id}
+                      attendanceStatus={person.attendanceStatus}
+                    />
                     </CollaborativeLockSection>
                   </div>
                 ))}
