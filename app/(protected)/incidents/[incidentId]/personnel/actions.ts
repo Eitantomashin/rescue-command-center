@@ -40,6 +40,19 @@ function optionalBoolean(formData: FormData, key: string, defaultValue = false) 
   return raw === "on" || raw === "true" || raw === "1";
 }
 
+function isUuid(raw: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw);
+}
+
+function organicReinforcementPersonnelPayload(personnelKey: string) {
+  const match = /^(roster|manual):([0-9a-f-]+)$/i.exec(personnelKey);
+  if (!match || !isUuid(match[2])) return null;
+
+  return match[1].toLowerCase() === "roster"
+    ? { p_unit_personnel_id: match[2], p_manual_personnel_id: null }
+    : { p_unit_personnel_id: null, p_manual_personnel_id: match[2] };
+}
+
 function isActiveAdHocAttendanceBlock(error: unknown) {
   const record = error && typeof error === "object" ? error as Record<string, unknown> : {};
   const code = typeof record.code === "string" ? record.code : "";
@@ -322,6 +335,103 @@ function friendlyAdHocManagementError(error: unknown) {
   if (code === "P0002") return "הצוות או השיוך אינם זמינים עוד. יש לרענן את המסך ולנסות שוב.";
   if (message.includes("Authentication")) return "נדרשת התחברות פעילה כדי לנהל צוותי אד־הוק.";
   return "הפעולה בצוות האד־הוק נכשלה. יש לרענן את הנתונים ולנסות שוב.";
+}
+
+function friendlyOrganicTeamReinforcementError(error: unknown) {
+  const record = error && typeof error === "object" ? error as Record<string, unknown> : {};
+  const code = typeof record.code === "string" ? record.code : "";
+  const message = typeof record.message === "string" ? record.message : "";
+
+  if (code === "42501") return "אין לך הרשאה לנהל תגבור בין צוותים אורגניים באירוע זה.";
+  if (code === "22023") return "לא ניתן לבצע את פעולת התגבור עבור הצוות או המחלץ שנבחרו.";
+  if (code === "23505") return "למחלץ כבר קיים שיוך מבצעי פעיל בצוות אחר.";
+  if (code === "55000") return "ניתן לתגבר או להעביר רק מחלץ פעיל ונוכח באירוע פעיל.";
+  if (code === "P0002") return "הצוות, המחלץ או התגבור אינם זמינים עוד. יש לרענן את המסך ולנסות שוב.";
+  if (message.includes("Authentication")) return "נדרשת התחברות פעילה כדי לנהל תגבור בין צוותים אורגניים.";
+  return "פעולת התגבור לא הושלמה. יש לרענן את הנתונים ולנסות שוב.";
+}
+
+export async function assignOrganicTeamReinforcementAction(
+  _prevState: PersonnelActionState = INITIAL_ACTION_STATE,
+  formData: FormData
+): Promise<PersonnelActionState> {
+  const incidentId = value(formData, "incidentId");
+  const targetTeamId = value(formData, "targetTeamId");
+  const personnelKey = value(formData, "personnelKey");
+  const personnelPayload = organicReinforcementPersonnelPayload(personnelKey);
+
+  if (!isUuid(incidentId) || !isUuid(targetTeamId) || !personnelPayload) {
+    return { error: "יש לבחור מחלץ וצוות יעד תקינים לתגבור.", success: null };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("assign_incident_organic_team_reinforcement", {
+    p_incident_id: incidentId,
+    p_target_team_id: targetTeamId,
+    ...personnelPayload,
+    p_notes: optionalValue(formData, "notes")
+  });
+  if (error) {
+    logServerActionError("assignOrganicTeamReinforcementAction", { incidentId, targetTeamId, personnelKey }, error);
+    return { error: friendlyOrganicTeamReinforcementError(error), success: null };
+  }
+
+  await revalidatePersonnel(incidentId);
+  return { error: null, success: "המחלץ תוגבר לצוות האורגני שנבחר." };
+}
+
+export async function transferOrganicTeamReinforcementAction(
+  _prevState: PersonnelActionState = INITIAL_ACTION_STATE,
+  formData: FormData
+): Promise<PersonnelActionState> {
+  const incidentId = value(formData, "incidentId");
+  const reinforcementId = value(formData, "reinforcementId");
+  const targetTeamId = value(formData, "targetTeamId");
+
+  if (!isUuid(incidentId) || !isUuid(reinforcementId) || !isUuid(targetTeamId)) {
+    return { error: "יש לבחור תגבור וצוות יעד תקינים להעברה.", success: null };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("transfer_incident_organic_team_reinforcement", {
+    p_incident_id: incidentId,
+    p_reinforcement_id: reinforcementId,
+    p_target_team_id: targetTeamId,
+    p_notes: optionalValue(formData, "notes")
+  });
+  if (error) {
+    logServerActionError("transferOrganicTeamReinforcementAction", { incidentId, reinforcementId, targetTeamId }, error);
+    return { error: friendlyOrganicTeamReinforcementError(error), success: null };
+  }
+
+  await revalidatePersonnel(incidentId);
+  return { error: null, success: "התגבור הועבר לצוות האורגני שנבחר." };
+}
+
+export async function returnOrganicTeamReinforcementAction(
+  _prevState: PersonnelActionState = INITIAL_ACTION_STATE,
+  formData: FormData
+): Promise<PersonnelActionState> {
+  const incidentId = value(formData, "incidentId");
+  const reinforcementId = value(formData, "reinforcementId");
+
+  if (!isUuid(incidentId) || !isUuid(reinforcementId)) {
+    return { error: "לא ניתן לזהות תגבור תקין להחזרה.", success: null };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("return_incident_organic_team_reinforcement", {
+    p_incident_id: incidentId,
+    p_reinforcement_id: reinforcementId,
+    p_notes: optionalValue(formData, "notes")
+  });
+  if (error) {
+    logServerActionError("returnOrganicTeamReinforcementAction", { incidentId, reinforcementId }, error);
+    return { error: friendlyOrganicTeamReinforcementError(error), success: null };
+  }
+
+  await revalidatePersonnel(incidentId);
+  return { error: null, success: "המחלץ הוחזר לצוות האורגני המקורי." };
 }
 
 export async function setAdHocTeamMemberRoleAction(

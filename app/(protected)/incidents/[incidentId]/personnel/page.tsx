@@ -1,6 +1,17 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import {
+  buildEligibleOrganicTeamReinforcementCandidates,
+  calculateOperationalTeamRoster,
+  isIncidentActiveForOrganicTeamReinforcements,
+  isMissingOrganicTeamReinforcementsTable,
+  isOperationalTeamRosterDataAvailable,
+  mapActiveOrganicTeamReinforcements,
+  type ActiveOrganicTeamReinforcement,
+  type OrganicTeamReinforcementRow,
+  type OrganicTeamReferenceRow
+} from "@/lib/organic-team-reinforcements";
 import { CollaborativeLockSection } from "../collaborative-lock";
 import {
   ATTENDANCE_STATUSES,
@@ -36,6 +47,7 @@ type StatusRow = {
 type EventPersonnel = PersonnelRow & {
   attendanceStatus: AttendanceStatus;
   attendanceUpdatedAt: string | null;
+  organicTeamReinforcement: ActiveOrganicTeamReinforcement | null;
 };
 
 type TeamRow = {
@@ -62,6 +74,7 @@ type ManualPersonnelRow = {
   attendance_updated_at: string | null;
   source_type: string;
   is_active: boolean;
+  organicTeamReinforcement: ActiveOrganicTeamReinforcement | null;
 };
 
 type AdHocTeamRow = {
@@ -134,19 +147,25 @@ export default async function IncidentPersonnelPage({
 }) {
   const supabase = createClient();
   const [
-    { data: incident },
-    { data: personnelRows, error },
-    { data: statusRows },
+    { data: incident, error: incidentError },
+    { data: personnelRows, error: personnelError },
+    { data: statusRows, error: attendanceError },
     { data: canEditPersonnel },
     { data: teamRows },
+    { data: organicTeamRows, error: organicTeamsError },
     { data: siteRows },
-    { data: manualRows },
+    { data: manualRows, error: manualPersonnelError },
     { data: adHocTeamRows },
-    { data: adHocMemberRows },
+    { data: adHocMemberRows, error: adHocMembersError },
+    { data: reinforcementRowsData, error: reinforcementError },
     { data: systemRole },
     { data: canViewIncident }
   ] = await Promise.all([
-    supabase.from("incidents").select("id,name").eq("id", params.incidentId).maybeSingle(),
+    supabase
+      .from("incidents")
+      .select("id,name,lifecycle_status,is_closed,archived_at")
+      .eq("id", params.incidentId)
+      .maybeSingle(),
     supabase
       .from("unit_personnel")
       .select("id,first_name,last_name,role,role_other,department,department_other,mobile_phone,is_active")
@@ -162,6 +181,12 @@ export default async function IncidentPersonnelPage({
       .select("id,team_number,name,is_active")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true)
+      .order("team_number", { ascending: true }),
+    supabase
+      .from("teams")
+      .select("id,team_number,name,is_active")
+      .eq("incident_id", params.incidentId)
+      .in("team_number", [1, 2, 3, 4])
       .order("team_number", { ascending: true }),
     supabase
       .from("sites")
@@ -185,9 +210,42 @@ export default async function IncidentPersonnelPage({
       .select("id,ad_hoc_team_id,unit_personnel_id,manual_personnel_id,operational_role,notes,unit_personnel:unit_personnel_id(first_name,last_name,mobile_phone),manual_personnel:manual_personnel_id(first_name,last_name,mobile_phone)")
       .eq("incident_id", params.incidentId)
       .eq("is_active", true),
+    supabase
+      .from("incident_organic_team_reinforcements")
+      .select("id,unit_personnel_id,manual_personnel_id,source_team_id,source_team_number,destination_team_id,destination_team_number,notes,assigned_at")
+      .eq("incident_id", params.incidentId)
+      .eq("is_active", true)
+      .order("assigned_at", { ascending: true }),
     supabase.rpc("current_user_role"),
     supabase.rpc("can_view_incident", { p_incident_id: params.incidentId })
   ]);
+
+  const missingOrganicTeamReinforcementsTable = isMissingOrganicTeamReinforcementsTable(reinforcementError);
+  const incidentLifecycleAvailable = !incidentError && Boolean(incident);
+  const operationalTeamRosterDataAvailable = isOperationalTeamRosterDataAvailable([
+    personnelError,
+    attendanceError,
+    organicTeamsError,
+    manualPersonnelError,
+    adHocMembersError,
+    reinforcementError
+  ]);
+  const organicTeamReinforcementUnavailableMessage = !incidentLifecycleAvailable
+    ? "לא ניתן לטעון את מצב האירוע, ולכן לא ניתן לנהל תגבור אורגני כעת."
+    : missingOrganicTeamReinforcementsTable
+      ? "תשתית התגבור האורגני אינה זמינה בסביבה זו. יש להתקין תחילה את מיגרציית התגבור."
+      : !operationalTeamRosterDataAvailable
+        ? "מצבת כוח האדם המבצעית אינה זמינה כעת – לא ניתן לטעון את כל הנתונים הנדרשים."
+        : null;
+  const organicTeams = (organicTeamRows ?? []) as OrganicTeamReferenceRow[];
+  const reinforcementRows = reinforcementError
+    ? []
+    : (reinforcementRowsData ?? []) as OrganicTeamReinforcementRow[];
+  const organicTeamReinforcementModel = mapActiveOrganicTeamReinforcements(reinforcementRows, organicTeams);
+  const organicTeamReinforcementLoadError = reinforcementError
+    && !isMissingOrganicTeamReinforcementsTable(reinforcementError)
+    ? reinforcementError
+    : null;
 
   const statusesByPerson = new Map(
     ((statusRows ?? []) as StatusRow[]).map((row) => [row.personnel_id, row])
@@ -199,7 +257,8 @@ export default async function IncidentPersonnelPage({
       return {
         ...row,
         attendanceStatus: status?.attendance_status ?? (row.is_active ? "unavailable" : "inactive"),
-        attendanceUpdatedAt: status?.updated_at ?? null
+        attendanceUpdatedAt: status?.updated_at ?? null,
+        organicTeamReinforcement: organicTeamReinforcementModel.byUnitPersonnelId.get(row.id) ?? null
       };
     })
     .sort((a, b) => {
@@ -208,11 +267,15 @@ export default async function IncidentPersonnelPage({
       return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`, "he");
     });
   const teams = ((teamRows ?? []) as TeamRow[]).filter((team) => team.is_active);
-  const teamsById = new Map(teams.map((team) => [team.id, team]));
+  const teamsById = new Map(organicTeams.map((team) => [team.id, team]));
   const sites = (siteRows ?? []) as SiteRow[];
   const sitesById = new Map(sites.map((site) => [site.id, site]));
-  const manualPersonnel = ((manualRows ?? []) as ManualPersonnelRow[])
+  const manualPersonnel = ((manualRows ?? []) as Omit<ManualPersonnelRow, "organicTeamReinforcement">[])
     .filter((row) => row.is_active)
+    .map((row) => ({
+      ...row,
+      organicTeamReinforcement: organicTeamReinforcementModel.byManualPersonnelId.get(row.id) ?? null
+    }))
     .sort((a, b) => {
       const byStatus = statusSort(a.attendance_status) - statusSort(b.attendance_status);
       if (byStatus !== 0) return byStatus;
@@ -262,6 +325,65 @@ export default async function IncidentPersonnelPage({
     relatedSiteName: team.related_site_id ? sitesById.get(team.related_site_id)?.name ?? null : null,
     members: adHocMembers.filter((member) => member.adHocTeamId === team.id)
   }));
+  const activeReinforcementKeys = new Set([
+    ...Array.from(organicTeamReinforcementModel.byUnitPersonnelId.keys())
+  ].map((id) => `roster:${id}`).concat(
+    Array.from(organicTeamReinforcementModel.byManualPersonnelId.keys()).map((id) => `manual:${id}`)
+  ));
+  const activeAdHocMemberKeys = new Set<string>();
+  for (const member of (adHocMemberRows ?? []) as unknown as AdHocMemberRow[]) {
+    if (member.unit_personnel_id) activeAdHocMemberKeys.add(`roster:${member.unit_personnel_id}`);
+    if (member.manual_personnel_id) activeAdHocMemberKeys.add(`manual:${member.manual_personnel_id}`);
+  }
+  const organicTeamReinforcementCandidates = buildEligibleOrganicTeamReinforcementCandidates({
+    rosterPersonnel: personnel.map((person) => ({
+      id: person.id,
+      firstName: person.first_name,
+      lastName: person.last_name,
+      department: person.department,
+      attendanceStatus: person.attendanceStatus
+    })),
+    manualPersonnel: manualPersonnel.map((person) => ({
+      id: person.id,
+      firstName: person.first_name,
+      lastName: person.last_name,
+      organicTeamId: person.organic_team_id,
+      attendanceStatus: person.attendance_status
+    })),
+    teams: organicTeams,
+    activeReinforcementKeys,
+    activeAdHocMemberKeys
+  });
+  const operationalTeamRoster = operationalTeamRosterDataAvailable
+    ? calculateOperationalTeamRoster({
+      teams: organicTeams,
+      rosterPersonnel: personnel.map((person) => ({
+        key: `roster:${person.id}` as const,
+        department: person.department,
+        attendanceStatus: person.attendanceStatus
+      })),
+      manualPersonnel: manualPersonnel.map((person) => ({
+        key: `manual:${person.id}` as const,
+        organicTeamId: person.organic_team_id,
+        attendanceStatus: person.attendance_status
+      })),
+      activeReinforcements: organicTeamReinforcementModel.activeReinforcements,
+      activeAdHocMemberKeys
+    })
+    : { teams: [], totalOperationalPersonnel: 0 };
+  const personnelNamesById = new Map(personnel.map((person) => [person.id, `${person.first_name} ${person.last_name}`]));
+  const manualPersonnelNamesById = new Map(manualPersonnel.map((person) => [person.id, `${person.first_name} ${person.last_name}`]));
+  const activeOrganicTeamReinforcements = organicTeamReinforcementModel.activeReinforcements.map((reinforcement) => ({
+    id: reinforcement.id,
+    name: reinforcement.unitPersonnelId
+      ? personnelNamesById.get(reinforcement.unitPersonnelId) ?? "איש צוות"
+      : manualPersonnelNamesById.get(reinforcement.manualPersonnelId ?? "") ?? "איש צוות",
+    sourceKind: reinforcement.unitPersonnelId ? "roster" as const : "manual" as const,
+    organicTeam: reinforcement.organicTeam,
+    operationalTeam: reinforcement.operationalTeam,
+    assignedAtLabel: reinforcement.assignedAt ? formatDateTime(reinforcement.assignedAt) : null,
+    notes: reinforcement.notes
+  }));
   const personnelTotals = {
     present: personnel.filter((row) => row.attendanceStatus === "present").length,
     enRoute: personnel.filter((row) => row.attendanceStatus === "en_route").length,
@@ -270,6 +392,7 @@ export default async function IncidentPersonnelPage({
     total: personnel.length
   };
   const canManageAdHocTeams = Boolean(canViewIncident) && (systemRole === "admin" || systemRole === "commander");
+  const canManageOrganicTeamReinforcements = Boolean(canViewIncident) && (systemRole === "admin" || systemRole === "commander");
 
   return (
     <main className={`page personnel-page${canEditPersonnel ? "" : " permission-readonly"}`}>
@@ -288,9 +411,34 @@ export default async function IncidentPersonnelPage({
         <Link className="active" href={`/incidents/${params.incidentId}/personnel`}>מצבת כוח אדם</Link>
         <Link href={`/incidents/${params.incidentId}/personnel/rosters`}>שבצ"קים ותנועת רכבים</Link>
       </nav>
-      {error ? (
+      {personnelError ? (
         <section className="panel">
-          <p className="error">לא ניתן לטעון כ"א: {error.message}</p>
+          <p className="error">לא ניתן לטעון כ"א: {personnelError.message}</p>
+        </section>
+      ) : null}
+      {incidentError ? (
+        <section className="panel">
+          <p className="error">לא ניתן לטעון את מצב האירוע: {incidentError.message}</p>
+        </section>
+      ) : null}
+      {organicTeamReinforcementLoadError ? (
+        <section className="panel">
+          <p className="error">לא ניתן לטעון את נתוני התגבור האורגני: {organicTeamReinforcementLoadError.message}</p>
+        </section>
+      ) : null}
+      {!operationalTeamRosterDataAvailable ? (
+        <section className="panel">
+          <p className="error">
+            לא ניתן לטעון נתונים הנדרשים למצבת כוח האדם המבצעית:
+            {[
+              personnelError ? " סגל קבוע" : null,
+              attendanceError ? " נוכחות באירוע" : null,
+              organicTeamsError ? " צוותים אורגניים" : null,
+              manualPersonnelError ? " כוח אדם ידני" : null,
+              adHocMembersError ? " חברות בצוותי אד־הוק" : null,
+              reinforcementError ? " תגבורי צוותים אורגניים" : null
+            ].filter(Boolean).join(" · ")}
+          </p>
         </section>
       ) : null}
 
@@ -302,6 +450,19 @@ export default async function IncidentPersonnelPage({
         personnelOptions={personnelOptions}
         adHocTeams={adHocTeams}
         canManageAdHocTeams={canManageAdHocTeams}
+        organicTeamReinforcementAvailable={operationalTeamRosterDataAvailable && incidentLifecycleAvailable}
+        organicTeamReinforcementUnavailableMessage={organicTeamReinforcementUnavailableMessage}
+        organicTeamReinforcementCandidates={organicTeamReinforcementCandidates}
+        organicTeamReinforcementTargetTeams={organicTeamReinforcementModel.activeTargetTeams}
+        canManageOrganicTeamReinforcements={canManageOrganicTeamReinforcements}
+        activeOrganicTeamReinforcements={activeOrganicTeamReinforcements}
+        incidentIsActive={isIncidentActiveForOrganicTeamReinforcements(incident ? {
+          lifecycleStatus: incident.lifecycle_status,
+          isClosed: incident.is_closed,
+          archivedAt: incident.archived_at
+        } : null)}
+        operationalTeamRoster={operationalTeamRoster}
+        operationalTeamRosterUnavailableMessage={organicTeamReinforcementUnavailableMessage}
       />
 
       <section className="panel">
@@ -366,6 +527,10 @@ export default async function IncidentPersonnelPage({
                     <span className={`status-pill ${attendanceClass(person.attendanceStatus)}`}>
                       {labelFromOptions(ATTENDANCE_STATUSES, person.attendanceStatus)}
                     </span>
+                    {person.organicTeamReinforcement ? (
+                      <span className="status-pill warning">מתגבר {person.organicTeamReinforcement.operationalTeam.name}</span>
+                    ) : null}
+                    {activeAdHocMemberKeys.has(`roster:${person.id}`) ? <span className="status-pill neutral">משויך לצוות אד־הוק</span> : null}
                     <time>{person.attendanceUpdatedAt ? formatDateTime(person.attendanceUpdatedAt) : "לא עודכן"}</time>
                     <CollaborativeLockSection objectType="event_personnel" objectId={person.id}>
                     <EventPersonnelStatusForm
@@ -406,6 +571,10 @@ export default async function IncidentPersonnelPage({
                 <span className={`status-pill ${attendanceClass(person.attendance_status)}`}>
                   {labelFromOptions(ATTENDANCE_STATUSES, person.attendance_status)}
                 </span>
+                {person.organicTeamReinforcement ? (
+                  <span className="status-pill warning">מתגבר {person.organicTeamReinforcement.operationalTeam.name}</span>
+                ) : null}
+                {activeAdHocMemberKeys.has(`manual:${person.id}`) ? <span className="status-pill neutral">משויך לצוות אד־הוק</span> : null}
                 <time>{person.attendance_updated_at ? formatDateTime(person.attendance_updated_at) : "לא עודכן"}</time>
                 <CollaborativeLockSection objectType="event_personnel" objectId={person.id}>
                   <form action={setManualIncidentPersonnelStatusAction} className="inline-status-form">
